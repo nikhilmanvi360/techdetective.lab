@@ -261,7 +261,7 @@ async function startServer() {
 
     try {
       // Check if already submitted correctly
-      const previousCorrect = db.prepare('SELECT 1 FROM submissions WHERE team_id = ? AND case_id = ? AND status = "correct"').get(req.user.id, req.params.id);
+      const previousCorrect = db.prepare(`SELECT 1 FROM submissions WHERE team_id = ? AND case_id = ? AND status = 'correct'`).get(req.user.id, req.params.id);
       if (previousCorrect) {
         return res.status(400).json({ error: 'Case already solved' });
       }
@@ -277,7 +277,7 @@ async function startServer() {
 
       if (isCorrect) {
         // First Blood Check for Cases
-        const solveCountRow = db.prepare('SELECT COUNT(*) as count FROM submissions WHERE case_id = ? AND status = "correct"').get(req.params.id) as any;
+        const solveCountRow = db.prepare(`SELECT COUNT(*) as count FROM submissions WHERE case_id = ? AND status = 'correct'`).get(req.params.id) as any;
         const solveCount = solveCountRow ? solveCountRow.count - 1 : 0; // -1 because we just inserted it
         
         if (solveCount === 0) firstBloodBonus = 100;
@@ -333,6 +333,7 @@ async function startServer() {
         badgesEarned
       });
     } catch (e) {
+      console.error('Submit Error:', e);
       res.status(500).json({ error: 'Failed to submit report' });
     }
   });
