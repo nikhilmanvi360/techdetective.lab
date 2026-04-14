@@ -9,17 +9,16 @@ import bcrypt from 'bcryptjs';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const ROOT_DIR = process.cwd();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
-const db = new Database(path.join(__dirname, 'database', 'lab.db'));
+const db = new Database(path.join(ROOT_DIR, 'database', 'lab.db'));
 
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
   const io = new SocketIOServer(server, { cors: { origin: '*' } });
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(cors());
   app.use(express.json());
@@ -471,7 +470,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, 'dist');
+    const distPath = path.join(ROOT_DIR, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
