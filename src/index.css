@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-terminal-green: #00ff41;
+  --color-terminal-bg: #0d0d0d;
+  --color-terminal-line: #333333;
+}
+
+@layer base {
+  body {
+    @apply bg-terminal-bg text-gray-300 font-sans;
+  }
+}
+
+@layer components {
+  .terminal-card {
+    @apply bg-black/40 border border-terminal-line rounded-lg overflow-hidden backdrop-blur-sm;
+  }
+  
+  .terminal-header {
+    @apply bg-terminal-line/30 px-4 py-2 border-b border-terminal-line flex items-center justify-between;
+  }
+  
+  .terminal-button {
+    @apply px-4 py-2 bg-terminal-green/10 border border-terminal-green text-terminal-green hover:bg-terminal-green hover:text-black transition-all duration-200 font-mono text-sm uppercase tracking-wider;
+  }
+  
+  .terminal-input {
+    @apply bg-black/50 border border-terminal-line text-terminal-green p-2 font-mono focus:outline-none focus:border-terminal-green transition-colors;
+  }
+
+  /* Custom Tooltips */
+  [data-tooltip] {
+    @apply relative;
+  }
+
+  [data-tooltip]::before {
+    content: attr(data-tooltip);
+    @apply absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black border border-terminal-line text-terminal-green text-[10px] font-mono whitespace-nowrap rounded opacity-0 invisible transition-all duration-200 z-50 pointer-events-none uppercase tracking-widest;
+  }
+
+  [data-tooltip]:hover::before {
+    @apply opacity-100 visible -translate-y-1;
+  }
+}
