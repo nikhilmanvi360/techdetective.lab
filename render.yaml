@@ -3,7 +3,7 @@ services:
     name: tech-detective
     env: node
     plan: free
-    buildCommand: npm install && npm run build && npx tsx database/init.ts
+    buildCommand: npm install --include=dev && npm run build && npx tsx database/init.ts
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
