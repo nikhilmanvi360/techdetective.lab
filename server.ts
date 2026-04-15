@@ -8,17 +8,34 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import rateLimit from 'express-rate-limit';
 
 const ROOT_DIR = process.cwd();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
-const db = new Database(path.join(ROOT_DIR, 'database', 'lab.db'));
+const isTest = process.env.NODE_ENV === 'test';
+const dbName = isTest ? 'test.db' : 'lab.db';
+export const db = new Database(path.join(ROOT_DIR, 'database', dbName));
+db.exec('PRAGMA journal_mode = WAL;');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: isTest ? 100 : 10, 
+  message: { error: 'Too many login attempts. Please try again after 15 minutes.' }
+});
+
+const submissionLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, 
+  max: isTest ? 20 : 5, 
+  message: { error: 'Submission rate limit exceeded. Slow down, detective.' }
+});
+
+export const app = express();
+const server = http.createServer(app);
+export const io = new SocketIOServer(server, { cors: { origin: '*' } });
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function startServer() {
-  const app = express();
-  const server = http.createServer(app);
-  const io = new SocketIOServer(server, { cors: { origin: '*' } });
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(cors());
   app.use(express.json());
@@ -54,7 +71,7 @@ async function startServer() {
   // --- API Routes ---
 
   // Auth
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { teamName, password } = req.body;
     
     let team = db.prepare('SELECT * FROM teams WHERE name = ?').get(teamName) as any;
@@ -175,7 +192,7 @@ async function startServer() {
   });
 
   // Puzzle Solve
-  app.post('/api/puzzles/:id/solve', authenticateToken, (req: any, res: any) => {
+  app.post('/api/puzzles/:id/solve', authenticateToken, submissionLimiter, (req: any, res: any) => {
     const { answer } = req.body;
     const puzzle = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(req.params.id) as any;
     
@@ -249,7 +266,7 @@ async function startServer() {
   });
 
   // Final Submission
-  app.post('/api/cases/:id/submit', authenticateToken, (req: any, res: any) => {
+  app.post('/api/cases/:id/submit', authenticateToken, submissionLimiter, (req: any, res: any) => {
     const { attackerName, attackMethod, preventionMeasures } = req.body;
     const caseData = db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id) as any;
     
@@ -478,9 +495,18 @@ async function startServer() {
     });
   }
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Tech Detective Server running at http://localhost:${PORT}`);
-  });
+  if (process.env.NODE_ENV !== 'test') {
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Tech Detective Server running at http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+// Ensure Vite middleware is applied synchronously by avoiding await here 
+// since tests don't need Vite.
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+} else {
+  // Just setup the API routes for testing without vite setup
+  startServer(); 
+}

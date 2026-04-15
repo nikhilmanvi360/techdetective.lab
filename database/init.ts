@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const dbPath = path.join(__dirname, 'lab.db');
 const db = new Database(dbPath);
+db.exec('PRAGMA journal_mode = WAL;');
 
 // Initialize schema
 db.exec(`

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { User, Trophy, CheckCircle2, History, Clock, ShieldAlert, Terminal, Award } from 'lucide-react';
+import { User, Trophy, CheckCircle2, History, Clock, ShieldAlert, Terminal, Award, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Team, Puzzle, Submission } from '../types';
 import { getRankTitle, getRankColor } from '../utils/ranks';
+import { useSound } from '../hooks/useSound';
 
 export default function Profile() {
   const [data, setData] = useState<{
@@ -11,6 +12,7 @@ export default function Profile() {
     submissions: Submission[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const { playSound } = useSound();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -32,34 +34,54 @@ export default function Profile() {
     fetchProfile();
   }, []);
 
-  if (loading) return <div className="animate-pulse font-mono text-terminal-green">RETRIEVING_TEAM_PROFILE...</div>;
-  if (!data) return <div className="text-red-500 font-mono text-center mt-20">PROFILE_NOT_FOUND</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+      <Activity className="w-12 h-12 text-cyber-green animate-pulse" />
+      <div className="font-display text-cyber-green uppercase tracking-[0.4em] flicker-anim text-center">
+        Retrieving_Team_Profile...
+      </div>
+    </div>
+  );
+
+  if (!data) return <div className="text-cyber-red font-display tracking-widest text-center mt-20 uppercase">CRITICAL_ERROR: PROFILE_NOT_FOUND</div>;
 
   const { team, solvedPuzzles, submissions } = data;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       {/* Header Section */}
-      <div className="terminal-card p-8">
-        <div className="flex flex-col md:flex-row items-center gap-8">
-          <div className="w-24 h-24 rounded-full bg-terminal-green/10 border-2 border-terminal-green flex items-center justify-center">
-            <User className="w-12 h-12 text-terminal-green" />
+      <div className="cyber-panel p-10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+          <Terminal className="w-40 h-40 text-cyber-green" />
+        </div>
+        <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
+          <div className="w-24 h-24 bg-cyber-green/5 border border-cyber-green/40 neon-border-green flex items-center justify-center relative group">
+            <User className="w-12 h-12 text-cyber-green flicker-anim" />
+            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-cyber-bg border border-cyber-green/50 flex items-center justify-center">
+              <Activity className="w-3 h-3 text-cyber-green" />
+            </div>
           </div>
-          <div className="flex-1 text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
-              <h1 className="text-3xl font-mono font-bold text-white uppercase tracking-tighter">{team.name}</h1>
-              <span className={`text-xs px-2 py-1 rounded border border-current ${getRankColor(team.score)}`}>
+          <div className="flex-1 text-center md:text-left space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <h1 className="text-4xl font-display font-bold text-white uppercase tracking-tight leading-none">{team.name}</h1>
+              <span className={`inline-block text-[10px] px-3 py-1 border font-display font-bold uppercase tracking-widest ${getRankColor(team.score).replace('text-', 'border-').replace('bg-', 'bg-opacity-10 bg-')}`}>
                 {getRankTitle(team.score)}
               </span>
             </div>
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <div className="flex items-center gap-2 text-gray-400 font-mono text-sm">
-                <Clock className="w-4 h-4" />
-                JOINED: {team.created_at ? new Date(team.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() : 'UNKNOWN'}
+            <div className="flex flex-wrap justify-center md:justify-start gap-8">
+              <div className="flex flex-col">
+                <span className="text-[8px] font-display text-gray-600 uppercase mb-0.5 tracking-widest">Commissioned</span>
+                <div className="flex items-center gap-2 text-gray-400 font-mono text-xs">
+                  <Clock className="w-3 h-3 text-cyber-blue" />
+                  {team.created_at ? new Date(team.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() : 'UNKNOWN'}
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-terminal-green font-mono text-sm">
-                <Trophy className="w-4 h-4" />
-                TOTAL_SCORE: {team.score} PTS
+              <div className="flex flex-col">
+                <span className="text-[8px] font-display text-gray-600 uppercase mb-0.5 tracking-widest">Cumulative XP</span>
+                <div className="flex items-center gap-2 text-cyber-green font-mono text-xs">
+                  <Trophy className="w-3 h-3 text-cyber-amber" />
+                  {team.score.toLocaleString()} PTS
+                </div>
               </div>
             </div>
           </div>
@@ -67,57 +89,61 @@ export default function Profile() {
       </div>
 
       {team.badges && team.badges.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <Award className="w-4 h-4 text-yellow-500" />
-            <h2 className="text-xs font-mono font-bold text-gray-500 uppercase tracking-widest">Earned Badges</h2>
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-cyber-line pb-4">
+            <Award className="w-5 h-5 text-cyber-amber" />
+            <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Operational Commendations</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {team.badges.map((badge, idx) => (
               <motion.div 
                 key={idx}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.1 }}
-                className="terminal-card p-4 flex flex-col items-center justify-center text-center gap-2 border-yellow-500/30 bg-yellow-500/5"
+                className="cyber-panel p-6 flex flex-col items-center justify-center text-center gap-4 hover:neon-border-amber transition-all duration-300"
               >
-                <Award className="w-8 h-8 text-yellow-500" />
-                <span className="text-sm font-mono font-bold text-yellow-500 uppercase">{badge.badge_name}</span>
-                <span className="text-[10px] font-mono text-gray-500">
-                  {new Date(badge.earned_at.replace(' ', 'T') + 'Z').toLocaleDateString()}
-                </span>
+                <div className="p-3 bg-cyber-amber/5 border border-cyber-amber/20">
+                  <Award className="w-8 h-8 text-cyber-amber flicker-anim" />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-display font-bold text-white uppercase tracking-widest block">{badge.badge_name}</span>
+                  <span className="text-[9px] font-mono text-gray-600 uppercase">
+                    {new Date(badge.earned_at.replace(' ', 'T') + 'Z').toLocaleDateString()}
+                  </span>
+                </div>
               </motion.div>
             ))}
           </div>
         </section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Solved Puzzles */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <CheckCircle2 className="w-4 h-4 text-terminal-green" />
-            <h2 className="text-xs font-mono font-bold text-gray-500 uppercase tracking-widest">Solved Puzzles</h2>
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-cyber-line pb-4 px-2">
+            <CheckCircle2 className="w-5 h-5 text-cyber-green" />
+            <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Module History</h2>
           </div>
-          <div className="terminal-card overflow-hidden">
-            <div className="divide-y divide-terminal-line/30">
+          <div className="cyber-panel overflow-hidden border-cyber-line/50">
+            <div className="divide-y divide-cyber-line/30">
               {solvedPuzzles.length > 0 ? (
                 solvedPuzzles.map((p) => (
-                  <div key={p.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                    <div>
-                      <p className="text-sm font-mono text-white uppercase tracking-tight">Puzzle #{p.id}</p>
-                      <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-                        Solved on {p.solved_at ? new Date(p.solved_at.replace(' ', 'T') + 'Z').toLocaleDateString() : 'UNKNOWN'}
+                  <div key={p.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                    <div className="space-y-1">
+                      <p className="text-sm font-display text-white uppercase tracking-widest group-hover:text-cyber-green transition-colors">TASK_UNIT_0x{p.id}</p>
+                      <p className="text-[9px] font-mono text-gray-600 uppercase tracking-tighter">
+                        Secured on {p.solved_at ? new Date(p.solved_at.replace(' ', 'T') + 'Z').toLocaleDateString() : 'UNKNOWN'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-mono font-bold text-terminal-green">+{p.points} PTS</p>
+                      <p className="text-lg font-display font-bold text-cyber-green tabular-nums">+{p.points} XP</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-8 text-center text-gray-600 font-mono text-xs uppercase tracking-widest italic">
-                  No puzzles solved yet.
+                <div className="p-10 text-center text-gray-700 font-display text-[10px] uppercase tracking-[0.4em] italic opacity-50">
+                   No investigative modules secured.
                 </div>
               )}
             </div>
@@ -125,35 +151,35 @@ export default function Profile() {
         </section>
 
         {/* Submission History */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <History className="w-4 h-4 text-terminal-green" />
-            <h2 className="text-xs font-mono font-bold text-gray-500 uppercase tracking-widest">Submission History</h2>
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-cyber-line pb-4 px-2">
+            <History className="w-5 h-5 text-cyber-blue" />
+            <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Field Report Registry</h2>
           </div>
-          <div className="terminal-card overflow-hidden">
-            <div className="divide-y divide-terminal-line/30">
+          <div className="cyber-panel overflow-hidden border-cyber-line/50">
+            <div className="divide-y divide-cyber-line/30">
               {submissions.length > 0 ? (
                 submissions.map((s) => (
-                  <div key={s.id} className="p-4 space-y-2 hover:bg-white/5 transition-colors">
+                  <div key={s.id} className="p-6 space-y-3 hover:bg-white/5 transition-colors group">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-mono font-bold text-white uppercase tracking-tight">{s.case_title}</h3>
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                      <h3 className="text-sm font-display font-bold text-white uppercase tracking-widest group-hover:text-cyber-blue transition-colors">{s.case_title.replace(' ', '_')}</h3>
+                      <span className={`text-[9px] font-display px-2 py-0.5 border uppercase tracking-widest ${
                         s.status === 'correct' 
-                          ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30' 
-                          : 'bg-red-500/10 text-red-500 border-red-500/30'
+                          ? 'bg-cyber-green/5 text-cyber-green border-cyber-green/30' 
+                          : 'bg-cyber-red/5 text-cyber-red border-cyber-red/30'
                       }`}>
-                        {s.status.toUpperCase()}
+                        {s.status}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-                      <span>Attacker: {s.attacker_name}</span>
+                    <div className="flex items-center justify-between text-[9px] font-mono text-gray-500 uppercase tracking-widest">
+                      <span>Target: {s.attacker_name}</span>
                       <span>{s.submitted_at ? new Date(s.submitted_at.replace(' ', 'T') + 'Z').toLocaleDateString() : 'UNKNOWN'}</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-8 text-center text-gray-600 font-mono text-xs uppercase tracking-widest italic">
-                  No case reports submitted yet.
+                <div className="p-10 text-center text-gray-700 font-display text-[10px] uppercase tracking-[0.4em] italic opacity-50">
+                  No case telemetry submitted.
                 </div>
               )}
             </div>
@@ -162,21 +188,25 @@ export default function Profile() {
       </div>
 
       {/* Security Status Card */}
-      <div className="terminal-card p-6 bg-terminal-green/5 border-terminal-green/20">
-        <div className="flex items-center gap-4">
-          <ShieldAlert className="w-6 h-6 text-terminal-green" />
-          <div>
-            <h3 className="text-sm font-mono font-bold text-white uppercase tracking-tight">Agent Status: Active</h3>
-            <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mt-1">
-              Your digital footprint is being monitored by CCU. Maintain operational security.
+      <div className="cyber-panel p-8 bg-cyber-green/5 border-cyber-green/20 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-cyber-green/5 -mr-16 -mt-16 rounded-full group-hover:bg-cyber-green/10 transition-colors" />
+        <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
+          <div className="p-4 bg-cyber-green/10 border border-cyber-green/30">
+            <ShieldAlert className="w-8 h-8 text-cyber-green flicker-anim" />
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <h3 className="text-sm font-display font-bold text-white uppercase tracking-[0.2em] mb-1">Agent Status: ACTIVE_DUTY</h3>
+            <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest leading-relaxed">
+              Your digital footprint is being monitored by CCU Central. Maintain operational security through encrypted channels.
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-terminal-green animate-pulse" />
-            <span className="text-[10px] font-mono text-terminal-green uppercase font-bold">Encrypted</span>
+          <div className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-cyber-line">
+            <Terminal className="w-4 h-4 text-cyber-green animate-pulse" />
+            <span className="text-[10px] font-display text-cyber-green uppercase font-bold tracking-[0.2em]">Link Encrypted</span>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
