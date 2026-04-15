@@ -1,8 +1,9 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DatabaseSync as Database } from 'node:sqlite';
+import { supabase } from './src/lib/supabase';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -14,9 +15,7 @@ const ROOT_DIR = process.cwd();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
 const isTest = process.env.NODE_ENV === 'test';
-const dbName = isTest ? 'test.db' : 'lab.db';
-export const db = new Database(path.join(ROOT_DIR, 'database', dbName));
-db.exec('PRAGMA journal_mode = WAL;');
+// export const db = ... (SQLite removed)
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
@@ -74,14 +73,26 @@ async function startServer() {
   app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { teamName, password } = req.body;
     
-    let team = db.prepare('SELECT * FROM teams WHERE name = ?').get(teamName) as any;
+    // Supabase query
+    const { data: team, error: fetchError } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('name', teamName)
+      .single();
     
-    if (!team) {
+    if (fetchError || !team) {
       const hashedPassword = bcrypt.hashSync(password, 10);
-      const info = db.prepare('INSERT INTO teams (name, password) VALUES (?, ?)').run(teamName, hashedPassword);
-      // Convert BigInt to Number to prevent JSON serialization errors
-      team = { id: Number(info.lastInsertRowid), name: teamName, score: 0, is_disabled: 0 };
+      const { data: newTeam, error: insertError } = await supabase
+        .from('teams')
+        .insert([{ name: teamName, password: hashedPassword }])
+        .select()
+        .single();
+
+      if (insertError) return res.status(500).json({ error: 'Failed to create team' });
+      
       emitLiveEvent(`New team registered: ${teamName}`, 'badge');
+      const token = jwt.sign({ id: newTeam.id, name: newTeam.name }, JWT_SECRET, { expiresIn: '24h' });
+      return res.json({ token, team: { id: newTeam.id, name: newTeam.name, score: newTeam.score, is_disabled: !!newTeam.is_disabled } });
     } else {
       if (team.is_disabled) {
         return res.status(403).json({ error: 'Account disabled by administrator' });
@@ -97,138 +108,195 @@ async function startServer() {
   });
 
   // Team Profile
-  app.get('/api/team/profile', authenticateToken, (req: any, res: any) => {
-    const team = db.prepare('SELECT id, name, score, created_at, is_disabled FROM teams WHERE id = ?').get(req.user.id) as any;
-    if (!team) return res.status(404).json({ error: 'Team not found' });
+  app.get('/api/team/profile', authenticateToken, async (req: any, res: any) => {
+    const { data: team, error: teamError } = await supabase
+      .from('teams')
+      .select('id, name, score, created_at, is_disabled')
+      .eq('id', req.user.id)
+      .single();
+
+    if (teamError || !team) return res.status(404).json({ error: 'Team not found' });
     if (team.is_disabled) return res.status(403).json({ error: 'Account disabled' });
 
-    const solvedPuzzles = db.prepare(`
-      SELECT p.id, p.question, p.points, sp.solved_at
-      FROM puzzles p
-      JOIN solved_puzzles sp ON p.id = sp.puzzle_id
-      WHERE sp.team_id = ?
-    `).all(req.user.id);
+    const { data: solvedPuzzles } = await supabase
+      .from('solved_puzzles')
+      .select('puzzles (id, question, points), solved_at')
+      .eq('team_id', req.user.id);
 
-    const submissions = db.prepare(`
-      SELECT s.*, c.title as case_title
-      FROM submissions s
-      JOIN cases c ON s.case_id = c.id
-      WHERE s.team_id = ?
-      ORDER BY s.submitted_at DESC
-    `).all(req.user.id);
+    const { data: submissions } = await supabase
+      .from('submissions')
+      .select('*, cases (title)')
+      .eq('team_id', req.user.id)
+      .order('submitted_at', { ascending: false });
 
-    const badges = db.prepare('SELECT badge_name, earned_at FROM team_badges WHERE team_id = ? ORDER BY earned_at DESC').all(req.user.id);
+    const { data: badges } = await supabase
+      .from('team_badges')
+      .select('badge_name, earned_at')
+      .eq('team_id', req.user.id)
+      .order('earned_at', { ascending: false });
 
-    res.json({ team, solvedPuzzles, submissions, badges });
+    res.json({ 
+      team, 
+      solvedPuzzles: solvedPuzzles?.map((p: any) => ({ ...p.puzzles, solved_at: p.solved_at })), 
+      submissions: submissions?.map((s: any) => ({ ...s, case_title: s.cases?.title })), 
+      badges 
+    });
   });
 
   // Dashboard / Cases
-  app.get('/api/cases', authenticateToken, (req: any, res: any) => {
-    const cases = db.prepare("SELECT * FROM cases WHERE status = 'active'").all();
+  app.get('/api/cases', authenticateToken, async (req: any, res: any) => {
+    const { data: cases, error } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('status', 'active');
+    
+    if (error) return res.status(500).json({ error: 'Failed to fetch cases' });
     res.json(cases);
   });
 
-  app.get('/api/cases/:id', authenticateToken, (req: any, res: any) => {
-    const caseData = db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id) as any;
-    if (!caseData) return res.status(404).json({ error: 'Case not found' });
+  app.get('/api/cases/:id', authenticateToken, async (req: any, res: any) => {
+    const { data: caseData, error: caseError } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (caseError || !caseData) return res.status(404).json({ error: 'Case not found' });
     
     // Check if the case is already completed by this team
-    const completion = db.prepare(`
-      SELECT 1 FROM submissions 
-      WHERE team_id = ? AND case_id = ? AND status = 'correct'
-    `).get(req.user.id, req.params.id);
+    const { data: completion } = await supabase
+      .from('submissions')
+      .select('1')
+      .eq('team_id', req.user.id)
+      .eq('case_id', req.params.id)
+      .eq('status', 'correct')
+      .single();
+    
     const isCompleted = !!completion;
 
-    const evidence = db.prepare(`
-      SELECT e.id, e.type, e.title, e.metadata, e.required_puzzle_id,
-             CASE 
-               WHEN e.required_puzzle_id IS NULL THEN 0
-               WHEN sp.puzzle_id IS NOT NULL THEN 0
-               ELSE 1
-             END as is_locked
-      FROM evidence e
-      LEFT JOIN solved_puzzles sp ON e.required_puzzle_id = sp.puzzle_id AND sp.team_id = ?
-      WHERE e.case_id = ?
-    `).all(req.user.id, req.params.id);
+    const { data: evidence } = await supabase
+      .from('evidence')
+      .select('id, type, title, metadata, required_puzzle_id')
+      .eq('case_id', req.params.id);
 
-    const puzzles = db.prepare(`
-      SELECT p.id, p.question, p.points, 
-             uh.used_at as hint_used_at,
-             CASE WHEN p.hint IS NOT NULL AND p.hint != '' THEN 1 ELSE 0 END as has_hint,
-             CASE 
-               WHEN uh.used_at IS NOT NULL AND datetime(uh.used_at, '+5 minutes') <= datetime('now') THEN p.hint 
-               ELSE NULL 
-             END as hint,
-             CASE WHEN sp.puzzle_id IS NOT NULL THEN 1 ELSE 0 END as solved,
-             CASE WHEN uh.puzzle_id IS NOT NULL THEN 1 ELSE 0 END as hint_used
-      FROM puzzles p
-      LEFT JOIN solved_puzzles sp ON p.id = sp.puzzle_id AND sp.team_id = ?
-      LEFT JOIN used_hints uh ON p.id = uh.puzzle_id AND uh.team_id = ?
-      WHERE p.case_id = ?
-    `).all(req.user.id, req.user.id, req.params.id);
+    // Join solved_puzzles for locking logic
+    const { data: solvedPuzzles } = await supabase
+      .from('solved_puzzles')
+      .select('puzzle_id')
+      .eq('team_id', req.user.id);
 
-    const hintsUsedInCaseRow = db.prepare(`
-      SELECT COUNT(*) as count FROM used_hints uh
-      JOIN puzzles p ON uh.puzzle_id = p.id
-      WHERE uh.team_id = ? AND p.case_id = ?
-    `).get(req.user.id, req.params.id) as any;
-    
-    const hintsUsedInCase = hintsUsedInCaseRow ? hintsUsedInCaseRow.count : 0;
+    const solvedPuzzleIds = new Set(solvedPuzzles?.map(p => p.puzzle_id));
+
+    const evidenceWithLock = evidence?.map((e: any) => ({
+      ...e,
+      is_locked: e.required_puzzle_id && !solvedPuzzleIds.has(e.required_puzzle_id)
+    }));
+
+    const { data: puzzles } = await supabase
+      .from('puzzles')
+      .select('*')
+      .eq('case_id', req.params.id);
+
+    const { data: hintsUsed } = await supabase
+      .from('used_hints')
+      .select('puzzle_id, used_at')
+      .eq('team_id', req.user.id);
+
+    const usedHintsMap = new Map(hintsUsed?.map(h => [h.puzzle_id, h.used_at]));
+
+    const puzzlesWithStatus = puzzles?.map((p: any) => {
+      const hintUsedAt = usedHintsMap.get(p.id);
+      const isSolved = solvedPuzzleIds.has(p.id);
+      const isHintAvailable = hintUsedAt && (new Date(hintUsedAt).getTime() + 5 * 60 * 1000) <= Date.now();
+      
+      return {
+        id: p.id,
+        question: p.question,
+        points: p.points,
+        has_hint: !!p.hint,
+        hint: isHintAvailable ? p.hint : null,
+        solved: isSolved ? 1 : 0,
+        hint_used: hintUsedAt ? 1 : 0,
+        hint_used_at: hintUsedAt
+      };
+    });
+
+    const hintsUsedInCase = hintsUsed?.filter(h => puzzles?.some(p => p.id === h.puzzle_id)).length || 0;
     const maxHints = 2;
 
-    res.json({ ...caseData, evidence, puzzles, hintsUsedInCase, maxHints, isCompleted });
+    res.json({ ...caseData, evidence: evidenceWithLock, puzzles: puzzlesWithStatus, hintsUsedInCase, maxHints, isCompleted });
   });
 
   // Evidence Detail
-  app.get('/api/evidence/:id', authenticateToken, (req: any, res: any) => {
-    const item = db.prepare(`
-      SELECT e.*, 
-             CASE 
-               WHEN e.required_puzzle_id IS NULL THEN 0
-               WHEN sp.puzzle_id IS NOT NULL THEN 0
-               ELSE 1
-             END as is_locked
-      FROM evidence e
-      LEFT JOIN solved_puzzles sp ON e.required_puzzle_id = sp.puzzle_id AND sp.team_id = ?
-      WHERE e.id = ?
-    `).get(req.user.id, req.params.id) as any;
+  app.get('/api/evidence/:id', authenticateToken, async (req: any, res: any) => {
+    const { data: item, error } = await supabase
+      .from('evidence')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-    if (!item) return res.status(404).json({ error: 'Evidence not found' });
-    if (item.is_locked) return res.status(403).json({ error: 'Evidence is locked. Solve the required puzzle first.' });
+    if (error || !item) return res.status(404).json({ error: 'Evidence not found' });
+
+    if (item.required_puzzle_id) {
+       const { data: solve } = await supabase
+         .from('solved_puzzles')
+         .select('1')
+         .eq('team_id', req.user.id)
+         .eq('puzzle_id', item.required_puzzle_id)
+         .single();
+       
+       if (!solve) return res.status(403).json({ error: 'Evidence is locked. Solve the required puzzle first.' });
+    }
 
     res.json(item);
   });
 
   // Puzzle Solve
-  app.post('/api/puzzles/:id/solve', authenticateToken, submissionLimiter, (req: any, res: any) => {
+  app.post('/api/puzzles/:id/solve', authenticateToken, submissionLimiter, async (req: any, res: any) => {
     const { answer } = req.body;
-    const puzzle = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(req.params.id) as any;
+    const { data: puzzle, error: puzzleError } = await supabase
+      .from('puzzles')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
     
-    if (!puzzle) return res.status(404).json({ error: 'Puzzle not found' });
+    if (puzzleError || !puzzle) return res.status(404).json({ error: 'Puzzle not found' });
 
     const isCorrect = puzzle.answer.toLowerCase().trim() === answer.toLowerCase().trim();
     
     // Log the attempt
-    db.prepare('INSERT INTO puzzle_attempts (team_id, puzzle_id, is_correct) VALUES (?, ?, ?)').run(req.user.id, puzzle.id, isCorrect ? 1 : 0);
+    await supabase.from('puzzle_attempts').insert([{ team_id: req.user.id, puzzle_id: puzzle.id, is_correct: isCorrect }]);
 
     if (isCorrect) {
       try {
-        const hintUsed = db.prepare('SELECT 1 FROM used_hints WHERE team_id = ? AND puzzle_id = ?').get(req.user.id, puzzle.id);
+        const { data: hintUsed } = await supabase
+          .from('used_hints')
+          .select('1')
+          .eq('team_id', req.user.id)
+          .eq('puzzle_id', puzzle.id)
+          .single();
         
         // First Blood Check
-        const solveCountRow = db.prepare('SELECT COUNT(*) as count FROM solved_puzzles WHERE puzzle_id = ?').get(puzzle.id) as any;
-        const solveCount = solveCountRow ? solveCountRow.count : 0;
+        const { count: solveCount } = await supabase
+          .from('solved_puzzles')
+          .select('*', { count: 'exact', head: true })
+          .eq('puzzle_id', puzzle.id);
         
         const basePoints = hintUsed ? Math.floor(puzzle.points * 0.5) : puzzle.points;
         let firstBloodBonus = 0;
-        if (solveCount === 0) firstBloodBonus = Math.floor(puzzle.points * 0.5);
+        if ((solveCount || 0) === 0) firstBloodBonus = Math.floor(puzzle.points * 0.5);
         else if (solveCount === 1) firstBloodBonus = Math.floor(puzzle.points * 0.25);
         else if (solveCount === 2) firstBloodBonus = Math.floor(puzzle.points * 0.1);
 
         const totalPoints = basePoints + firstBloodBonus;
 
-        db.prepare('INSERT INTO solved_puzzles (team_id, puzzle_id) VALUES (?, ?)').run(req.user.id, puzzle.id);
-        db.prepare('UPDATE teams SET score = score + ? WHERE id = ?').run(totalPoints, req.user.id);
+        const { error: solveError } = await supabase
+          .from('solved_puzzles')
+          .insert([{ team_id: req.user.id, puzzle_id: puzzle.id }]);
+
+        if (solveError) return res.json({ success: false, message: 'Already solved' });
+
+        await supabase.rpc('increment_score', { team_id: req.user.id, points: totalPoints });
         
         // Emit live event
         const teamName = req.user.name;
@@ -255,37 +323,56 @@ async function startServer() {
   });
 
   // Request Hint
-  app.post('/api/puzzles/:id/hint', authenticateToken, (req: any, res: any) => {
-    const puzzle = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(req.params.id) as any;
-    if (!puzzle) return res.status(404).json({ error: 'Puzzle not found' });
+  app.post('/api/puzzles/:id/hint', authenticateToken, async (req: any, res: any) => {
+    const { data: puzzle, error: puzzleError } = await supabase
+      .from('puzzles')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (puzzleError || !puzzle) return res.status(404).json({ error: 'Puzzle not found' });
 
     const MAX_HINTS_PER_CASE = 2;
-    const hintsUsedInCaseRow = db.prepare(`
-      SELECT COUNT(*) as count FROM used_hints uh
-      JOIN puzzles p ON uh.puzzle_id = p.id
-      WHERE uh.team_id = ? AND p.case_id = ?
-    `).get(req.user.id, puzzle.case_id) as any;
     
-    const hintsUsedInCase = hintsUsedInCaseRow ? hintsUsedInCaseRow.count : 0;
+    // This part is tricky with Supabase without joins, but we can do it
+    const { data: puzzlesInCase } = await supabase
+      .from('puzzles')
+      .select('id')
+      .eq('case_id', puzzle.case_id);
+    
+    const puzzleIds = puzzlesInCase?.map(p => p.id) || [];
 
-    if (hintsUsedInCase >= MAX_HINTS_PER_CASE) {
+    const { count: hintsUsedInCase } = await supabase
+      .from('used_hints')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_id', req.user.id)
+      .in('puzzle_id', puzzleIds);
+
+    if ((hintsUsedInCase || 0) >= MAX_HINTS_PER_CASE) {
       return res.status(403).json({ error: `Hint limit reached. You can only use ${MAX_HINTS_PER_CASE} hints per case.` });
     }
 
-    try {
-      db.prepare('INSERT INTO used_hints (team_id, puzzle_id) VALUES (?, ?)').run(req.user.id, puzzle.id);
-      res.json({ success: true, message: 'Decryption initiated. Access granted in 5 minutes.' });
-    } catch (e) {
-      res.json({ success: true, message: 'Decryption already in progress or completed.' });
+    const { error: hintError } = await supabase
+      .from('used_hints')
+      .insert([{ team_id: req.user.id, puzzle_id: puzzle.id }]);
+
+    if (hintError) {
+      return res.json({ success: true, message: 'Decryption already in progress or completed.' });
     }
+    
+    res.json({ success: true, message: 'Decryption initiated. Access granted in 5 minutes.' });
   });
 
   // Final Submission
-  app.post('/api/cases/:id/submit', authenticateToken, submissionLimiter, (req: any, res: any) => {
+  app.post('/api/cases/:id/submit', authenticateToken, submissionLimiter, async (req: any, res: any) => {
     const { attackerName, attackMethod, preventionMeasures } = req.body;
-    const caseData = db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id) as any;
+    const { data: caseData, error: caseError } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
     
-    if (!caseData) return res.status(404).json({ error: 'Case not found' });
+    if (caseError || !caseData) return res.status(404).json({ error: 'Case not found' });
 
     const isCorrect = caseData.correct_attacker && caseData.correct_attacker.toLowerCase().trim() === attackerName.toLowerCase().trim();
     const status = isCorrect ? 'correct' : 'incorrect';
@@ -293,77 +380,69 @@ async function startServer() {
 
     try {
       // Check if already submitted correctly
-      const previousCorrect = db.prepare(`SELECT 1 FROM submissions WHERE team_id = ? AND case_id = ? AND status = 'correct'`).get(req.user.id, req.params.id);
+      const { data: previousCorrect } = await supabase
+        .from('submissions')
+        .select('1')
+        .eq('team_id', req.user.id)
+        .eq('case_id', req.params.id)
+        .eq('status', 'correct')
+        .single();
+
       if (previousCorrect) {
         return res.status(400).json({ error: 'Case already solved' });
       }
 
-      db.prepare(`
-        INSERT INTO submissions (team_id, case_id, attacker_name, attack_method, prevention_measures, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, req.params.id, attackerName, attackMethod, preventionMeasures, status);
+      await supabase
+        .from('submissions')
+        .insert([{
+          team_id: req.user.id,
+          case_id: req.params.id,
+          attacker_name: attackerName,
+          attack_method: attackMethod,
+          prevention_measures: preventionMeasures,
+          status
+        }]);
 
       let pointsAwarded = 0;
       let firstBloodBonus = 0;
       let badgesEarned: string[] = [];
 
       if (isCorrect) {
-        // First Blood Check for Cases
-        const solveCountRow = db.prepare(`SELECT COUNT(*) as count FROM submissions WHERE case_id = ? AND status = 'correct'`).get(req.params.id) as any;
-        const solveCount = solveCountRow ? solveCountRow.count - 1 : 0; // -1 because we just inserted it
+        // First Blood Check
+        const { count: solveCount } = await supabase
+          .from('submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('case_id', req.params.id)
+          .eq('status', 'correct');
         
-        if (solveCount === 0) firstBloodBonus = 100;
-        else if (solveCount === 1) firstBloodBonus = 50;
-        else if (solveCount === 2) firstBloodBonus = 25;
+        const count = (solveCount || 0) - 1; // Subtract 1 because we just inserted it
+        
+        if (count === 0) firstBloodBonus = 100;
+        else if (count === 1) firstBloodBonus = 50;
+        else if (count === 2) firstBloodBonus = 25;
 
         pointsAwarded = caseData.points_on_solve + firstBloodBonus;
-        db.prepare('UPDATE teams SET score = score + ? WHERE id = ?').run(pointsAwarded, req.user.id);
+        await supabase.rpc('increment_score', { team_id_input: req.user.id, points_input: pointsAwarded });
 
-        // Check for "Lone Wolf" Badge (No hints used in this case)
-        const hintsUsedRow = db.prepare(`
-          SELECT COUNT(*) as count FROM used_hints uh
-          JOIN puzzles p ON uh.puzzle_id = p.id
-          WHERE uh.team_id = ? AND p.case_id = ?
-        `).get(req.user.id, req.params.id) as any;
+        // Badges check
+        const { count: hintsUsed } = await supabase
+          .from('used_hints')
+          .select('*, puzzles!inner(*)', { count: 'exact', head: true })
+          .eq('team_id', req.user.id)
+          .eq('puzzles.case_id', req.params.id);
         
-        if (hintsUsedRow && hintsUsedRow.count === 0) {
-          try {
-            db.prepare('INSERT INTO team_badges (team_id, badge_name) VALUES (?, ?)').run(req.user.id, 'Lone Wolf');
-            badgesEarned.push('Lone Wolf');
-            emitLiveEvent(`${req.user.name} earned the LONE WOLF badge!`, 'badge');
-          } catch(e) {} // Ignore if already has badge
-        }
-
-        // Check for "Speed Demon" Badge (< 10 mins from first puzzle solve)
-        const firstSolveRow = db.prepare(`
-          SELECT MIN(solved_at) as start_time FROM solved_puzzles sp
-          JOIN puzzles p ON sp.puzzle_id = p.id
-          WHERE sp.team_id = ? AND p.case_id = ?
-        `).get(req.user.id, req.params.id) as any;
-
-        if (firstSolveRow && firstSolveRow.start_time) {
-          const startTime = new Date(firstSolveRow.start_time.replace(' ', 'T') + 'Z').getTime();
-          const now = Date.now();
-          if ((now - startTime) < 10 * 60 * 1000) { // 10 minutes
-            try {
-              db.prepare('INSERT INTO team_badges (team_id, badge_name) VALUES (?, ?)').run(req.user.id, 'Speed Demon');
-              badgesEarned.push('Speed Demon');
-              emitLiveEvent(`${req.user.name} earned the SPEED DEMON badge!`, 'badge');
-            } catch(e) {}
+        if (hintsUsed === 0) {
+          const { error: badgeError } = await supabase.from('team_badges').insert([{ team_id: req.user.id, badge_name: 'Lone Wolf' }]);
+          if (!badgeError) {
+             badgesEarned.push('Lone Wolf');
+             emitLiveEvent(`${req.user.name} earned the LONE WOLF badge!`, 'badge');
           }
         }
 
         emitLiveEvent(`${req.user.name} solved Case #${req.params.id}!`, 'case');
       }
 
-      res.json({ 
-        success: true, 
-        message: outcome,
-        isCorrect,
-        pointsAwarded,
-        firstBloodBonus,
-        badgesEarned
-      });
+      res.json({ success: true, message: outcome, isCorrect, pointsAwarded, firstBloodBonus, badgesEarned });
     } catch (e) {
       console.error('Submit Error:', e);
       res.status(500).json({ error: 'Failed to submit report' });
@@ -371,126 +450,71 @@ async function startServer() {
   });
 
   // Scoreboard
-  app.get('/api/scoreboard', (req, res) => {
-    try {
-      const scores = db.prepare('SELECT name, score FROM teams ORDER BY score DESC LIMIT 10').all();
-      res.json(scores);
-    } catch (error) {
-      console.error('Scoreboard API Error:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
+  app.get('/api/scoreboard', async (req, res) => {
+    const { data: scores, error } = await supabase
+      .from('teams')
+      .select('name, score')
+      .order('score', { ascending: false })
+      .limit(10);
+    
+    if (error) return res.status(500).json({ error: 'Internal Server Error' });
+    res.json(scores);
   });
 
-  // Admin: All Submissions
-  app.get('/api/admin/submissions', authenticateToken, (req: any, res: any) => {
-    // Simple admin check: team name must be CCU_ADMIN
+  // Admin Routes
+  app.get('/api/admin/submissions', authenticateToken, async (req: any, res: any) => {
     if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-
-    const submissions = db.prepare(`
-      SELECT s.*, t.name as team_name, c.title as case_title
-      FROM submissions s
-      JOIN teams t ON s.team_id = t.id
-      JOIN cases c ON s.case_id = c.id
-      ORDER BY s.submitted_at DESC
-    `).all();
-    res.json(submissions);
+    const { data: submissions } = await supabase
+      .from('submissions')
+      .select('*, teams(name), cases(title)')
+      .order('submitted_at', { ascending: false });
+    
+    res.json(submissions?.map((s: any) => ({ ...s, team_name: s.teams?.name, case_title: s.cases?.title })));
   });
 
-  // Admin: Master Answer Key
-  app.get('/api/admin/master-key', authenticateToken, (req: any, res: any) => {
+  app.get('/api/admin/master-key', authenticateToken, async (req: any, res: any) => {
     if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-
-    const cases = db.prepare('SELECT id, title, correct_attacker, points_on_solve FROM cases').all();
-    const puzzles = db.prepare('SELECT id, case_id, question, answer, points, hint FROM puzzles').all();
-
-    const masterKey = cases.map((c: any) => ({
+    const { data: cases } = await supabase.from('cases').select('id, title, correct_attacker, points_on_solve');
+    const { data: puzzles } = await supabase.from('puzzles').select('id, case_id, question, answer, points, hint');
+    
+    const masterKey = cases?.map((c: any) => ({
       ...c,
-      puzzles: puzzles.filter((p: any) => p.case_id === c.id)
+      puzzles: puzzles?.filter((p: any) => p.case_id === c.id)
     }));
-
     res.json(masterKey);
   });
 
-  // Admin: Manage Teams
-  app.get('/api/admin/teams', authenticateToken, (req: any, res: any) => {
+  app.get('/api/admin/teams', authenticateToken, async (req: any, res: any) => {
     if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-
-    const teams = db.prepare('SELECT id, name, score, created_at, is_disabled FROM teams ORDER BY score DESC').all();
+    const { data: teams } = await supabase.from('teams').select('id, name, score, created_at, is_disabled').order('score', { ascending: false });
     res.json(teams);
   });
 
-  app.put('/api/admin/teams/:id', authenticateToken, (req: any, res: any) => {
+  app.put('/api/admin/teams/:id', authenticateToken, async (req: any, res: any) => {
     if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-
     const { name, score, is_disabled } = req.body;
+    const { error } = await supabase.from('teams').update({ name, score, is_disabled: !!is_disabled }).eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: 'Failed' });
+    res.json({ success: true });
+  });
+
+  app.get('/api/admin/analytics', authenticateToken, async (req: any, res: any) => {
+    if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
+    // Complex query: For simplicity, we'll fetch puzzles and attempts separately
+    const { data: puzzles } = await supabase.from('puzzles').select('id, question');
+    const { data: attempts } = await supabase.from('puzzle_attempts').select('puzzle_id, is_correct');
     
-    try {
-      db.prepare(`
-        UPDATE teams 
-        SET name = ?, score = ?, is_disabled = ? 
-        WHERE id = ?
-      `).run(name, score, is_disabled ? 1 : 0, req.params.id);
-      
-      res.json({ success: true });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to update team' });
-    }
-  });
+    const stats = puzzles?.map((p: any) => {
+      const pAttempts = attempts?.filter(a => a.puzzle_id === p.id) || [];
+      return {
+        puzzle_id: p.id,
+        question: p.question,
+        total_attempts: pAttempts.length,
+        failed_attempts: pAttempts.filter(a => !a.is_correct).length
+      };
+    }).filter(s => s.total_attempts > 0).sort((a, b) => b.failed_attempts - a.failed_attempts);
 
-  // Admin: Case Builder Endpoints
-  app.post('/api/admin/cases', authenticateToken, (req: any, res: any) => {
-    if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-    const { title, description, difficulty, correct_attacker, points_on_solve } = req.body;
-    try {
-      const info = db.prepare('INSERT INTO cases (title, description, difficulty, correct_attacker, points_on_solve) VALUES (?, ?, ?, ?, ?)').run(title, description, difficulty, correct_attacker, points_on_solve);
-      res.json({ success: true, id: info.lastInsertRowid });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to create case' });
-    }
-  });
-
-  app.post('/api/admin/evidence', authenticateToken, (req: any, res: any) => {
-    if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-    const { case_id, type, title, content, metadata, required_puzzle_id } = req.body;
-    try {
-      const info = db.prepare('INSERT INTO evidence (case_id, type, title, content, metadata, required_puzzle_id) VALUES (?, ?, ?, ?, ?, ?)').run(case_id, type, title, content, metadata, required_puzzle_id || null);
-      res.json({ success: true, id: info.lastInsertRowid });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to create evidence' });
-    }
-  });
-
-  app.post('/api/admin/puzzles', authenticateToken, (req: any, res: any) => {
-    if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-    const { case_id, question, answer, points, hint } = req.body;
-    try {
-      const info = db.prepare('INSERT INTO puzzles (case_id, question, answer, points, hint) VALUES (?, ?, ?, ?, ?)').run(case_id, question, answer, points, hint);
-      res.json({ success: true, id: info.lastInsertRowid });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to create puzzle' });
-    }
-  });
-
-  // Admin: Analytics
-  app.get('/api/admin/analytics', authenticateToken, (req: any, res: any) => {
-    if (req.user.name !== 'CCU_ADMIN') return res.status(403).json({ error: 'Forbidden' });
-    try {
-      const stats = db.prepare(`
-        SELECT 
-          p.id as puzzle_id, 
-          p.question,
-          COUNT(pa.id) as total_attempts,
-          SUM(CASE WHEN pa.is_correct = 0 THEN 1 ELSE 0 END) as failed_attempts
-        FROM puzzles p
-        LEFT JOIN puzzle_attempts pa ON p.id = pa.puzzle_id
-        GROUP BY p.id
-        HAVING total_attempts > 0
-        ORDER BY failed_attempts DESC
-      `).all();
-      res.json(stats);
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to fetch analytics' });
-    }
+    res.json(stats);
   });
 
 

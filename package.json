@@ -7,7 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build && tsx scripts/build-server.ts",
     "start": "node dist/server.cjs",
-    "pretest": "node -e \"import('fs').then(m => m.copyFileSync('database/lab.db', 'database/test.db'))\"",
+    "db:seed": "tsx database/init.ts",
+    "pretest": "echo No local DB to copy",
     "test": "vitest run --no-file-parallelism tests/backend_complete.test.ts --environment node",
     "test:watch": "vitest --environment jsdom",
     "clean": "rm -rf dist",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@supabase/supabase-js": "^2.103.2",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "bcryptjs": "^3.0.3",
