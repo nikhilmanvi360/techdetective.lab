@@ -93,6 +93,7 @@ export default function EvidenceViewer() {
   return (
     <div className="space-y-10">
       <button 
+        type="button"
         onClick={() => { playSound('click'); navigate(-1); }}
         className="flex items-center gap-2 text-[10px] font-display text-gray-500 hover:text-cyber-green transition-all uppercase tracking-[0.3em] group"
       >
@@ -117,6 +118,7 @@ export default function EvidenceViewer() {
           </div>
           <div className="flex items-center gap-3">
             <button 
+              type="button"
               onClick={handleCopy}
               className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-green hover:text-cyber-green hover:bg-cyber-green/5 transition-all flex items-center gap-2 group"
               title="Copy to Local Memory"
@@ -125,6 +127,7 @@ export default function EvidenceViewer() {
               <span className="text-[10px] font-display uppercase tracking-widest hidden sm:block">{copied ? 'Copied' : 'Copy'}</span>
             </button>
             <button 
+              type="button"
               className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-blue hover:text-cyber-blue hover:bg-cyber-blue/5 transition-all flex items-center gap-2 group"
               title="Download Binary Data"
             >

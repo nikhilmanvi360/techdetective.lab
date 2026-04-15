@@ -132,6 +132,13 @@ async function startServer() {
     const caseData = db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id) as any;
     if (!caseData) return res.status(404).json({ error: 'Case not found' });
     
+    // Check if the case is already completed by this team
+    const completion = db.prepare(`
+      SELECT 1 FROM submissions 
+      WHERE team_id = ? AND case_id = ? AND status = 'correct'
+    `).get(req.user.id, req.params.id);
+    const isCompleted = !!completion;
+
     const evidence = db.prepare(`
       SELECT e.id, e.type, e.title, e.metadata, e.required_puzzle_id,
              CASE 
@@ -147,6 +154,7 @@ async function startServer() {
     const puzzles = db.prepare(`
       SELECT p.id, p.question, p.points, 
              uh.used_at as hint_used_at,
+             CASE WHEN p.hint IS NOT NULL AND p.hint != '' THEN 1 ELSE 0 END as has_hint,
              CASE 
                WHEN uh.used_at IS NOT NULL AND datetime(uh.used_at, '+5 minutes') <= datetime('now') THEN p.hint 
                ELSE NULL 
@@ -168,7 +176,7 @@ async function startServer() {
     const hintsUsedInCase = hintsUsedInCaseRow ? hintsUsedInCaseRow.count : 0;
     const maxHints = 2;
 
-    res.json({ ...caseData, evidence, puzzles, hintsUsedInCase, maxHints });
+    res.json({ ...caseData, evidence, puzzles, hintsUsedInCase, maxHints, isCompleted });
   });
 
   // Evidence Detail
@@ -211,12 +219,12 @@ async function startServer() {
         const solveCountRow = db.prepare('SELECT COUNT(*) as count FROM solved_puzzles WHERE puzzle_id = ?').get(puzzle.id) as any;
         const solveCount = solveCountRow ? solveCountRow.count : 0;
         
-        let firstBloodBonus = 0;
-        if (solveCount === 0) firstBloodBonus = 50;
-        else if (solveCount === 1) firstBloodBonus = 25;
-        else if (solveCount === 2) firstBloodBonus = 10;
-
         const basePoints = hintUsed ? Math.floor(puzzle.points * 0.5) : puzzle.points;
+        let firstBloodBonus = 0;
+        if (solveCount === 0) firstBloodBonus = Math.floor(puzzle.points * 0.5);
+        else if (solveCount === 1) firstBloodBonus = Math.floor(puzzle.points * 0.25);
+        else if (solveCount === 2) firstBloodBonus = Math.floor(puzzle.points * 0.1);
+
         const totalPoints = basePoints + firstBloodBonus;
 
         db.prepare('INSERT INTO solved_puzzles (team_id, puzzle_id) VALUES (?, ?)').run(req.user.id, puzzle.id);
@@ -230,7 +238,14 @@ async function startServer() {
            emitLiveEvent(`${teamName} cracked Puzzle #${puzzle.id}!`, 'solve');
         }
 
-        res.json({ success: true, points: totalPoints, basePoints, firstBloodBonus, hintUsed: !!hintUsed });
+        res.json({ 
+          success: true, 
+          points: totalPoints, 
+          basePoints, 
+          firstBloodBonus, 
+          hintUsed: !!hintUsed,
+          message: `Received ${totalPoints} XP (${basePoints} Base${firstBloodBonus > 0 ? ` + ${firstBloodBonus} Bonus` : ''})`
+        });
       } catch (e) {
         res.json({ success: false, message: 'Already solved' });
       }

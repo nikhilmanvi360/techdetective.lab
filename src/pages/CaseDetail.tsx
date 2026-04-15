@@ -58,6 +58,7 @@ export default function CaseDetail() {
   const [loading, setLoading] = useState(true);
   const [puzzleAnswers, setPuzzleAnswers] = useState<Record<number, string>>({});
   const [puzzleFeedback, setPuzzleFeedback] = useState<Record<number, { success: boolean, message: string, firstBloodBonus?: number, points?: number }>>({});
+  const [solvingPuzzle, setSolvingPuzzle] = useState<Record<number, boolean>>({});
   const { playSound } = useSound();
   
   const [submission, setSubmission] = useState({ attackerName: '', attackMethod: '', preventionMeasures: '' });
@@ -101,8 +102,9 @@ export default function CaseDetail() {
 
   const handleSolvePuzzle = async (puzzleId: number) => {
     const answer = puzzleAnswers[puzzleId];
-    if (!answer) return;
+    if (!answer || solvingPuzzle[puzzleId]) return;
     playSound('click');
+    setSolvingPuzzle(prev => ({ ...prev, [puzzleId]: true }));
 
     try {
       const response = await fetch(`/api/puzzles/${puzzleId}/solve`, {
@@ -123,13 +125,15 @@ export default function CaseDetail() {
           delete next[puzzleId];
           return next;
         });
-        fetchCase();
+        await fetchCase();
       } else {
         playSound('error');
       }
     } catch (err) {
       playSound('error');
       setPuzzleFeedback(prev => ({ ...prev, [puzzleId]: { success: false, message: 'Link Error' } }));
+    } finally {
+      setSolvingPuzzle(prev => ({ ...prev, [puzzleId]: false }));
     }
   };
 
@@ -171,8 +175,12 @@ export default function CaseDetail() {
       });
       const data = await response.json();
       setSubmitFeedback(data);
-      if (data.isCorrect) playSound('success');
-      else playSound('error');
+      if (data.isCorrect) {
+        playSound('success');
+        await fetchCase();
+      } else {
+        playSound('error');
+      }
     } catch (err) {
       playSound('error');
       setSubmitFeedback({ success: false, message: 'Link Error' });
@@ -419,21 +427,35 @@ export default function CaseDetail() {
                         </div>
                         <input 
                           type="text"
+                          disabled={solvingPuzzle[p.id]}
                           value={puzzleAnswers[p.id] || ''}
                           onChange={(e) => setPuzzleAnswers(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          className="cyber-input w-full h-14 text-base pl-12 pr-4 bg-black/50 border-cyber-line focus:neon-border-green focus:bg-black/80 transition-all font-mono"
+                          className={`cyber-input w-full h-14 text-base pl-12 pr-4 bg-black/50 border-cyber-line focus:neon-border-green focus:bg-black/80 transition-all font-mono ${solvingPuzzle[p.id] ? 'opacity-50 cursor-wait' : ''}`}
                           placeholder="ENTER_DECRYPTION_KEY..."
-                          onKeyDown={(e) => e.key === 'Enter' && handleSolvePuzzle(p.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSolvePuzzle(p.id);
+                            }
+                          }}
                         />
                         {/* Scanning beam effect on focus */}
                         <div className="absolute bottom-0 left-0 h-[2px] w-0 group-focus-within/input:w-full bg-gradient-to-r from-transparent via-cyber-green to-cyber-blue transition-all duration-700 ease-in-out" />
                       </div>
                       <button 
+                        type="button"
+                        disabled={solvingPuzzle[p.id]}
                         onClick={() => handleSolvePuzzle(p.id)}
-                        className="cyber-button w-full sm:w-auto h-14 px-8 bg-cyber-green text-black flex items-center justify-center hover:bg-white transition-all border border-cyber-green flex-shrink-0 group/btn shadow-[0_0_15px_rgba(0,255,170,0.2)]"
+                        className={`cyber-button w-full sm:w-auto h-14 px-8 bg-cyber-green text-black flex items-center justify-center hover:bg-white transition-all border border-cyber-green flex-shrink-0 group/btn shadow-[0_0_15px_rgba(0,255,170,0.2)] ${solvingPuzzle[p.id] ? 'opacity-50 cursor-wait' : ''}`}
                       >
-                        <span className="font-display uppercase tracking-widest font-bold sm:hidden mr-2">Execute</span>
-                        <ChevronRight className="w-6 h-6 group-hover/btn:translate-x-1 group-hover/btn:scale-110 transition-all" />
+                        {solvingPuzzle[p.id] ? (
+                          <Cpu className="w-6 h-6 animate-spin" />
+                        ) : (
+                          <>
+                            <span className="font-display uppercase tracking-widest font-bold sm:hidden mr-2">Execute</span>
+                            <ChevronRight className="w-6 h-6 group-hover/btn:translate-x-1 group-hover/btn:scale-110 transition-all" />
+                          </>
+                        )}
                       </button>
                     </div>
                     
@@ -483,42 +505,59 @@ export default function CaseDetail() {
                     )}
 
                     {/* Hint Request Button */}
-                    {!p.hint_used && p.hint && (
+                    {!p.hint_used && p.has_hint && (
                       <button 
+                        type="button"
                         onClick={() => handleRequestHint(p.id)}
                         disabled={caseData.hintsUsedInCase !== undefined && caseData.maxHints !== undefined && caseData.hintsUsedInCase >= caseData.maxHints}
                         className={`text-sm font-display uppercase tracking-[0.15em] flex items-center justify-center sm:justify-start gap-3 transition-all p-4 border border-dashed hover:border-solid w-full sm:w-auto ${
                           caseData.hintsUsedInCase !== undefined && caseData.maxHints !== undefined && caseData.hintsUsedInCase >= caseData.maxHints 
                             ? 'text-gray-700 border-gray-800 cursor-not-allowed bg-black/30' 
-                            : 'text-gray-400 hover:text-cyber-amber border-gray-700 hover:border-cyber-amber/50 hover:bg-cyber-amber/5'
+                            : 'text-cyber-amber border-cyber-amber/30 bg-cyber-amber/5 hover:bg-cyber-amber/10 hover:border-cyber-amber/60 shadow-[0_0_10px_rgba(255,170,0,0.05)]'
                         }`}
                       >
                         <HelpCircle className={`w-5 h-5 ${caseData.hintsUsedInCase !== undefined && caseData.maxHints !== undefined && caseData.hintsUsedInCase >= caseData.maxHints ? '' : 'animate-pulse text-cyber-amber'}`} /> 
                         <span className="mt-0.5">
                           {caseData.hintsUsedInCase !== undefined && caseData.maxHints !== undefined && caseData.hintsUsedInCase >= caseData.maxHints 
-                            ? 'Max_Hints_Reached' 
-                            : 'Override_Encryption (-50% XP)'}
+                            ? 'MAX_HINTS_REACHED' 
+                            : '[ HINT: OVERRIDE_ENCRYPTION (-50% XP) ]'}
                         </span>
                       </button>
                     )}
                   </div>
                 ) : (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col sm:flex-row items-center sm:items-start gap-4 py-6 bg-gradient-to-r from-cyber-green/10 to-transparent border border-cyber-green/20 px-8 relative overflow-hidden"
-                  >
-                    <div className="absolute inset-0 opacity-10 mix-blend-overlay" />
-                    <div className="p-3 bg-cyber-green/20 rounded-full shrink-0">
-                      <CheckCircle2 className="w-8 h-8 text-cyber-green flicker-anim" />
-                    </div>
-                    <div className="text-center sm:text-left">
-                      <span className="text-xl md:text-2xl font-display font-bold text-cyber-green uppercase tracking-[0.2em] block glitch-text">Module_Secured</span>
-                      <span className="text-sm font-mono text-gray-400 mt-2 block bg-black/50 px-3 py-1 border border-gray-800">
-                        Bounty Awarded: <span className="text-white">+{p.hint_used ? Math.floor(p.points * 0.5) : p.points} XP</span>
-                      </span>
-                    </div>
-                  </motion.div>
+                  <div className="space-y-4 w-full">
+                    <motion.div 
+                      key="solved-banner"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col sm:flex-row items-center sm:items-start gap-4 py-6 bg-gradient-to-r from-cyber-green/10 to-transparent border border-cyber-green/20 px-8 relative overflow-hidden"
+                    >
+                      <div className="absolute inset-0 opacity-10 mix-blend-overlay" />
+                      <div className="p-3 bg-cyber-green/20 rounded-full shrink-0">
+                        <CheckCircle2 className="w-8 h-8 text-cyber-green flicker-anim" />
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <span className="text-xl md:text-2xl font-display font-bold text-cyber-green uppercase tracking-[0.2em] block glitch-text">Module_Secured</span>
+                        <span className="text-sm font-mono text-gray-400 mt-2 block bg-black/50 px-3 py-1 border border-gray-800">
+                          Bounty Awarded: <span className="text-white">+{p.hint_used ? Math.floor(p.points * 0.5) : p.points} XP</span>
+                        </span>
+                      </div>
+                    </motion.div>
+
+                    {/* Success Message Persistence */}
+                    {puzzleFeedback[p.id] && puzzleFeedback[p.id].success && (
+                      <motion.div 
+                        key="solved-feedback"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-cyber-green/5 border border-cyber-green/20 p-4 font-mono text-sm text-cyber-green flex items-center gap-3"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>// {puzzleFeedback[p.id].message}</span>
+                      </motion.div>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -533,121 +572,155 @@ export default function CaseDetail() {
           <h2 className="text-lg font-display font-bold text-white uppercase tracking-[0.15em]">Consolidated Case Report</h2>
         </div>
         
-        <div className="cyber-panel p-10 border-cyber-amber/20 relative gradient-border">
-          <div className="absolute top-0 right-10 w-20 h-1 bg-cyber-amber/30" />
-          <form onSubmit={handleFinalSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-cyber-amber" />
-                  <label className="text-sm font-display text-cyber-amber uppercase tracking-[0.2em]">Primary_Suspect</label>
-                </div>
-                <input 
-                  type="text"
-                  required
-                  value={submission.attackerName}
-                  onChange={(e) => setSubmission(prev => ({ ...prev, attackerName: e.target.value }))}
-                  className="cyber-input w-full text-base h-14 border-cyber-amber/20 focus:border-cyber-amber"
-                  placeholder="ENTER_NAME"
-                />
-              </div>
-              <div className="md:col-span-1" />
-              
-              <div className="md:col-span-2 space-y-3">
-                 <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-cyber-amber" />
-                  <label className="text-sm font-display text-cyber-amber uppercase tracking-[0.2em]">Attack_Mod_&_Evidence_Link</label>
-                </div>
-                <textarea 
-                  required
-                  rows={4}
-                  value={submission.attackMethod}
-                  onChange={(e) => setSubmission(prev => ({ ...prev, attackMethod: e.target.value }))}
-                  className="cyber-input w-full text-base border-cyber-amber/20 focus:border-cyber-amber"
-                  placeholder="Provide technical breakdown..."
-                />
-              </div>
+        {caseData?.isCompleted ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="panel-industrial p-1 border-cyber-green/50 relative overflow-hidden group"
+          >
+            <div className="bg-cyber-green/10 p-12 flex flex-col items-center justify-center gap-6 text-center">
+               <div className="relative">
+                 <div className="absolute inset-0 bg-cyber-green/20 blur-xl animate-pulse rounded-full" />
+                 <CheckCircle2 className="w-20 h-20 text-cyber-green relative z-10 flicker-anim" />
+               </div>
+               
+               <div className="space-y-2">
+                 <h3 className="text-3xl font-display font-bold text-white uppercase tracking-[0.3em]">CASE_CLEARED</h3>
+                 <p className="text-cyber-green font-mono uppercase tracking-widest text-sm">Integrity Confirmed // Suspect Apprehended</p>
+               </div>
 
-              <div className="md:col-span-2 space-y-3">
-                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-cyber-green" />
-                  <label className="text-sm font-display text-cyber-green uppercase tracking-[0.2em]">Recommended_Countermeasures</label>
-                </div>
-                <textarea 
-                  required
-                  rows={3}
-                  value={submission.preventionMeasures}
-                  onChange={(e) => setSubmission(prev => ({ ...prev, preventionMeasures: e.target.value }))}
-                  className="cyber-input w-full text-base border-cyber-green/20 focus:border-cyber-green"
-                  placeholder="List prevention steps..."
-                />
-              </div>
+               <div className="py-2 px-8 border border-cyber-green/30 bg-cyber-green/5 font-display text-cyber-green text-xl tracking-[0.2em]">
+                 MISSION_SUCCESSFUL
+               </div>
+
+               {submitFeedback?.isCorrect && (
+                 <motion.div 
+                   initial={{ opacity: 0, scale: 0.9 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   className="flex flex-wrap items-center justify-center gap-8 py-6 border-y border-cyber-green/20 w-full bg-black/20"
+                 >
+                   <div className="flex flex-col">
+                     <span className="text-xs uppercase font-display text-gray-500 tracking-widest mb-1">XP_Payout</span>
+                     <span className="text-3xl font-display font-bold text-cyber-green">+{submitFeedback.pointsAwarded}_XP</span>
+                   </div>
+                   {submitFeedback.firstBloodBonus && submitFeedback.firstBloodBonus > 0 && (
+                     <div className="flex flex-col">
+                       <span className="text-xs uppercase font-display text-cyber-red tracking-widest mb-1 animate-pulse">Critical_Bonus</span>
+                       <span className="text-3xl font-display font-bold text-cyber-red">FIRST_BLOOD_+{submitFeedback.firstBloodBonus}</span>
+                     </div>
+                   )}
+                   {submitFeedback.badgesEarned && submitFeedback.badgesEarned.length > 0 && (
+                     <div className="flex flex-col">
+                       <span className="text-xs uppercase font-display text-cyber-amber tracking-widest mb-1">Recognition</span>
+                       <div className="flex gap-2">
+                         {submitFeedback.badgesEarned.map(badge => (
+                           <span key={badge} className="px-3 py-1 bg-cyber-amber/10 border border-cyber-amber/30 text-cyber-amber text-sm font-display font-bold">{badge.toUpperCase()}</span>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </motion.div>
+               )}
+
+               <p className="max-w-md text-gray-400 font-mono text-sm leading-relaxed">
+                 You have successfully identified the attacker and submitted a valid report. The central terminal has archived this case record.
+               </p>
+               
+               <div className="flex items-center gap-2 text-cyber-green/50 font-mono text-[10px] uppercase tracking-[0.4em] mt-4">
+                 <Terminal className="w-3 h-3" /> System_Lockdown: Active // Input_Vector: Purged
+               </div>
             </div>
-
-            <AnimatePresence>
-              {submitFeedback && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className={`p-8 border-2 ${
-                    submitFeedback.isCorrect 
-                      ? 'bg-cyber-green/10 text-cyber-green border-cyber-green/50 neon-border-green' 
-                      : 'bg-cyber-red/10 text-cyber-red border-cyber-red/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-5 mb-4">
-                    {submitFeedback.isCorrect ? <CheckCircle2 className="w-10 h-10 flicker-anim" /> : <ShieldAlert className="w-10 h-10 flicker-anim" />}
-                    <h3 className="text-2xl font-display font-bold uppercase tracking-widest leading-none">
-                      REPORT_{submitFeedback.isCorrect ? 'VALIDATED' : 'REJECTED_BY_COUNCIL'}
-                    </h3>
+          </motion.div>
+        ) : (
+          <div className="cyber-panel p-10 border-cyber-amber/20 relative gradient-border">
+            <div className="absolute top-0 right-10 w-20 h-1 bg-cyber-amber/30" />
+            <div className="absolute -top-3 -left-3 p-2 bg-cyber-bg border border-cyber-amber/20 flex items-center gap-2">
+               <div className="w-2 h-2 bg-cyber-amber animate-pulse" />
+               <span className="text-[10px] font-display text-cyber-amber uppercase tracking-widest">Awaiting_Final_Intel</span>
+            </div>
+            <form onSubmit={handleFinalSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                   <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-cyber-amber" />
+                    <label className="text-sm font-display text-cyber-amber uppercase tracking-[0.2em]">Primary_Suspect</label>
                   </div>
-                  <p className="text-base font-mono leading-relaxed max-w-2xl mb-6">
-                    // {submitFeedback.message}
-                  </p>
-                  {submitFeedback.isCorrect && (
-                    <div className="flex flex-wrap gap-6 pt-6 border-t border-current/20">
-                      <div className="flex flex-col">
-                        <span className="text-xs uppercase font-display opacity-60">Payout</span>
-                        <span className="text-2xl font-display font-bold">+{submitFeedback.pointsAwarded}_XP</span>
-                      </div>
-                      {submitFeedback.firstBloodBonus && submitFeedback.firstBloodBonus > 0 && (
-                        <div className="flex flex-col text-cyber-red">
-                          <span className="text-xs uppercase font-display opacity-60 animate-pulse">Critical_Bonus</span>
-                          <span className="text-2xl font-display font-bold">FIRST_BLOOD_+{submitFeedback.firstBloodBonus}</span>
-                        </div>
-                      )}
-                      {submitFeedback.badgesEarned?.map(badge => (
-                        <div key={badge} className="flex flex-col text-cyber-amber">
-                          <span className="text-xs uppercase font-display opacity-60">Commendation</span>
-                          <span className="text-2xl font-display font-bold">{badge.toUpperCase()}</span>
-                        </div>
-                      ))}
+                  <input 
+                    type="text"
+                    required
+                    value={submission.attackerName}
+                    onChange={(e) => setSubmission(prev => ({ ...prev, attackerName: e.target.value }))}
+                    className="cyber-input w-full text-base h-14 border-cyber-amber/20 focus:border-cyber-amber"
+                    placeholder="ENTER_NAME"
+                  />
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {submitFeedback && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={`p-8 border-2 ${
+                      submitFeedback.isCorrect 
+                        ? 'bg-cyber-green/10 text-cyber-green border-cyber-green/50 neon-border-green' 
+                        : 'bg-cyber-red/10 text-cyber-red border-cyber-red/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-5 mb-4">
+                      {submitFeedback.isCorrect ? <CheckCircle2 className="w-10 h-10 flicker-anim" /> : <ShieldAlert className="w-10 h-10 flicker-anim" />}
+                      <h3 className="text-2xl font-display font-bold uppercase tracking-widest leading-none">
+                        REPORT_{submitFeedback.isCorrect ? 'VALIDATED' : 'REJECTED_BY_COUNCIL'}
+                      </h3>
                     </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <p className="text-base font-mono leading-relaxed max-w-2xl mb-6">
+                      // {submitFeedback.message}
+                    </p>
+                    {submitFeedback.isCorrect && (
+                      <div className="flex flex-wrap gap-6 pt-6 border-t border-current/20">
+                        <div className="flex flex-col">
+                          <span className="text-xs uppercase font-display opacity-60">Payout</span>
+                          <span className="text-2xl font-display font-bold">+{submitFeedback.pointsAwarded}_XP</span>
+                        </div>
+                        {submitFeedback.firstBloodBonus && submitFeedback.firstBloodBonus > 0 && (
+                          <div className="flex flex-col text-cyber-red">
+                            <span className="text-xs uppercase font-display opacity-60 animate-pulse">Critical_Bonus</span>
+                            <span className="text-2xl font-display font-bold">FIRST_BLOOD_+{submitFeedback.firstBloodBonus}</span>
+                          </div>
+                        )}
+                        {submitFeedback.badgesEarned?.map(badge => (
+                          <div key={badge} className="flex flex-col text-cyber-amber">
+                            <span className="text-xs uppercase font-display opacity-60">Commendation</span>
+                            <span className="text-2xl font-display font-bold">{badge.toUpperCase()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <button 
-              type="submit"
-              disabled={submitting}
-              className={`cyber-button w-full h-16 flex items-center justify-center gap-4 transition-all ${
-                submitting ? 'bg-white/5 opacity-50' : 'cyber-button-blue'
-              }`}
-            >
-              {submitting ? (
-                  <div className="flex items-center gap-3 font-display tracking-[0.3em] flicker-anim text-base">
-                    <Cpu className="w-6 h-6 animate-spin" /> ENCRYPTING_TRANSMISSION...
-                  </div>
-                ) : (
-                <>
-                  <span className="text-xl font-display">TRANSMIT_FINAL_INTEL</span>
-                  <Send className="w-6 h-6 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" />
-                </>
-              )}
-            </button>
-          </form>
-        </div>
+              <button 
+                type="submit"
+                disabled={submitting}
+                className={`cyber-button w-full h-16 flex items-center justify-center gap-4 transition-all ${
+                  submitting ? 'bg-white/5 opacity-50' : 'cyber-button-blue'
+                }`}
+              >
+                {submitting ? (
+                    <div className="flex items-center gap-3 font-display tracking-[0.3em] flicker-anim text-base">
+                      <Cpu className="w-6 h-6 animate-spin" /> ENCRYPTING_TRANSMISSION...
+                    </div>
+                  ) : (
+                  <>
+                    <span className="text-xl font-display">TRANSMIT_FINAL_INTEL</span>
+                    <Send className="w-6 h-6 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
       </section>
     </div>
   );

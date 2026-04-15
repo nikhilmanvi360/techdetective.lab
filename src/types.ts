@@ -54,6 +54,7 @@ export interface Puzzle {
   points: number;
   answer: string;
   hint?: string;
+  has_hint: boolean;
   solved: boolean;
   hint_used: boolean;
   hint_used_at?: string;
