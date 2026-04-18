@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Activity, User, Target, Zap } from 'lucide-react';
+import { Trophy, Medal, Target, Users, Activity, Zap, Cpu, Search, ShieldAlert, Crown, TrendingUp, Timer, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { ScoreEntry, ScoreMultiplier } from '../types';
+import { ScoreEntry, ScoreEvent, ScoreMultiplier } from '../types';
 import { io } from 'socket.io-client';
-import { getRankTitle } from '../utils/ranks';
+import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 
 function AnimatedScore({ value, className }: { value: number; className?: string }) {
@@ -13,6 +13,7 @@ function AnimatedScore({ value, className }: { value: number; className?: string
 
   useEffect(() => {
     if (!isInView) return;
+
     let start = 0;
     const end = value;
     const duration = 1200;
@@ -22,10 +23,15 @@ function AnimatedScore({ value, className }: { value: number; className?: string
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
+
       start = Math.floor(eased * end);
       setDisplayValue(start);
-      if (progress < 1) requestAnimationFrame(animate);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
     };
+
     requestAnimationFrame(animate);
   }, [value, isInView]);
 
@@ -36,15 +42,22 @@ export default function Scoreboard() {
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeMultipliers, setActiveMultipliers] = useState<ScoreMultiplier[]>([]);
+  const [recentEvents, setRecentEvents] = useState<ScoreEvent[]>([]);
   const { playSound } = useSound();
 
   const fetchScores = async () => {
     try {
       const response = await fetch('/api/scoreboard');
       const data = await response.json();
-      if (Array.isArray(data)) setScores(data);
-      else setScores([]);
+      if (Array.isArray(data)) {
+        setScores(data);
+      } else {
+        console.error('Scoreboard API Error:', data.error || 'Unknown format');
+        setScores([]);
+      }
     } catch (err) {
+      console.error('Failed to fetch scoreboard');
       setScores([]);
     } finally {
       setLoading(false);
@@ -53,12 +66,25 @@ export default function Scoreboard() {
 
   useEffect(() => {
     fetchScores();
+    
+    // Fetch multipliers and recent events
+    fetch('/api/multipliers/active')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setActiveMultipliers(data);
+      })
+      .catch(() => {});
+
     const socket = io();
     socket.on('score_update', () => {
       playSound('ping');
       fetchScores();
+      fetch('/api/multipliers/active').then(r => r.json()).then(setActiveMultipliers).catch(() => {});
     });
-    return () => { socket.disconnect(); };
+
+    return () => {
+      socket.disconnect();
+    };
   }, [playSound]);
 
   const filteredScores = scores.filter(s =>
@@ -68,183 +94,251 @@ export default function Scoreboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-        <Activity className="w-12 h-12 text-[#d1b88a] animate-pulse" />
-        <div className="font-display text-[#d1b88a] uppercase tracking-widest typewriter-text text-center">
-          Aggregating Intelligence...
+        <Activity className="w-12 h-12 text-cyber-green animate-pulse" />
+        <div className="font-display text-cyber-green uppercase tracking-[0.4em] flicker-anim text-center">
+          Aggregating_Field_Intelligence...
         </div>
       </div>
     );
   }
 
-  const avgScore = scores.length > 0 ? Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length) : 0;
-
   return (
-    <div className="max-w-7xl mx-auto space-y-12 pb-16">
-      
-      {/* Header section matching the analog desk */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-8 pt-6 pb-2">
-        <div className="space-y-3 flex-1">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-[#d1b88a] fill-[#d1b88a]" />
-            <span className="text-xs font-sans font-bold text-[#d1b88a] uppercase tracking-widest">Tactical Rankings</span>
-          </div>
-          <h1 className="text-5xl font-display font-bold text-white uppercase tracking-tighter">SUSPECT_WATCHLIST</h1>
-          <p className="typewriter-text text-[#888] text-sm max-w-xl">
-            // Active investigations and priority targets. Culpability determined by cumulative evidence and criminal activity.
-          </p>
+    <div className="max-w-6xl mx-auto space-y-12">
+      {/* HUD Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="cyber-panel border-cyber-amber/30 p-10 relative overflow-hidden gradient-border"
+      >
+        <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+          <Trophy className="w-48 h-48 text-cyber-amber animate-float" />
         </div>
-
-        <div className="w-full md:w-80 space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-sans font-bold text-[#6a8b9f] uppercase tracking-widest px-1">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-8">
+          <div className="space-y-4 flex-1">
             <div className="flex items-center gap-2">
-               FILTER_BY_TEAM
+              <Zap className="w-5 h-5 text-cyber-amber fill-cyber-amber" />
+              <span className="text-xs font-display text-cyber-amber uppercase tracking-[0.4em]">Tactical Rankings</span>
             </div>
-            <span>SEC: 8XAA</span>
+            <h1 className="text-5xl font-display font-bold text-white uppercase tracking-tight glitch-text">Operation_Leaderboard</h1>
+            <p className="text-gray-500 font-mono text-sm max-w-xl leading-relaxed italic">
+              // Real-time tracking of active investigation units. Rank is determined by cumulative score across all case nodes.
+            </p>
           </div>
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#333]" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 h-12 bg-black/50 border border-[#333] text-[#d1b88a] font-display focus:border-[#d1b88a] focus:outline-none placeholder-[#444]"
-              placeholder="SEARCH_TEAM_ID..."
-            />
+
+          <div className="w-full md:w-80 space-y-4">
+            <div className="flex items-center justify-between text-[10px] font-display text-cyber-blue uppercase tracking-widest px-1">
+              <div className="flex items-center gap-2">
+                <Target className="w-3 h-3" />
+                Filter_By_Team
+              </div>
+              <span>Sec: 0x4A</span>
+            </div>
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 group-focus-within:text-cyber-blue transition-colors" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="cyber-input w-full pl-12 h-12 border-cyber-line focus:border-cyber-blue"
+                placeholder="SEARCH_TEAM_ID..."
+              />
+              <div className="absolute bottom-0 left-0 h-[1px] w-0 group-focus-within:w-full bg-cyber-blue transition-all duration-500" />
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 pt-8">
-        
-        {/* Suspect Cards Column */}
-        <div className="lg:col-span-2 space-y-6 relative">
-          <div className="absolute -top-4 -left-6 w-32 h-10 paper-card -rotate-3 z-10 flex items-center justify-center">
-            <span className="font-display font-bold text-sm tracking-widest text-black">Criminal Profile</span>
-            <div className="pushpin -top-2 right-2" />
-          </div>
-          <div className="absolute top-0 bottom-0 left-8 w-1 bg-[#222] z-0 opacity-20" /> {/* String connecting pins */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Rankings Table */}
+        <div className="lg:col-span-3">
+          <div className="cyber-panel border-cyber-line bg-black/40 gradient-border">
+            <div className="bg-black/80 px-8 py-4 border-b border-cyber-line flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 text-cyber-blue" />
+                <span className="text-[10px] font-display text-white uppercase tracking-widest">Active_Units_Stream</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
+                <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Live_Sync: Active</span>
+              </div>
+            </div>
 
-          <div className="space-y-6 pt-4 z-10 relative">
-            <AnimatePresence>
-              {filteredScores.map((entry, index) => (
-                <motion.div
-                  key={entry.name}
-                  layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="relative flex items-center"
-                >
-                  <div className="w-12 text-center font-display font-bold text-2xl text-[#8b0000] -rotate-6 mr-4 opacity-80 z-20">
-                    {index < 5 ? `0${index + 1}` : index + 1}
-                  </div>
-                  <div className="paper-card flex-1 p-5 flex justify-between items-center z-10">
-                    <div className="pushpin -left-2 top-1/2 -translate-y-1/2" />
-                    <div className="flex items-center gap-6">
-                      <div className="w-16 h-16 bg-[#c4b9a1] border-2 border-white shadow flex flex-col items-center justify-center -rotate-2">
-                        <User className="w-10 h-10 text-black opacity-50" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-sans font-bold text-[#8b0000] uppercase tracking-widest mb-1">Alias</span>
-                        <h3 className="font-display text-2xl uppercase font-bold text-black leading-none mb-2">
-                          {entry.name.replace(' ', '_')}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                           <span className="stamp !text-[9px] !border-[1.5px] !border-black !text-black flex-none">
-                             {getRankTitle(entry.score).toUpperCase()}
-                           </span>
-                           <span className="stamp !text-[9px] !border-[1.5px] !border-black !text-black flex-none">
-                             SECTOR_VERIFIED
-                           </span>
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full font-display border-collapse">
+                <thead>
+                  <tr className="border-b border-cyber-line bg-black/20">
+                    <th className="px-8 py-6 text-left text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">#Rk</th>
+                    <th className="px-8 py-6 text-left text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">Unit_Identifier</th>
+                    <th className="px-8 py-6 text-right text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">Payload_XP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-cyber-line/30">
+                  <AnimatePresence mode="popLayout">
+                    {filteredScores.map((entry, index) => (
+                      <motion.tr
+                        key={entry.name}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`group hover:bg-white/5 transition-all duration-300 ${index === 0 ? 'bg-cyber-amber/[0.03]' : ''}`}
+                      >
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <span className={`text-xl font-display font-bold tabular-nums ${index === 0 ? 'text-cyber-amber text-shadow-amber' :
+                                index === 1 ? 'text-gray-400' :
+                                  index === 2 ? 'text-amber-700' : 'text-gray-700'
+                              }`}>
+                              {(index + 1).toString().padStart(2, '0')}
+                            </span>
+                            {index === 0 && (
+                              <div className="relative pulse-ring">
+                                <Crown className="w-5 h-5 text-cyber-amber fill-cyber-amber/30 flicker-anim" />
+                              </div>
+                            )}
+                            {index === 1 && <Medal className="w-4 h-4 text-gray-400" />}
+                            {index === 2 && <Medal className="w-4 h-4 text-amber-700" />}
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-5">
+                            <div className={`w-10 h-10 flex items-center justify-center text-md font-bold border transition-all ${index === 0 ? 'bg-cyber-amber/10 border-cyber-amber text-cyber-amber neon-border-amber' : 'bg-black/60 border-cyber-line text-gray-500 group-hover:border-cyber-blue group-hover:text-cyber-blue'
+                              }`}>
+                              {entry.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className={`text-lg font-display font-bold uppercase tracking-tight ${index === 0 ? 'text-white' : 'text-gray-300 group-hover:text-white transition-colors'}`}>
+                                {entry.name.replace(' ', '_')}
+                              </span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className={`text-[9px] font-display px-2 py-0.5 border uppercase tracking-widest ${getRankColor(entry.score).replace('text-', 'border-').replace('bg-', 'bg-opacity-5 bg-')}`}>
+                                  {getRankTitle(entry.score)}
+                                </span>
+                                <div className="w-1 h-1 rounded-full bg-cyber-line" />
+                                <span className="text-[8px] font-mono text-gray-600 uppercase">Sector_Verified</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <div className="flex flex-col items-end">
+                            <AnimatedScore
+                              value={entry.score}
+                              className={`text-2xl font-display font-bold tabular-nums transition-colors ${index === 0 ? 'text-cyber-amber' : 'text-white group-hover:text-cyber-blue'}`}
+                            />
+                            <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-1">XP_ACCUMULATED</span>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+
+                  {filteredScores.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center gap-4 text-gray-600">
+                          <Activity className="w-10 h-10 opacity-20" />
+                          <p className="font-display uppercase tracking-[0.3em] text-xs">No_Units_Found_In_Registry</p>
                         </div>
-                      </div>
-                    </div>
-                    <div className="text-center bg-[#fdfaf1] border border-[rgba(0,0,0,0.1)] p-4 shadow-inner mr-4">
-                      <div className="text-[9px] font-sans font-bold text-gray-500 uppercase tracking-widest mb-2">CULPABILITY LEVEL</div>
-                      <AnimatedScore value={entry.score} className="font-display font-bold text-4xl text-black block" />
-                      <div className="text-[10px] font-sans text-gray-600 mt-2">evidence point(s)</div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        {/* Analog Equipment Column */}
+        {/* Sidebar Analytics */}
         <div className="space-y-8">
-           <div className="crt-enclosure bg-[#bbb] p-8 h-[600px] flex flex-col justify-between items-center sticky top-28 shadow-2xl relative border-t-[8px] border-b-[16px] border-l-[12px] border-r-[12px] border-[#3a3a3a]">
-             {/* Textural overlay for the metal chassis */}
-             <div className="absolute inset-0 bg-noise opacity-10 pointer-events-none" />
-             
-             {/* Meter 1: Field Density */}
-             <div className="w-full aspect-square bg-[#050505] rounded shadow-[inset_0_0_20px_#000] flex flex-col relative overflow-hidden border-4 border-[#222]">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#2a2d2a,#000)]" />
-                <div className="relative z-10 flex flex-col h-full items-center pt-8">
-                  <div className="relative w-48 h-24 overflow-hidden mb-6 border-b border-[#22c55e]/20">
-                     {/* Scale markings */}
-                     <svg viewBox="0 0 100 50" className="w-full h-full opacity-60">
-                        <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 10 45 L 8 47" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 50 5 L 50 2" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 90 45 L 92 47" stroke="#22c55e" strokeWidth="1" />
-                     </svg>
-                     {/* Needle */}
-                     <motion.div 
-                        initial={{ rotate: -70 }}
-                        animate={{ rotate: -70 + Math.min(140, (scores.length / 50) * 140) }}
-                        transition={{ type: "spring", stiffness: 40 }}
-                        className="absolute bottom-[-4px] left-[50%] w-[2px] h-[80px] bg-red-600 origin-bottom rounded-t-full shadow-[0_0_5px_red]"
-                        style={{ marginLeft: '-1px' }}
-                     />
-                     <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#111] border border-[#333] shadow-lg shadow-black" />
+          {/* Active Multiplier Banner */}
+          {activeMultipliers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="cyber-panel p-6 border-cyber-amber/40 bg-cyber-amber/5 relative overflow-hidden"
+            >
+              <motion.div
+                animate={{ opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-r from-cyber-amber/5 via-transparent to-cyber-amber/5"
+              />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-cyber-amber/10 border border-cyber-amber/30 animate-pulse">
+                    <Zap className="w-5 h-5 text-cyber-amber fill-cyber-amber/30" />
                   </div>
-                  <AnimatedScore value={scores.length} className="font-display font-bold text-4xl text-[#d1b88a] drop-shadow-[0_0_8px_#d1b88a]" />
+                  <div>
+                    <h4 className="text-sm font-display font-bold text-cyber-amber uppercase tracking-widest">MULTIPLIER ACTIVE</h4>
+                    <p className="text-[9px] font-mono text-cyber-amber/60 uppercase">{activeMultipliers[0].multiplier}x XP Boost</p>
+                  </div>
                 </div>
-                <div className="absolute bottom-4 left-0 w-full text-center z-10">
-                   <div className="font-sans font-bold text-[10px] text-gray-400 tracking-[0.2em] uppercase">Field Density</div>
-                   <div className="text-[8px] font-sans text-gray-500 tracking-widest mt-1">ACTIVE INVESTIGATOR UNITS</div>
+                <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 uppercase">
+                  <Timer className="w-3 h-3 text-cyber-amber" />
+                  Expires: {new Date(activeMultipliers[0].ends_at).toLocaleTimeString()}
                 </div>
-             </div>
+              </div>
+            </motion.div>
+          )}
 
-             {/* Meter 2: XP Throughput */}
-             <div className="w-full aspect-square bg-[#050505] rounded shadow-[inset_0_0_20px_#000] flex flex-col relative overflow-hidden border-4 border-[#222]">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#2a2d2a,#000)]" />
-                <div className="relative z-10 flex flex-col h-full items-center pt-8">
-                  <div className="relative w-48 h-24 overflow-hidden mb-6 border-b border-[#22c55e]/20">
-                     <svg viewBox="0 0 100 50" className="w-full h-full opacity-60">
-                        <path d="M 10 45 A 40 40 0 0 1 90 45" fill="none" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 10 45 L 8 47" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 50 5 L 50 2" stroke="#22c55e" strokeWidth="1" />
-                        <path d="M 90 45 L 92 47" stroke="#22c55e" strokeWidth="1" />
-                     </svg>
-                     <motion.div 
-                        initial={{ rotate: -70 }}
-                        animate={{ rotate: -70 + Math.min(140, (avgScore / 1000) * 140) }}
-                        transition={{ type: "spring", stiffness: 40 }}
-                        className="absolute bottom-[-4px] left-[50%] w-[2px] h-[80px] bg-red-600 origin-bottom rounded-t-full shadow-[0_0_5px_red]"
-                        style={{ marginLeft: '-1px' }}
-                     />
-                     <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#111] border border-[#333] shadow-lg shadow-black" />
-                  </div>
-                  <AnimatedScore value={avgScore} className="font-display font-bold text-4xl text-[#d1b88a] drop-shadow-[0_0_8px_#d1b88a]" />
-                </div>
-                <div className="absolute bottom-4 left-0 w-full text-center z-10">
-                   <div className="font-sans font-bold text-[10px] text-gray-400 tracking-[0.2em] uppercase">XP Throughput</div>
-                   <div className="text-[8px] font-sans text-gray-500 tracking-widest mt-1">AVERAGE PAYLOAD PER UNIT</div>
-                </div>
-             </div>
-             
-             {/* Fake analog switches / vent */}
-             <div className="w-full flex justify-between px-4 mt-6">
-                <div className="w-8 h-8 rounded-full bg-[#111] shadow-[inset_2px_2px_5px_#000]" />
-                <div className="flex gap-2">
-                   <div className="w-2 h-12 bg-black rounded" />
-                   <div className="w-2 h-12 bg-black rounded" />
-                   <div className="w-2 h-12 bg-black rounded" />
-                </div>
-             </div>
-           </div>
+          <div className="cyber-panel p-8 border-cyber-blue/20 corner-brackets">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-cyber-blue/10 border border-cyber-blue/30">
+                <Target className="w-4 h-4 text-cyber-blue" />
+              </div>
+              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">Field_Density</h4>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-display font-bold text-white tabular-nums">
+                <AnimatedScore value={scores.length} />
+              </div>
+              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Active_Investigator_Units</p>
+            </div>
+            <div className="mt-8 pt-8 border-t border-cyber-line">
+              <div className="h-1 w-full bg-cyber-line relative overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: '65%' }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet"
+                />
+              </div>
+              <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-2 block">Bandwidth: 65% Capacity</span>
+            </div>
+          </div>
+
+          <div className="cyber-panel p-8 border-cyber-green/20 corner-brackets">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-cyber-green/10 border border-cyber-green/30">
+                <Cpu className="w-4 h-4 text-cyber-green" />
+              </div>
+              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">XP_Throughput</h4>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-display font-bold text-white tabular-nums">
+                <AnimatedScore value={scores.length > 0 ? Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length) : 0} />
+              </div>
+              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Average_Payload_Per_Unit</p>
+            </div>
+            <div className="mt-8 pt-8 border-t border-cyber-line">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-1.5 h-1.5 rounded-full bg-cyber-green"
+                />
+                <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest">Processor: Nominal_State</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="cyber-panel p-6 border-dashed border-cyber-line opacity-40">
+            <div className="bg-black/40 p-10 flex items-center justify-center">
+              <ShieldAlert className="w-8 h-8 text-gray-700" />
+            </div>
+            <p className="text-[8px] font-mono text-gray-700 uppercase p-4 text-center tracking-[0.2em]">Encrypted_Telemetry_Node_09</p>
+          </div>
         </div>
       </div>
     </div>

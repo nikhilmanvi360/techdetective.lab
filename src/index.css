@@ -1,186 +1,544 @@
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Courier Prime", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Share Tech Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "Special Elite", monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Share Tech Mono", monospace;
 
-  /* Theme specific variable colors */
-  --color-paper: #eadda5;
-  --color-folder: #d1b88a;
+  --color-cyber-bg: #050505;
+  --color-cyber-panel: #0a0a0a;
+  --color-cyber-green: #22c55e;
+  --color-cyber-green-glow: rgba(34, 197, 94, 0.3);
+  --color-cyber-blue: #3b82f6;
+  --color-cyber-blue-glow: rgba(59, 130, 246, 0.3);
+  --color-cyber-amber: #f59e0b;
+  --color-cyber-amber-glow: rgba(245, 158, 11, 0.3);
+  --color-cyber-red: #ef4444;
+  --color-cyber-red-glow: rgba(239, 68, 68, 0.3);
+  --color-cyber-violet: #a855f7;
+  --color-cyber-violet-glow: rgba(168, 85, 247, 0.3);
+  --color-cyber-line: #1a1a1a;
 }
 
 @layer base {
   body {
-    @apply bg-[#111] text-gray-900 font-sans overflow-x-hidden relative;
-    background-image: url('/background.png');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-  }
-  
-  /* Add an overlay to darken the background slightly to make paper elements pop out */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    pointer-events: none;
-    z-index: -1;
+    @apply bg-cyber-bg text-gray-400 font-sans overflow-x-hidden;
+    background-image:
+      linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+      linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%;
   }
 
-  h1, h2, h3, h4, .font-display {
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
     @apply font-display tracking-tight text-white;
   }
 
-  input, textarea, select {
-    @apply bg-transparent text-gray-900;
-    color-scheme: light;
+  /* Fix native form element styling */
+  input,
+  textarea,
+  select {
+    @apply bg-transparent text-white;
+    color-scheme: dark;
   }
 
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-600 font-mono uppercase tracking-widest text-xs;
+  }
+
+  /* Kill autofill white backgrounds */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #0a0a0a inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #22c55e !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Selection highlight */
   ::selection {
-    @apply bg-black/20 text-black;
+    @apply bg-cyber-green text-black;
   }
 }
 
 @layer components {
 
-  /* ========== DETECTIVE ANALOG ELEMENTS ========== */
-  
-  .paper-card {
-    @apply relative bg-[#eadda5] text-gray-900 shadow-md transform transition-transform;
-    background-image: 
-      linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
-    background-size: 20px 20px;
-    border-radius: 2px;
-    box-shadow: 
-      2px 4px 10px rgba(0,0,0,0.4),
-      inset 0 0 40px rgba(139, 69, 19, 0.1); /* Dirt/aging */
+  /* ========== GRID & BACKGROUND ========== */
+  .cyber-grid {
+    background-size: 40px 40px;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   }
 
-  .paper-card::after {
+  /* ========== PANELS ========== */
+  .cyber-panel {
+    @apply bg-cyber-panel border border-cyber-line relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .corner-brackets {
+    position: relative;
+  }
+
+  .corner-brackets::before,
+  .corner-brackets::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    transition: all 0.4s ease;
+  }
+
+  .corner-brackets::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--color-cyber-green);
+    border-left: 2px solid var(--color-cyber-green);
+    opacity: 0;
+  }
+
+  .corner-brackets::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--color-cyber-green);
+    border-right: 2px solid var(--color-cyber-green);
+    opacity: 0;
+  }
+
+  .corner-brackets:hover::before,
+  .corner-brackets:hover::after {
+    opacity: 1;
+    width: 20px;
+    height: 20px;
+  }
+
+  .gradient-border {
+    position: relative;
+    background: #0a0a0a;
+  }
+
+  .gradient-border::before {
     content: '';
     position: absolute;
     inset: 0;
+    padding: 1px;
+    background: conic-gradient(from 180deg at 50% 50%,
+        var(--color-cyber-green) 0deg,
+        var(--color-cyber-blue) 120deg,
+        var(--color-cyber-violet) 240deg,
+        var(--color-cyber-green) 360deg);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
     pointer-events: none;
-    box-shadow: inset 0 0 100px rgba(0,0,0,0.05); /* Vignette */
+    opacity: 0.5;
+    transition: opacity 0.5s ease;
   }
 
-  .folder {
-    @apply relative bg-[#d1b88a] text-gray-900 transition-transform shadow-lg;
-    border-radius: 2px 2px 4px 4px;
-    box-shadow: 
-      3px 5px 15px rgba(0,0,0,0.5),
-      inset 0 0 30px rgba(100, 60, 20, 0.2);
+  .gradient-border:hover::before {
+    opacity: 1;
   }
 
-  .folder-tab {
-    @apply absolute -top-8 left-0 h-8 bg-[#d1b88a] px-4 py-1 flex items-center shadow-sm;
-    border-radius: 4px 4px 0 0;
-    box-shadow: inset 0 6px 10px rgba(255,255,255,0.1), inset 0 0 20px rgba(100, 60, 20, 0.2);
-    width: 60%;
-    z-index: -1;
-  }
-  
-  .folder-tab::after {
-    content:'';
-    position: absolute;
-    right: -15px;
-    top: 0;
-    border-left: 15px solid #d1b88a;
-    border-top: 32px solid transparent; /* matches height */
+  /* ========== NEON BORDERS ========== */
+  .neon-border-green {
+    @apply border-cyber-green/50;
+    box-shadow: inset 0 0 10px var(--color-cyber-green-glow), 0 0 10px var(--color-cyber-green-glow);
   }
 
-  .pushpin {
-    @apply absolute w-4 h-4 rounded-full bg-red-700 shadow-xl z-20;
-    box-shadow: inset -2px -2px 5px rgba(0,0,0,0.5), 2px 5px 8px rgba(0,0,0,0.6);
+  .neon-border-blue {
+    @apply border-cyber-blue/50;
+    box-shadow: inset 0 0 10px var(--color-cyber-blue-glow), 0 0 10px var(--color-cyber-blue-glow);
   }
 
-  .pushpin::after {
+  .neon-border-amber {
+    @apply border-cyber-amber/50;
+    box-shadow: inset 0 0 10px var(--color-cyber-amber-glow), 0 0 10px var(--color-cyber-amber-glow);
+  }
+
+  .neon-border-red {
+    @apply border-cyber-red/50;
+    box-shadow: inset 0 0 10px var(--color-cyber-red-glow), 0 0 10px var(--color-cyber-red-glow);
+  }
+
+  .neon-border-violet {
+    @apply border-cyber-violet/50;
+    box-shadow: inset 0 0 10px var(--color-cyber-violet-glow), 0 0 10px var(--color-cyber-violet-glow);
+  }
+
+  /* ========== BUTTONS ========== */
+  .cyber-button {
+    @apply px-4 py-2 border font-display text-sm uppercase tracking-widest transition-all duration-300 relative overflow-hidden;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+
+  .cyber-button::after {
     content: '';
     position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.4);
-  }
-  
-  .paper-clip {
-    position: absolute;
-    top: -15px;
-    right: 20px;
-    width: 15px;
-    height: 40px;
-    border: 3px solid #888;
-    border-radius: 10px;
-    z-index: 20;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.3), inset 1px 1px 2px rgba(255,255,255,0.5);
-    background: transparent;
-  }
-
-  /* CRT Monitor Elements */
-  .crt-enclosure {
-    @apply relative border-[12px] border-[#1a1a1a] rounded-[16px] bg-[#050505] overflow-hidden shadow-2xl;
-    box-shadow: 
-      inset 0 0 20px rgba(0,0,0,1),
-      5px 10px 30px rgba(0,0,0,0.7);
-  }
-
-  .crt-enclosure::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-    background-size: 100% 4px;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(transparent,
+        rgba(255, 255, 255, 0.03),
+        transparent);
+    transform: rotate(45deg);
+    transition: transform 0.6s ease;
     pointer-events: none;
-    z-index: 10;
-  }
-  
-  .crt-enclosure::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.4) 120%);
-    pointer-events: none;
-    z-index: 15;
   }
 
-  .typewriter-text {
-    font-family: 'Special Elite', monospace;
+  .cyber-button:hover::after {
+    transform: rotate(45deg) translate(50%, 50%);
   }
 
-  .stamp {
-    font-family: 'Special Elite', monospace;
-    color: #8b0000;
-    border: 3px solid #8b0000;
-    padding: 2px 8px;
-    transform: rotate(-5deg);
-    display: inline-block;
-    opacity: 0.8;
+  .cyber-button-green {
+    @apply border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-black;
   }
 
+  .cyber-button-blue {
+    @apply border-cyber-blue text-cyber-blue hover:bg-cyber-blue hover:text-black;
+  }
 
-  
-  /* Scrollbar */
+  /* ========== INPUTS ========== */
+  .cyber-input {
+    @apply bg-black/80 border border-cyber-line p-3 font-mono text-white focus:outline-none focus:border-cyber-green transition-all;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+  }
+
+  .cyber-input:focus {
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5), 0 0 8px var(--color-cyber-green-glow);
+  }
+
+  .cyber-input::placeholder {
+    @apply text-gray-700 text-xs uppercase tracking-widest;
+  }
+
+  /* ========== SCROLLBAR ========== */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.3);
-    border-radius: 4px;
+    width: 4px;
   }
 
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    41% { opacity: 1; }
-    42% { opacity: 0.85; }
-    43% { opacity: 1; }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #0a0a0a;
   }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #1a1a1a;
+    border-radius: 0;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #333;
+  }
+
+  /* ========== SCANLINE ========== */
+  .scanline {
+    width: 100%;
+    height: 100px;
+    z-index: 100;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+    opacity: 0.1;
+    position: absolute;
+    bottom: 100%;
+    animation: scanline 8s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes scanline {
+    0% {
+      bottom: 100%;
+    }
+
+    100% {
+      bottom: -100px;
+    }
+  }
+
+  /* ========== FLICKER (subtle — NOT aggressive) ========== */
+  @keyframes flicker {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    41% {
+      opacity: 1;
+    }
+
+    42% {
+      opacity: 0.85;
+    }
+
+    43% {
+      opacity: 1;
+    }
+
+    77% {
+      opacity: 1;
+    }
+
+    78% {
+      opacity: 0.9;
+    }
+
+    79% {
+      opacity: 1;
+    }
+  }
+
+  .flicker-anim {
+    animation: flicker 4s infinite;
+  }
+
+  /* ========== GLITCH TEXT ========== */
+  @keyframes glitch-shift {
+
+    0%,
+    100% {
+      transform: translate(0);
+    }
+
+    20% {
+      transform: translate(-2px, 1px);
+    }
+
+    40% {
+      transform: translate(2px, -1px);
+    }
+
+    60% {
+      transform: translate(-1px, -1px);
+    }
+
+    80% {
+      transform: translate(1px, 1px);
+    }
+  }
+
+  @keyframes glitch-color {
+
+    0%,
+    100% {
+      text-shadow: none;
+    }
+
+    25% {
+      text-shadow: -2px 0 var(--color-cyber-red), 2px 0 var(--color-cyber-blue);
+    }
+
+    50% {
+      text-shadow: 2px 0 var(--color-cyber-green), -2px 0 var(--color-cyber-violet);
+    }
+
+    75% {
+      text-shadow: -1px 0 var(--color-cyber-blue), 1px 0 var(--color-cyber-red);
+    }
+  }
+
+  .glitch-text {
+    animation: glitch-color 5s infinite;
+  }
+
+  .glitch-text:hover {
+    animation: glitch-shift 0.3s infinite, glitch-color 0.5s infinite;
+  }
+
+  /* ========== FLOATING PARTICLE ========== */
+  @keyframes float-up {
+    0% {
+      transform: translateY(100vh) scale(0);
+      opacity: 0;
+    }
+
+    10% {
+      opacity: 1;
+    }
+
+    90% {
+      opacity: 1;
+    }
+
+    100% {
+      transform: translateY(-10vh) scale(1);
+      opacity: 0;
+    }
+  }
+
+  @keyframes float-drift {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    50% {
+      transform: translateX(20px);
+    }
+  }
+
+  .particle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: var(--color-cyber-green);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: float-up var(--duration, 12s) linear infinite;
+    animation-delay: var(--delay, 0s);
+    left: var(--x, 50%);
+    box-shadow: 0 0 6px var(--color-cyber-green-glow);
+  }
+
+  .particle:nth-child(even) {
+    background: var(--color-cyber-blue);
+    box-shadow: 0 0 6px var(--color-cyber-blue-glow);
+  }
+
+  .particle:nth-child(3n) {
+    background: var(--color-cyber-violet);
+    box-shadow: 0 0 6px var(--color-cyber-violet-glow);
+    width: 3px;
+    height: 3px;
+  }
+
+  /* ========== ANIMATE FLOAT (decorative) ========== */
+  @keyframes gentle-float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .animate-float {
+    animation: gentle-float 6s ease-in-out infinite;
+  }
+
+  /* ========== BOOT SEQUENCE ========== */
+  @keyframes boot-fade-in {
+    0% {
+      opacity: 0;
+      filter: blur(4px);
+    }
+
+    100% {
+      opacity: 1;
+      filter: blur(0);
+    }
+  }
+
+  .boot-enter {
+    animation: boot-fade-in 0.8s ease-out forwards;
+  }
+
+  /* ========== PULSE RING ========== */
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scale(1.8);
+      opacity: 0;
+    }
+  }
+
+  .pulse-ring {
+    position: relative;
+  }
+
+  .pulse-ring::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px solid var(--color-cyber-amber);
+    animation: pulse-ring 2s ease-out infinite;
+    pointer-events: none;
+  }
+
+  /* ========== HEADER GRADIENT LINE ========== */
+  .header-gradient-line {
+    height: 2px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        var(--color-cyber-green) 15%,
+        var(--color-cyber-blue) 50%,
+        var(--color-cyber-violet) 85%,
+        transparent 100%);
+    opacity: 0.6;
+  }
+
+  /* ========== TYPING CURSOR ========== */
+  @keyframes blink-cursor {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .typing-cursor::after {
+    content: '█';
+    animation: blink-cursor 1s step-end infinite;
+    color: var(--color-cyber-green);
+    margin-left: 2px;
+  }
+}
+
+.crt-vignette {
+  background: radial-gradient(circle, transparent 60%, rgba(0, 0, 0, 0.5) 100%);
+  @apply pointer-events-none fixed inset-0 z-50;
+}
+
+/* ========== SCROLLBAR RETRO ========== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-black;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-white/10 border border-white/5;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-cyber-green/40;
+}
+
+/* ========== ADVERSARY AI GLITCH EFFECT ========== */
+@keyframes adversary-flicker {
+  0%, 100% { filter: none; }
+  10% { filter: hue-rotate(20deg) brightness(1.05); }
+  20% { filter: hue-rotate(-10deg) brightness(0.95); }
+  30% { filter: none; }
+  50% { filter: hue-rotate(5deg) saturate(1.2); }
+  60% { filter: none; }
+  80% { filter: hue-rotate(-5deg) brightness(1.02); }
+  90% { filter: none; }
+}
+
+.adversary-glitch {
+  animation: adversary-flicker 0.5s ease-in-out infinite;
 }
