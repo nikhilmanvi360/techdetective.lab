@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { User, Trophy, CheckCircle2, History, Clock, ShieldAlert, Terminal, Award, Activity } from 'lucide-react';
+import { User, Trophy, CheckCircle2, History, Clock, ShieldAlert, Terminal, Award, Activity, Zap, Target, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Team, Puzzle, Submission } from '../types';
+import { Team, Puzzle, Submission, ScoreEvent } from '../types';
 import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 
@@ -11,18 +11,24 @@ export default function Profile() {
     solvedPuzzles: Puzzle[];
     submissions: Submission[];
   } | null>(null);
+  const [timeline, setTimeline] = useState<ScoreEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const { playSound } = useSound();
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('/api/team/profile', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        const result = await response.json();
-        if (response.ok) {
-          setData(result);
+        const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+        const [profileRes, timelineRes] = await Promise.all([
+          fetch('/api/team/profile', { headers }),
+          fetch('/api/team/timeline', { headers })
+        ]);
+        
+        if (profileRes.ok) {
+          setData(await profileRes.json());
+        }
+        if (timelineRes.ok) {
+          setTimeline(await timelineRes.json());
         }
       } catch (err) {
         console.error('Failed to fetch profile');
@@ -96,7 +102,7 @@ export default function Profile() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {team.badges.map((badge, idx) => (
-              <motion.div 
+              <motion.div
                 key={idx}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -114,6 +120,59 @@ export default function Profile() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Score Event Timeline */}
+      {timeline.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-cyber-line pb-4">
+            <TrendingUp className="w-5 h-5 text-cyber-green" />
+            <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Score Event Timeline</h2>
+            <span className="ml-auto text-[9px] font-mono text-gray-600 uppercase">{timeline.length} Events</span>
+          </div>
+          <div className="cyber-panel overflow-hidden border-cyber-line/50">
+            <div className="divide-y divide-cyber-line/30 max-h-[400px] overflow-y-auto custom-scrollbar">
+              {timeline.slice(0, 20).map((event, idx) => {
+                const icon = event.event_type === 'puzzle_solve' ? <CheckCircle2 className="w-4 h-4 text-cyber-green" /> :
+                  event.event_type === 'case_solve' ? <ShieldAlert className="w-4 h-4 text-cyber-blue" /> :
+                  event.event_type === 'first_blood' ? <Zap className="w-4 h-4 text-cyber-red" /> :
+                  event.event_type === 'hint_penalty' ? <Clock className="w-4 h-4 text-cyber-amber" /> :
+                  event.event_type === 'adversary_action' ? <Target className="w-4 h-4 text-cyber-violet" /> :
+                  <Activity className="w-4 h-4 text-gray-500" />;
+
+                const label = event.event_type.replace(/_/g, ' ').toUpperCase();
+
+                return (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-1.5 border border-cyber-line group-hover:border-cyber-green/30 transition-colors">
+                        {icon}
+                      </div>
+                      <div>
+                        <div className="text-xs font-display text-white uppercase tracking-widest">{label}</div>
+                        <div className="text-[9px] font-mono text-gray-600 mt-0.5">
+                          {new Date(event.created_at).toLocaleString()}
+                          {event.metadata?.multiplier && (
+                            <span className="ml-2 text-cyber-amber">×{event.metadata.multiplier} BOOST</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-lg font-display font-bold tabular-nums ${event.points >= 0 ? 'text-cyber-green' : 'text-cyber-red'}`}>
+                      {event.points >= 0 ? '+' : ''}{event.points} XP
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
@@ -143,7 +202,7 @@ export default function Profile() {
                 ))
               ) : (
                 <div className="p-10 text-center text-gray-700 font-display text-[10px] uppercase tracking-[0.4em] italic opacity-50">
-                   No investigative modules secured.
+                  No investigative modules secured.
                 </div>
               )}
             </div>
@@ -163,11 +222,10 @@ export default function Profile() {
                   <div key={s.id} className="p-6 space-y-3 hover:bg-white/5 transition-colors group">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-display font-bold text-white uppercase tracking-widest group-hover:text-cyber-blue transition-colors">{s.case_title.replace(' ', '_')}</h3>
-                      <span className={`text-[9px] font-display px-2 py-0.5 border uppercase tracking-widest ${
-                        s.status === 'correct' 
-                          ? 'bg-cyber-green/5 text-cyber-green border-cyber-green/30' 
+                      <span className={`text-[9px] font-display px-2 py-0.5 border uppercase tracking-widest ${s.status === 'correct'
+                          ? 'bg-cyber-green/5 text-cyber-green border-cyber-green/30'
                           : 'bg-cyber-red/5 text-cyber-red border-cyber-red/30'
-                      }`}>
+                        }`}>
                         {s.status}
                       </span>
                     </div>

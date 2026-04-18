@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trophy, Medal, Target, Users, Activity, Zap, Cpu, Search, ShieldAlert, Crown } from 'lucide-react';
+import { Trophy, Medal, Target, Users, Activity, Zap, Cpu, Search, ShieldAlert, Crown, TrendingUp, Timer, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { ScoreEntry } from '../types';
+import { ScoreEntry, ScoreEvent, ScoreMultiplier } from '../types';
 import { io } from 'socket.io-client';
 import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
@@ -13,7 +13,7 @@ function AnimatedScore({ value, className }: { value: number; className?: string
 
   useEffect(() => {
     if (!isInView) return;
-    
+
     let start = 0;
     const end = value;
     const duration = 1200;
@@ -23,7 +23,7 @@ function AnimatedScore({ value, className }: { value: number; className?: string
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      
+
       start = Math.floor(eased * end);
       setDisplayValue(start);
 
@@ -42,6 +42,8 @@ export default function Scoreboard() {
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeMultipliers, setActiveMultipliers] = useState<ScoreMultiplier[]>([]);
+  const [recentEvents, setRecentEvents] = useState<ScoreEvent[]>([]);
   const { playSound } = useSound();
 
   const fetchScores = async () => {
@@ -59,10 +61,14 @@ export default function Scoreboard() {
   useEffect(() => {
     fetchScores();
     
+    // Fetch multipliers and recent events
+    fetch('/api/multipliers/active').then(r => r.json()).then(setActiveMultipliers).catch(() => {});
+
     const socket = io();
     socket.on('score_update', () => {
       playSound('ping');
       fetchScores();
+      fetch('/api/multipliers/active').then(r => r.json()).then(setActiveMultipliers).catch(() => {});
     });
 
     return () => {
@@ -70,7 +76,7 @@ export default function Scoreboard() {
     };
   }, [playSound]);
 
-  const filteredScores = scores.filter(s => 
+  const filteredScores = scores.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -88,7 +94,7 @@ export default function Scoreboard() {
   return (
     <div className="max-w-6xl mx-auto space-y-12">
       {/* HUD Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="cyber-panel border-cyber-amber/30 p-10 relative overflow-hidden gradient-border"
@@ -107,26 +113,26 @@ export default function Scoreboard() {
               // Real-time tracking of active investigation units. Rank is determined by cumulative score across all case nodes.
             </p>
           </div>
-          
+
           <div className="w-full md:w-80 space-y-4">
-             <div className="flex items-center justify-between text-[10px] font-display text-cyber-blue uppercase tracking-widest px-1">
-                <div className="flex items-center gap-2">
-                   <Target className="w-3 h-3" />
-                   Filter_By_Team
-                </div>
-                <span>Sec: 0x4A</span>
-             </div>
-             <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 group-focus-within:text-cyber-blue transition-colors" />
-                <input 
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="cyber-input w-full pl-12 h-12 border-cyber-line focus:border-cyber-blue"
-                  placeholder="SEARCH_TEAM_ID..."
-                />
-                <div className="absolute bottom-0 left-0 h-[1px] w-0 group-focus-within:w-full bg-cyber-blue transition-all duration-500" />
-             </div>
+            <div className="flex items-center justify-between text-[10px] font-display text-cyber-blue uppercase tracking-widest px-1">
+              <div className="flex items-center gap-2">
+                <Target className="w-3 h-3" />
+                Filter_By_Team
+              </div>
+              <span>Sec: 0x4A</span>
+            </div>
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 group-focus-within:text-cyber-blue transition-colors" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="cyber-input w-full pl-12 h-12 border-cyber-line focus:border-cyber-blue"
+                placeholder="SEARCH_TEAM_ID..."
+              />
+              <div className="absolute bottom-0 left-0 h-[1px] w-0 group-focus-within:w-full bg-cyber-blue transition-all duration-500" />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -141,8 +147,8 @@ export default function Scoreboard() {
                 <span className="text-[10px] font-display text-white uppercase tracking-widest">Active_Units_Stream</span>
               </div>
               <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
-                 <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Live_Sync: Active</span>
+                <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
+                <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Live_Sync: Active</span>
               </div>
             </div>
 
@@ -158,7 +164,7 @@ export default function Scoreboard() {
                 <tbody className="divide-y divide-cyber-line/30">
                   <AnimatePresence mode="popLayout">
                     {filteredScores.map((entry, index) => (
-                      <motion.tr 
+                      <motion.tr
                         key={entry.name}
                         layout
                         initial={{ opacity: 0, y: 10 }}
@@ -169,11 +175,10 @@ export default function Scoreboard() {
                       >
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-4">
-                            <span className={`text-xl font-display font-bold tabular-nums ${
-                              index === 0 ? 'text-cyber-amber text-shadow-amber' : 
-                              index === 1 ? 'text-gray-400' : 
-                              index === 2 ? 'text-amber-700' : 'text-gray-700'
-                            }`}>
+                            <span className={`text-xl font-display font-bold tabular-nums ${index === 0 ? 'text-cyber-amber text-shadow-amber' :
+                                index === 1 ? 'text-gray-400' :
+                                  index === 2 ? 'text-amber-700' : 'text-gray-700'
+                              }`}>
                               {(index + 1).toString().padStart(2, '0')}
                             </span>
                             {index === 0 && (
@@ -187,9 +192,8 @@ export default function Scoreboard() {
                         </td>
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-5">
-                            <div className={`w-10 h-10 flex items-center justify-center text-md font-bold border transition-all ${
-                              index === 0 ? 'bg-cyber-amber/10 border-cyber-amber text-cyber-amber neon-border-amber' : 'bg-black/60 border-cyber-line text-gray-500 group-hover:border-cyber-blue group-hover:text-cyber-blue'
-                            }`}>
+                            <div className={`w-10 h-10 flex items-center justify-center text-md font-bold border transition-all ${index === 0 ? 'bg-cyber-amber/10 border-cyber-amber text-cyber-amber neon-border-amber' : 'bg-black/60 border-cyber-line text-gray-500 group-hover:border-cyber-blue group-hover:text-cyber-blue'
+                              }`}>
                               {entry.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col">
@@ -208,7 +212,7 @@ export default function Scoreboard() {
                         </td>
                         <td className="px-8 py-6 text-right">
                           <div className="flex flex-col items-end">
-                            <AnimatedScore 
+                            <AnimatedScore
                               value={entry.score}
                               className={`text-2xl font-display font-bold tabular-nums transition-colors ${index === 0 ? 'text-cyber-amber' : 'text-white group-hover:text-cyber-blue'}`}
                             />
@@ -218,7 +222,7 @@ export default function Scoreboard() {
                       </motion.tr>
                     ))}
                   </AnimatePresence>
-                  
+
                   {filteredScores.length === 0 && (
                     <tr>
                       <td colSpan={3} className="px-8 py-20 text-center">
@@ -237,63 +241,93 @@ export default function Scoreboard() {
 
         {/* Sidebar Analytics */}
         <div className="space-y-8">
-           <div className="cyber-panel p-8 border-cyber-blue/20 corner-brackets">
-              <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 bg-cyber-blue/10 border border-cyber-blue/30">
-                    <Target className="w-4 h-4 text-cyber-blue" />
-                 </div>
-                 <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">Field_Density</h4>
+          {/* Active Multiplier Banner */}
+          {activeMultipliers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="cyber-panel p-6 border-cyber-amber/40 bg-cyber-amber/5 relative overflow-hidden"
+            >
+              <motion.div
+                animate={{ opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 bg-gradient-to-r from-cyber-amber/5 via-transparent to-cyber-amber/5"
+              />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-cyber-amber/10 border border-cyber-amber/30 animate-pulse">
+                    <Zap className="w-5 h-5 text-cyber-amber fill-cyber-amber/30" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-display font-bold text-cyber-amber uppercase tracking-widest">MULTIPLIER ACTIVE</h4>
+                    <p className="text-[9px] font-mono text-cyber-amber/60 uppercase">{activeMultipliers[0].multiplier}x XP Boost</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 uppercase">
+                  <Timer className="w-3 h-3 text-cyber-amber" />
+                  Expires: {new Date(activeMultipliers[0].ends_at).toLocaleTimeString()}
+                </div>
               </div>
-              <div className="space-y-2">
-                 <div className="text-4xl font-display font-bold text-white tabular-nums">
-                   <AnimatedScore value={scores.length} />
-                 </div>
-                 <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Active_Investigator_Units</p>
-              </div>
-              <div className="mt-8 pt-8 border-t border-cyber-line">
-                 <div className="h-1 w-full bg-cyber-line relative overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: '65%' }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet" 
-                    />
-                 </div>
-                 <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-2 block">Bandwidth: 65% Capacity</span>
-              </div>
-           </div>
+            </motion.div>
+          )}
 
-           <div className="cyber-panel p-8 border-cyber-green/20 corner-brackets">
-              <div className="flex items-center gap-3 mb-6">
-                 <div className="p-2 bg-cyber-green/10 border border-cyber-green/30">
-                    <Cpu className="w-4 h-4 text-cyber-green" />
-                 </div>
-                 <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">XP_Throughput</h4>
+          <div className="cyber-panel p-8 border-cyber-blue/20 corner-brackets">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-cyber-blue/10 border border-cyber-blue/30">
+                <Target className="w-4 h-4 text-cyber-blue" />
               </div>
-              <div className="space-y-2">
-                 <div className="text-4xl font-display font-bold text-white tabular-nums">
-                   <AnimatedScore value={scores.length > 0 ? Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length) : 0} />
-                 </div>
-                 <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Average_Payload_Per_Unit</p>
+              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">Field_Density</h4>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-display font-bold text-white tabular-nums">
+                <AnimatedScore value={scores.length} />
               </div>
-              <div className="mt-8 pt-8 border-t border-cyber-line">
-                 <div className="flex items-center gap-2">
-                    <motion.div 
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-1.5 h-1.5 rounded-full bg-cyber-green" 
-                    />
-                    <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest">Processor: Nominal_State</span>
-                 </div>
+              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Active_Investigator_Units</p>
+            </div>
+            <div className="mt-8 pt-8 border-t border-cyber-line">
+              <div className="h-1 w-full bg-cyber-line relative overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: '65%' }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet"
+                />
               </div>
-           </div>
+              <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-2 block">Bandwidth: 65% Capacity</span>
+            </div>
+          </div>
 
-           <div className="cyber-panel p-6 border-dashed border-cyber-line opacity-40">
-              <div className="bg-black/40 p-10 flex items-center justify-center">
-                 <ShieldAlert className="w-8 h-8 text-gray-700" />
+          <div className="cyber-panel p-8 border-cyber-green/20 corner-brackets">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-cyber-green/10 border border-cyber-green/30">
+                <Cpu className="w-4 h-4 text-cyber-green" />
               </div>
-              <p className="text-[8px] font-mono text-gray-700 uppercase p-4 text-center tracking-[0.2em]">Encrypted_Telemetry_Node_09</p>
-           </div>
+              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">XP_Throughput</h4>
+            </div>
+            <div className="space-y-2">
+              <div className="text-4xl font-display font-bold text-white tabular-nums">
+                <AnimatedScore value={scores.length > 0 ? Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length) : 0} />
+              </div>
+              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Average_Payload_Per_Unit</p>
+            </div>
+            <div className="mt-8 pt-8 border-t border-cyber-line">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-1.5 h-1.5 rounded-full bg-cyber-green"
+                />
+                <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest">Processor: Nominal_State</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="cyber-panel p-6 border-dashed border-cyber-line opacity-40">
+            <div className="bg-black/40 p-10 flex items-center justify-center">
+              <ShieldAlert className="w-8 h-8 text-gray-700" />
+            </div>
+            <p className="text-[8px] font-mono text-gray-700 uppercase p-4 text-center tracking-[0.2em]">Encrypted_Telemetry_Node_09</p>
+          </div>
         </div>
       </div>
     </div>

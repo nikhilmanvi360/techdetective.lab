@@ -17,9 +17,15 @@ export default function Dashboard() {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         const data = await response.json();
-        setCases(data);
+        if (Array.isArray(data)) {
+          setCases(data);
+        } else {
+          console.error('API Error:', data.error || 'Unknown error');
+          setCases([]);
+        }
       } catch (err) {
         console.error('Failed to fetch cases');
+        setCases([]);
       } finally {
         setLoading(false);
       }
@@ -40,7 +46,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-12">
       {/* Tactical Briefing Banner */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -58,7 +64,7 @@ export default function Dashboard() {
           <p className="text-gray-400 max-w-2xl font-mono text-sm mb-10 leading-relaxed border-l-2 border-cyber-green/20 pl-6">
             Cyber Command has detected multiple intrusion vectors. Your objective is to neutralize the threat by analyzing raw telemetry and decoding the adversary's playbook.
           </p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl">
             {[
               { label: 'Analyze', desc: 'Sift through raw case strings', icon: <Terminal className="w-4 h-4" /> },
@@ -66,8 +72,8 @@ export default function Dashboard() {
               { label: 'Identify', desc: 'Pinpoint the primary threat actor', icon: <Activity className="w-4 h-4" /> },
               { label: 'Submit', desc: 'Secure the system and file report', icon: <Zap className="w-4 h-4" /> }
             ].map((step, i) => (
-              <motion.div 
-                key={i} 
+              <motion.div
+                key={i}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 + i * 0.1 }}
@@ -75,7 +81,7 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="text-cyber-green/70">{step.icon}</div>
-                  <div className="text-[10px] font-display text-cyber-green uppercase tracking-widest">Protocol 0{i+1}</div>
+                  <div className="text-[10px] font-display text-cyber-green uppercase tracking-widest">Protocol 0{i + 1}</div>
                 </div>
                 <div className="text-white font-display text-sm uppercase mb-1">{step.label}</div>
                 <div className="text-gray-500 text-[10px] font-mono leading-tight">{step.desc}</div>
@@ -100,26 +106,24 @@ export default function Dashboard() {
             <Link to={`/case/${c.id}`} onClick={() => playSound('click')} className="block group h-full">
               <div className="cyber-panel h-full hover:neon-border-green transition-all duration-500 flex flex-col group-hover:-translate-y-2 corner-brackets relative overflow-hidden">
                 {/* Decorative top gradient bar */}
-                <div className={`h-[2px] w-full ${
-                  c.difficulty === 'Easy' ? 'bg-gradient-to-r from-transparent via-cyber-green to-transparent' :
-                  c.difficulty === 'Intermediate' ? 'bg-gradient-to-r from-transparent via-cyber-amber to-transparent' :
-                  'bg-gradient-to-r from-transparent via-cyber-red to-transparent'
-                } opacity-40 group-hover:opacity-100 transition-opacity`} />
-                
+                <div className={`h-[2px] w-full ${c.difficulty === 'Easy' ? 'bg-gradient-to-r from-transparent via-cyber-green to-transparent' :
+                    c.difficulty === 'Intermediate' ? 'bg-gradient-to-r from-transparent via-cyber-amber to-transparent' :
+                      'bg-gradient-to-r from-transparent via-cyber-red to-transparent'
+                  } opacity-40 group-hover:opacity-100 transition-opacity`} />
+
                 <div className="bg-black/60 px-5 py-3 border-b border-cyber-line flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                   <div className="w-1.5 h-1.5 bg-cyber-green rounded-full shadow-[0_0_8px_var(--color-cyber-green)]" />
-                   <span className="text-[10px] font-display text-white uppercase tracking-widest">CASE_NODE_{c.id.toString().padStart(3, '0')}</span>
+                    <div className="w-1.5 h-1.5 bg-cyber-green rounded-full shadow-[0_0_8px_var(--color-cyber-green)]" />
+                    <span className="text-[10px] font-display text-white uppercase tracking-widest">CASE_NODE_{c.id.toString().padStart(3, '0')}</span>
                   </div>
-                  <div className={`px-2 py-0.5 border text-[9px] font-display font-bold uppercase ${
-                    c.difficulty === 'Easy' ? 'border-cyber-green/30 text-cyber-green bg-cyber-green/5' :
-                    c.difficulty === 'Intermediate' ? 'border-cyber-amber/30 text-cyber-amber bg-cyber-amber/5' :
-                    'border-cyber-red/30 text-cyber-red bg-cyber-red/5'
-                  }`}>
+                  <div className={`px-2 py-0.5 border text-[9px] font-display font-bold uppercase ${c.difficulty === 'Easy' ? 'border-cyber-green/30 text-cyber-green bg-cyber-green/5' :
+                      c.difficulty === 'Intermediate' ? 'border-cyber-amber/30 text-cyber-amber bg-cyber-amber/5' :
+                        'border-cyber-red/30 text-cyber-red bg-cyber-red/5'
+                    }`}>
                     {c.difficulty}
                   </div>
                 </div>
-                
+
                 <div className="p-8 flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="text-2xl font-display font-bold text-white group-hover:text-cyber-green transition-colors mb-4 uppercase tracking-tight">
@@ -129,7 +133,7 @@ export default function Dashboard() {
                       // {c.description}
                     </p>
                   </div>
-                  
+
                   <div className="pt-6 border-t border-cyber-line flex items-center justify-between">
                     <div className="flex items-center gap-5">
                       <div className="flex flex-col">
@@ -142,7 +146,7 @@ export default function Dashboard() {
                       <div className="flex flex-col">
                         <span className="text-[8px] font-display text-gray-600 uppercase mb-0.5">Payload</span>
                         <div className="flex items-center gap-1.5 text-[10px] font-display text-cyber-amber tracking-tighter tabular-nums text-shadow-amber">
-                           800_PTS
+                          800_PTS
                         </div>
                       </div>
                     </div>
@@ -151,7 +155,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Decorative Corner Elements */}
                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyber-green/0 group-hover:border-cyber-green transition-all" />
                 <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyber-green/0 group-hover:border-cyber-green transition-all" />
@@ -161,7 +165,7 @@ export default function Dashboard() {
         ))}
 
         {/* System Expansion Pod */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.3 }}
           transition={{ delay: cases.length * 0.12 + 0.2 }}

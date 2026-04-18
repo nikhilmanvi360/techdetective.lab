@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Terminal, LogOut, LayoutDashboard, Trophy, ShieldAlert, User, Shield, Activity, Cpu } from 'lucide-react';
+import { Terminal, LogOut, LayoutDashboard, Trophy, ShieldAlert, User, Shield, Activity, Cpu, Zap, X, Skull } from 'lucide-react';
 import { Team } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import LiveTicker from './LiveTicker';
 import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
+import { useAdversary } from '../hooks/useAdversary';
 
 interface LayoutProps {
   team: Team | null;
@@ -43,10 +44,19 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { playSound } = useSound();
+  const { isGlitching, glitchMessage, guidanceHint, dismissGuidance } = useAdversary();
+
+  // AudioContext warning resolved by removing automatic sounds on navigation.
+  // Standard sound effects on click/interaction still work.
+
+  // Play sound on adversary events
+  useEffect(() => {
+    if (isGlitching) playSound('error');
+  }, [isGlitching, playSound]);
 
   useEffect(() => {
-    playSound('ping');
-  }, [location.pathname, playSound]);
+    if (guidanceHint) playSound('ping');
+  }, [guidanceHint, playSound]);
 
   const handleLogout = () => {
     playSound('error');
@@ -55,16 +65,14 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   };
 
   const navItem = (to: string, icon: React.ReactNode, label: string) => (
-    <Link 
-      to={to} 
+    <Link
+      to={to}
       onClick={() => playSound('click')}
-      className={`group flex flex-col items-center gap-1 transition-all ${
-        location.pathname === to ? 'text-cyber-green' : 'text-gray-500 hover:text-white'
-      }`}
+      className={`group flex flex-col items-center gap-1 transition-all ${location.pathname === to ? 'text-cyber-green' : 'text-gray-500 hover:text-white'
+        }`}
     >
-      <div className={`p-2 border transition-all ${
-        location.pathname === to ? 'border-cyber-green neon-border-green' : 'border-transparent group-hover:border-gray-700'
-      }`}>
+      <div className={`p-2 border transition-all ${location.pathname === to ? 'border-cyber-green neon-border-green' : 'border-transparent group-hover:border-gray-700'
+        }`}>
         {icon}
       </div>
       <span className="text-[10px] font-display uppercase tracking-[0.2em]">{label}</span>
@@ -72,7 +80,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-cyber-bg relative selection:bg-cyber-green selection:text-black">
+    <div className={`min-h-screen flex flex-col bg-cyber-bg relative selection:bg-cyber-green selection:text-black transition-all duration-300 ${isGlitching ? 'adversary-glitch' : ''}`}>
       {/* Ambient Particles */}
       <ParticleField />
 
@@ -81,6 +89,65 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         <div className="scanline" />
         <div className="absolute inset-0 cyber-grid opacity-10" />
       </div>
+
+      {/* Adversary Signal Interference Overlay */}
+      <AnimatePresence>
+        {isGlitching && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] pointer-events-none"
+          >
+            <div className="absolute inset-0 bg-cyber-red/5 mix-blend-overlay" />
+            <div className="absolute inset-0 animate-pulse" style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(239,68,68,0.03) 2px, rgba(239,68,68,0.03) 4px)' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-black/90 border-2 border-cyber-red/50 px-10 py-6 shadow-[0_0_40px_rgba(239,68,68,0.3)]"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Zap className="w-5 h-5 text-cyber-red animate-pulse" />
+                  <span className="text-xs font-display text-cyber-red uppercase tracking-[0.4em] font-bold">Adversary_Detected</span>
+                </div>
+                <p className="text-sm font-mono text-cyber-red/80">{glitchMessage}</p>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Adversary Guidance Hint Banner */}
+      <AnimatePresence>
+        {guidanceHint && (
+          <motion.div
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            transition={{ type: 'spring', damping: 20 }}
+            className="fixed top-0 left-0 right-0 z-[55] bg-gradient-to-r from-cyber-amber/10 via-cyber-amber/5 to-cyber-amber/10 border-b border-cyber-amber/30 backdrop-blur-md"
+          >
+            <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-cyber-amber/10 border border-cyber-amber/30 animate-pulse">
+                  <ShieldAlert className="w-5 h-5 text-cyber-amber" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-display text-cyber-amber uppercase tracking-[0.3em] mb-1">Adversary_Guidance</div>
+                  <p className="text-sm font-mono text-cyber-amber/90">{guidanceHint}</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissGuidance}
+                className="p-2 text-cyber-amber/50 hover:text-cyber-amber transition-colors pointer-events-auto"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Navigation HUD */}
       <header className="border-b border-cyber-line bg-black/80 sticky top-0 z-40 backdrop-blur-md">
@@ -102,14 +169,26 @@ export default function Layout({ team, onLogout }: LayoutProps) {
             {navItem('/', <LayoutDashboard className="w-5 h-5" />, 'Dashboard')}
             {navItem('/scoreboard', <Trophy className="w-5 h-5" />, 'Rankings')}
             {navItem('/profile', <User className="w-5 h-5" />, 'Profile')}
+            {navItem('/black-market', <Skull className="w-5 h-5 text-cyber-red" />, 'Shadow_Market')}
+            {location.pathname.startsWith('/case/') && !location.pathname.includes('/board/') && (
+              <Link 
+                to={`/board/${location.pathname.split('/').pop()}`}
+                onClick={() => playSound('click')}
+                className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-display uppercase tracking-widest border border-dashed border-cyber-blue/30 text-cyber-blue hover:bg-cyber-blue/5 transition-all animate-pulse"
+              >
+                <Activity className="w-3 h-3" /> Investigative_Board
+              </Link>
+            )}
             {team?.name === 'CCU_ADMIN' && navItem('/admin', <Shield className="w-5 h-5" />, 'Admin')}
           </nav>
 
           <div className="flex items-center gap-6">
             <div className="hidden sm:flex flex-col items-end border-r border-cyber-line pr-6">
               <div className="flex items-center gap-2 mb-1">
-                <Cpu className="w-3 h-3 text-cyber-blue" />
-                <span className="text-[10px] font-display text-cyber-blue uppercase tracking-widest">Active_Node</span>
+                <Cpu className={`w-3 h-3 ${team?.role === 'analyst' ? 'text-cyber-blue' : 'text-cyber-green'}`} />
+                <span className={`text-[10px] font-display uppercase tracking-widest ${team?.role === 'analyst' ? 'text-cyber-blue' : 'text-cyber-green'}`}>
+                  {team?.role === 'analyst' ? 'Analyst_Console' : (team?.role === 'admin' ? 'Admin_Link' : 'Hacker_Interface')}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-display text-white font-bold">{team?.name || 'GUEST'}</span>
@@ -131,7 +210,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
               </span>
             </div>
 
-            <button 
+            <button
               onClick={handleLogout}
               className="p-3 border border-cyber-red/30 text-cyber-red hover:bg-cyber-red/10 hover:border-cyber-red hover:neon-border-red transition-all group"
               title="Terminate Connection"

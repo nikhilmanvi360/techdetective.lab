@@ -11,6 +11,7 @@ interface LoginProps {
 export default function Login({ onLogin }: LoginProps) {
   const [teamName, setTeamName] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'hacker' | 'analyst'>('hacker');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
@@ -46,11 +47,11 @@ export default function Login({ onLogin }: LoginProps) {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamName, password }),
+        body: JSON.stringify({ teamName, password, role }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         playSound('success');
         setProgress(100);
@@ -92,7 +93,7 @@ export default function Login({ onLogin }: LoginProps) {
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-cyber-blue/5 to-transparent" />
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -131,6 +132,35 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
+              
+              {/* Role Selector */}
+              <div className="flex bg-black/50 border border-cyber-line p-1">
+                <button
+                  type="button"
+                  onClick={() => { playSound('click'); setRole('hacker'); }}
+                  className={`flex-1 py-3 text-xs font-display uppercase tracking-widest transition-all ${
+                    role === 'hacker' 
+                      ? 'bg-cyber-green text-black font-bold' 
+                      : 'text-gray-500 hover:bg-cyber-green/10 hover:text-cyber-green'
+                  }`}
+                >
+                  <Terminal className="w-4 h-4 inline-block mr-2 mb-0.5" />
+                  Hacker_Interface
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { playSound('click'); setRole('analyst'); }}
+                  className={`flex-1 py-3 text-xs font-display uppercase tracking-widest transition-all ${
+                    role === 'analyst' 
+                      ? 'bg-cyber-blue text-black font-bold' 
+                      : 'text-gray-500 hover:bg-cyber-blue/10 hover:text-cyber-blue'
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 inline-block mr-2 mb-0.5" />
+                  Analyst_Console
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -138,7 +168,7 @@ export default function Login({ onLogin }: LoginProps) {
                     <label className="text-[10px] font-display text-cyber-blue uppercase tracking-widest">Team_ID</label>
                   </div>
                   <div className="relative group">
-                    <input 
+                    <input
                       type="text"
                       required
                       value={teamName}
@@ -156,7 +186,7 @@ export default function Login({ onLogin }: LoginProps) {
                     <label className="text-[10px] font-display text-cyber-green uppercase tracking-widest">Access_Hex</label>
                   </div>
                   <div className="relative group">
-                    <input 
+                    <input
                       type="password"
                       required
                       value={password}
@@ -171,7 +201,7 @@ export default function Login({ onLogin }: LoginProps) {
 
               <AnimatePresence>
                 {error && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -187,17 +217,16 @@ export default function Login({ onLogin }: LoginProps) {
               </AnimatePresence>
 
               <div className="pt-4 border-t border-cyber-line">
-                <button 
+                <button
                   type="submit"
                   disabled={loading}
-                  className={`cyber-button w-full h-14 flex items-center justify-center gap-3 group transition-all ${
-                    loading ? 'bg-cyber-green/5 border-cyber-green/20' : 'cyber-button-green cursor-pointer'
-                  }`}
+                  className={`cyber-button w-full h-14 flex items-center justify-center gap-3 group transition-all ${loading ? 'bg-cyber-green/5 border-cyber-green/20' : 'cyber-button-green cursor-pointer'
+                    }`}
                 >
                   {loading ? (
                     <div className="w-full h-full flex flex-col items-center justify-center p-2">
                       <div className="w-full bg-cyber-line h-1 mb-2 overflow-hidden">
-                        <motion.div 
+                        <motion.div
                           className="bg-cyber-green h-full"
                           animate={{ width: `${progress}%` }}
                         />

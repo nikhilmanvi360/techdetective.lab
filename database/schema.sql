@@ -97,3 +97,109 @@ BEGIN
   WHERE id = team_id_input;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- EVENT SOURCING: Immutable score event log
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS score_events (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL, -- 'puzzle_solve', 'case_solve', 'first_blood', 'hint_penalty', 'admin_adjust', 'adversary_action'
+  points INTEGER NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Active multiplier windows (admin-controlled, fair for all teams)
+CREATE TABLE IF NOT EXISTS score_multipliers (
+  id SERIAL PRIMARY KEY,
+  multiplier NUMERIC(3,1) NOT NULL DEFAULT 2.0,
+  event_types TEXT[] DEFAULT ARRAY['puzzle_solve', 'case_solve'],
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
+  created_by TEXT DEFAULT 'admin',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Recompute a team's score from their event log (anti-cheat / integrity check)
+CREATE OR REPLACE FUNCTION recompute_team_score(target_team_id INT)
+RETURNS INTEGER AS $$
+DECLARE
+  total INTEGER;
+BEGIN
+  SELECT COALESCE(SUM(points), 0) INTO total
+  FROM score_events
+  WHERE team_id = target_team_id;
+
+  UPDATE teams SET score = total WHERE id = target_team_id;
+  RETURN total;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- EXECUTABLE CASE ENGINE: Behavior rules + per-team state
+-- ============================================================
+
+-- Add behavior rules column to cases (JSONB array of rules)
+-- Run: ALTER TABLE cases ADD COLUMN IF NOT EXISTS behavior JSONB DEFAULT '[]';
+
+-- Per-team case state (lockouts, dynamic hints, mutations)
+CREATE TABLE IF NOT EXISTS case_team_state (
+  id SERIAL PRIMARY KEY,
+  case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  state JSONB DEFAULT '{"lockouts":{},"dynamic_hints":{},"mutated_evidence":[],"unlocked_hidden":[],"messages":[]}',
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(case_id, team_id)
+);
+
+-- ============================================================
+-- ADVERSARY AI: Engagement-focused NPC system
+-- ============================================================
+
+-- Adversary configuration (admin-controlled)
+CREATE TABLE IF NOT EXISTS adversary_config (
+  id SERIAL PRIMARY KEY,
+  is_active BOOLEAN DEFAULT FALSE,
+  intensity TEXT DEFAULT 'low', -- 'low', 'medium', 'high'
+  lead_threshold INTEGER DEFAULT 200,
+  actions_enabled TEXT[] DEFAULT ARRAY['signal_interference', 'guidance_hint'],
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Adversary action log
+CREATE TABLE IF NOT EXISTS adversary_actions (
+  id SERIAL PRIMARY KEY,
+  target_team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL, -- 'signal_interference', 'evidence_encrypt', 'puzzle_scramble', 'guidance_hint'
+  metadata JSONB DEFAULT '{}',
+  resolved BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default adversary config
+INSERT INTO adversary_config (is_active, intensity, lead_threshold, actions_enabled)
+VALUES (false, 'low', 200, ARRAY['signal_interference', 'guidance_hint'])
+ON CONFLICT DO NOTHING;
+
+-- Investigation Board Tables
+CREATE TABLE IF NOT EXISTS investigation_nodes (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'suspect', 'clue', 'timeline'
+  content JSONB NOT NULL,
+  x NUMERIC NOT NULL,
+  y NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS investigation_links (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  source_node_id INTEGER NOT NULL REFERENCES investigation_nodes(id) ON DELETE CASCADE,
+  target_node_id INTEGER NOT NULL REFERENCES investigation_nodes(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+

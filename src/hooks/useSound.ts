@@ -1,15 +1,36 @@
 import { useCallback } from 'react';
 
+// Single global instance to prevent "AudioContext was not allowed to start" duplication
+let globalAudioCtx: AudioContext | null = null;
+
+function getAudioContext() {
+  if (typeof window === 'undefined') return null;
+  if (!globalAudioCtx) {
+    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      globalAudioCtx = new AudioContextClass();
+    }
+  }
+  return globalAudioCtx;
+}
+
 /**
  * A hook to play synthesized UI sound effects using the Web Audio API.
- * This avoids the need for external audio files.
  */
 export function useSound() {
-  const playSound = useCallback((type: 'click' | 'success' | 'error' | 'ping') => {
-    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
+  const playSound = useCallback(async (type: 'click' | 'success' | 'error' | 'ping') => {
+    const ctx = getAudioContext();
+    if (!ctx) return;
     
-    const ctx = new AudioContextClass();
+    // Attempt to resume context on every interaction to satisfy browser security
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch (err) {
+        return; // Still blocked by browser
+      }
+    }
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -40,7 +61,6 @@ export function useSound() {
         break;
 
       case 'success':
-        // Double beep
         osc.type = 'sine';
         osc.frequency.setValueAtTime(600, now);
         osc.frequency.setValueAtTime(800, now + 0.1);
@@ -52,7 +72,6 @@ export function useSound() {
         break;
 
       case 'error':
-        // Low buzz
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(100, now);
         osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);

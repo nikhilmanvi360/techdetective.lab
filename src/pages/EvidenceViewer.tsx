@@ -1,36 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Terminal, Download, Copy, Check, Link as LinkIcon, Activity, Send, ShieldAlert, History, Lock as LockIcon, Zap, Cpu, User, Database } from 'lucide-react';
+import { ChevronLeft, Terminal, Download, Copy, Check, Link as LinkIcon, Activity, Send, ShieldAlert, History, Lock as LockIcon, Zap, Cpu, User, Database, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Evidence } from '../types';
 import { useSound } from '../hooks/useSound';
+import { useAdversary } from '../hooks/useAdversary';
 
-function LineNumberedContent({ content, type }: { content: string; type: string }) {
+function LineNumberedContent({ content, type, isEncrypted }: { content: string; type: string, isEncrypted?: boolean }) {
   const lines = content.split('\n');
-  
-  const baseColor = type === 'log' ? 'text-cyber-green' : 
-                     type === 'code' ? 'text-cyber-amber' : 
-                     type === 'chat' ? 'text-cyber-blue' :
-                     'text-gray-300';
+
+  const baseColor = (type === 'log' || isEncrypted) ? 'text-cyber-green' :
+    type === 'code' ? 'text-cyber-amber' :
+      type === 'chat' ? 'text-cyber-blue' :
+        'text-gray-300';
+
+  const scrambleLine = (line: string) => {
+    if (!line.trim()) return '';
+    return line.split('').map(c => Math.random() > 0.3 ? c : String.fromCharCode(33 + Math.floor(Math.random() * 94))).join('');
+  };
 
   return (
-    <div className="font-mono text-sm">
-      {lines.map((line, i) => (
+    <div className={`font-mono text-sm ${isEncrypted ? 'adversary-glitch opacity-80' : ''}`}>
+      {lines.map((line, i) => {
+        const displayLine = isEncrypted ? scrambleLine(line) : line;
+        
+        return (
         <div key={i} className="flex group hover:bg-white/[0.02] transition-colors">
           <span className="select-none w-14 flex-shrink-0 text-right pr-4 text-gray-700 text-[11px] border-r border-cyber-line/30 tabular-nums font-display group-hover:text-gray-500 transition-colors">
             {(i + 1).toString().padStart(3, ' ')}
           </span>
-          <span className={`pl-4 flex-1 whitespace-pre-wrap break-all ${baseColor} ${
-            line.trim().startsWith('//') || line.trim().startsWith('#') ? 'text-gray-600 italic' :
-            line.trim().startsWith('ERROR') || line.trim().startsWith('[ERROR]') ? 'text-cyber-red' :
-            line.trim().startsWith('WARNING') || line.trim().startsWith('[WARN]') ? 'text-cyber-amber' :
-            line.includes('===') || line.includes('---') ? 'text-gray-600' :
-            ''
-          }`}>
-            {line || '\u00A0'}
+          <span className={`pl-4 flex-1 whitespace-pre-wrap break-all ${baseColor} ${!isEncrypted && (line.trim().startsWith('//') || line.trim().startsWith('#')) ? 'text-gray-600 italic' :
+              !isEncrypted && (line.trim().startsWith('ERROR') || line.trim().startsWith('[ERROR]')) ? 'text-cyber-red' :
+                !isEncrypted && (line.trim().startsWith('WARNING') || line.trim().startsWith('[WARN]')) ? 'text-cyber-amber' :
+                  !isEncrypted && (line.includes('===') || line.includes('---')) ? 'text-gray-600' :
+                    ''
+            }`}>
+            {displayLine || '\u00A0'}
           </span>
         </div>
-      ))}
+      )})}
     </div>
   );
 }
@@ -41,7 +49,11 @@ export default function EvidenceViewer() {
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const { playSound } = useSound();
+  const { activeActions, resolveAction } = useAdversary();
+
+  const encryptAction = activeActions.find(a => a.action_type === 'evidence_encrypt');
 
   useEffect(() => {
     if (!id) return;
@@ -69,12 +81,29 @@ export default function EvidenceViewer() {
   }, [id, playSound]);
 
   const handleCopy = () => {
-    if (evidence) {
+    if (evidence && !encryptAction) {
       navigator.clipboard.writeText(evidence.content);
       playSound('click');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } else if (encryptAction) {
+      playSound('error');
     }
+  };
+
+  const handleDeIce = async () => {
+    if (!encryptAction || resolving) return;
+    playSound('click');
+    if (!window.confirm(`De-Icing will deduct ${encryptAction.metadata?.cost_to_resolve || 25} XP. Proceed?`)) return;
+    
+    setResolving(true);
+    const result = await resolveAction(encryptAction.id);
+    if (result.success) {
+      playSound('success');
+    } else {
+      playSound('error');
+    }
+    setResolving(false);
   };
 
   if (loading) return (
@@ -88,11 +117,14 @@ export default function EvidenceViewer() {
 
   if (!evidence) return <div className="text-cyber-red font-display tracking-widest text-center mt-20">CRITICAL_ERROR: EVIDENCE_NOT_FOUND</div>;
 
-  const metadata = evidence.metadata ? JSON.parse(evidence.metadata) : {};
+  // Supabase returns JSONB as an object, but sometimes it might be a string depending on the fetch layer
+  const metadata = typeof evidence.metadata === 'string' 
+    ? JSON.parse(evidence.metadata) 
+    : (evidence.metadata || {});
 
   return (
     <div className="space-y-10">
-      <button 
+      <button
         type="button"
         onClick={() => { playSound('click'); navigate(-1); }}
         className="flex items-center gap-2 text-[10px] font-display text-gray-500 hover:text-cyber-green transition-all uppercase tracking-[0.3em] group"
@@ -104,7 +136,7 @@ export default function EvidenceViewer() {
       <div className="cyber-panel border-cyber-blue/30 overflow-hidden relative gradient-border">
         {/* Decorative Scans */}
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyber-blue/40 to-transparent" />
-        
+
         <div className="bg-black/80 px-8 py-5 border-b border-cyber-line flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="p-2 border border-cyber-blue/40 relative">
@@ -117,7 +149,7 @@ export default function EvidenceViewer() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               type="button"
               onClick={handleCopy}
               className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-green hover:text-cyber-green hover:bg-cyber-green/5 transition-all flex items-center gap-2 group"
@@ -126,7 +158,7 @@ export default function EvidenceViewer() {
               {copied ? <Check className="w-4 h-4 text-cyber-green" /> : <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />}
               <span className="text-[10px] font-display uppercase tracking-widest hidden sm:block">{copied ? 'Copied' : 'Copy'}</span>
             </button>
-            <button 
+            <button
               type="button"
               className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-blue hover:text-cyber-blue hover:bg-cyber-blue/5 transition-all flex items-center gap-2 group"
               title="Download Binary Data"
@@ -159,7 +191,7 @@ export default function EvidenceViewer() {
             Size: {evidence.content.length.toLocaleString()} Bytes | Lines: {evidence.content.split('\n').length}
           </div>
         </div>
-        
+
         {/* Linked Records */}
         {(metadata.linkedPuzzles?.length > 0 || metadata.linkedEvidence?.length > 0) && (
           <div className="bg-black/60 px-8 py-4 flex flex-wrap items-center gap-10 border-b border-cyber-line">
@@ -168,8 +200,8 @@ export default function EvidenceViewer() {
                 <span className="text-[9px] font-display text-cyber-blue uppercase tracking-widest">Linked_Puzzles:</span>
                 <div className="flex gap-2">
                   {metadata.linkedPuzzles.map((pid: number) => (
-                    <Link 
-                      key={`p-${pid}`} 
+                    <Link
+                      key={`p-${pid}`}
                       to={`/case/${evidence.case_id}#puzzle-${pid}`}
                       onClick={() => playSound('click')}
                       className="px-2 py-0.5 bg-cyber-blue/10 border border-cyber-blue/30 text-cyber-blue hover:bg-cyber-blue/20 text-[10px] font-display transition-all"
@@ -186,8 +218,8 @@ export default function EvidenceViewer() {
                 <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Cross_References:</span>
                 <div className="flex gap-2">
                   {metadata.linkedEvidence.map((eid: number) => (
-                    <Link 
-                      key={`e-${eid}`} 
+                    <Link
+                      key={`e-${eid}`}
                       to={`/evidence/${eid}`}
                       onClick={() => playSound('click')}
                       className="px-2 py-0.5 bg-cyber-green/10 border border-cyber-green/30 text-cyber-green hover:bg-cyber-green/20 text-[10px] font-display transition-all"
@@ -203,15 +235,34 @@ export default function EvidenceViewer() {
 
         {/* Binary Content Area — with line numbers */}
         <div className="p-6 overflow-x-auto relative custom-scrollbar">
+          {encryptAction && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-sm">
+              <div className="bg-black/90 p-8 border-2 border-cyber-red shadow-[0_0_50px_rgba(239,68,68,0.2)] text-center">
+                <LockIcon className="w-12 h-12 text-cyber-red mx-auto mb-4 animate-pulse" />
+                <h3 className="text-lg font-display font-bold text-cyber-red uppercase tracking-widest mb-2">EVIDENCE ENCRYPTED</h3>
+                <p className="text-sm font-mono text-gray-400 mb-6">{encryptAction.metadata?.message || 'The Adversary has encrypted this intel.'}</p>
+                <button
+                  type="button"
+                  onClick={handleDeIce}
+                  disabled={resolving}
+                  className={`cyber-button w-full h-12 bg-cyber-red/20 text-cyber-red border border-cyber-red hover:bg-cyber-red hover:text-black transition-all flex items-center justify-center gap-2 ${resolving ? 'opacity-50 cursor-wait' : ''}`}
+                >
+                  {resolving ? <Cpu className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
+                  <span className="font-display uppercase tracking-widest font-bold">DE-ICE NODE (-{encryptAction.metadata?.cost_to_resolve || 25} XP)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="absolute top-0 right-0 w-32 h-32 opacity-5 pointer-events-none p-4">
-             <ShieldAlert className="w-full h-full text-cyber-blue" />
+            <ShieldAlert className="w-full h-full text-cyber-blue" />
           </div>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="leading-relaxed"
           >
-            <LineNumberedContent content={evidence.content} type={evidence.type} />
+            <LineNumberedContent content={evidence.content} type={evidence.type} isEncrypted={!!encryptAction} />
           </motion.div>
         </div>
 
@@ -239,17 +290,17 @@ export default function EvidenceViewer() {
           </div>
           <div className="space-y-3">
             <div className="h-1 bg-cyber-line overflow-hidden">
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '92%' }}
                 transition={{ duration: 1.5 }}
-                className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet" 
+                className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet"
               />
             </div>
             <p className="text-[9px] font-display text-gray-500 uppercase tracking-widest">Consistency: 92.4% Verified</p>
           </div>
         </div>
-        
+
         <div className="cyber-panel p-6 space-y-4 border-cyber-green/20 corner-brackets">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-4 h-4 text-cyber-green" />

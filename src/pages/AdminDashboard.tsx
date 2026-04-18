@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, Users, FileText, CheckCircle, XCircle, Clock, 
-  Search, Terminal, Key, Edit2, Save, Ban, Check, Plus, 
-  BarChart2, Download, Activity, Cpu, Zap, Send, Database, AlertCircle
+import {
+  Shield, Users, FileText, CheckCircle, XCircle, Clock,
+  Search, Terminal, Key, Edit2, Save, Ban, Check, Plus,
+  BarChart2, Download, Activity, Cpu, Zap, Send, Database, AlertCircle, TrendingUp, Crosshair, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Submission, Team } from '../types';
@@ -10,19 +10,24 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useSound } from '../hooks/useSound';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'answers' | 'teams' | 'builder' | 'analytics'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'answers' | 'teams' | 'builder' | 'analytics' | 'events' | 'multipliers' | 'adversary'>('submissions');
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [masterKey, setMasterKey] = useState<any[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [multipliers, setMultipliers] = useState<any[]>([]);
+  const [adversaryConfig, setAdversaryConfig] = useState<any>(null);
+  const [adversaryLog, setAdversaryLog] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const { playSound } = useSound();
-  
+
   // Team editing state
   const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<{name: string, score: number, is_disabled: boolean}>({ name: '', score: 0, is_disabled: false });
+  const [editForm, setEditForm] = useState<{ name: string, score: number, is_disabled: boolean }>({ name: '', score: 0, is_disabled: false });
 
   // Builder state
   const [newCase, setNewCase] = useState({ title: '', description: '', difficulty: 'Beginner', correct_attacker: '', points_on_solve: 100 });
@@ -33,18 +38,27 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
-        const [subRes, keyRes, teamsRes, analyticsRes] = await Promise.all([
+        const [subRes, keyRes, teamsRes, analyticsRes, eventsRes, multRes, advConfRes, advLogRes] = await Promise.all([
           fetch('/api/admin/submissions', { headers }),
           fetch('/api/admin/master-key', { headers }),
           fetch('/api/admin/teams', { headers }),
-          fetch('/api/admin/analytics', { headers })
+          fetch('/api/admin/analytics', { headers }),
+          fetch('/api/admin/events', { headers }),
+          fetch('/api/admin/multipliers', { headers }),
+          fetch('/api/admin/adversary', { headers }),
+          fetch('/api/admin/adversary/log', { headers }),
         ]);
-        
+
         if (subRes.ok && keyRes.ok && teamsRes.ok && analyticsRes.ok) {
           setSubmissions(await subRes.json());
           setMasterKey(await keyRes.json());
           setTeams(await teamsRes.json());
           setAnalytics(await analyticsRes.json());
+          
+          if (eventsRes.ok) setEvents(await eventsRes.json());
+          if (multRes.ok) setMultipliers(await multRes.json());
+          if (advConfRes.ok) setAdversaryConfig(await advConfRes.json());
+          if (advLogRes.ok) setAdversaryLog(await advLogRes.json());
         }
       } catch (err) {
         console.error('Failed to fetch admin data');
@@ -73,7 +87,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify(editForm)
       });
-      
+
       if (response.ok) {
         playSound('success');
         setTeams(teams.map(t => t.id === id ? { ...t, ...editForm } : t));
@@ -99,7 +113,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({ name: team.name, score: team.score, is_disabled: newStatus })
       });
-      
+
       if (response.ok) {
         playSound(newStatus ? 'error' : 'success');
         setTeams(teams.map(t => t.id === team.id ? { ...t, is_disabled: newStatus } : t));
@@ -148,7 +162,7 @@ export default function AdminDashboard() {
           return;
         }
       }
-      
+
       if (newEvidence.linked_puzzles) {
         parsedMetadata.linkedPuzzles = newEvidence.linked_puzzles.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
       }
@@ -161,10 +175,10 @@ export default function AdminDashboard() {
       const res = await fetch('/api/admin/evidence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ 
-          ...newEvidence, 
+        body: JSON.stringify({
+          ...newEvidence,
           metadata: finalMetadata,
-          required_puzzle_id: newEvidence.required_puzzle_id || null 
+          required_puzzle_id: newEvidence.required_puzzle_id || null
         })
       });
       if (res.ok) {
@@ -204,6 +218,66 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleActivateMultiplier = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    playSound('click');
+    const formData = new FormData(e.currentTarget);
+    const multiplier = parseFloat(formData.get('multiplier') as string);
+    const durationMinutes = parseInt(formData.get('durationMinutes') as string);
+    
+    try {
+      const res = await fetch('/api/admin/multipliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ multiplier, durationMinutes, eventTypes: ['puzzle_solve', 'case_solve'] })
+      });
+      if (res.ok) {
+        playSound('success');
+        alert('Multiplier Activated!');
+        const text = await fetch('/api/admin/multipliers', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json());
+        setMultipliers(text);
+      }
+    } catch { playSound('error'); }
+  };
+
+  const handleUpdateAdversary = async (updates: any) => {
+    playSound('click');
+    try {
+      const res = await fetch('/api/admin/adversary', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        playSound('success');
+        setAdversaryConfig({ ...adversaryConfig, ...updates });
+      }
+    } catch { playSound('error'); }
+  };
+
+  const handleTriggerAdversary = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    playSound('click');
+    const formData = new FormData(e.currentTarget);
+    const targetTeamId = parseInt(formData.get('targetTeamId') as string);
+    const actionType = formData.get('actionType') as string;
+    const message = formData.get('message') as string;
+
+    try {
+      const res = await fetch('/api/admin/adversary/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ targetTeamId, actionType, message })
+      });
+      if (res.ok) {
+        playSound('success');
+        alert('Action Triggered!');
+        const text = await fetch('/api/admin/adversary/log', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json());
+        setAdversaryLog(text);
+      }
+    } catch { playSound('error'); }
+  };
+
   const exportTeamsCSV = () => {
     playSound('ping');
     const headers = ['ID', 'Team Name', 'Score', 'Status', 'Joined'];
@@ -220,8 +294,8 @@ export default function AdminDashboard() {
     playSound('ping');
     const headers = ['ID', 'Team', 'Case', 'Suspect', 'Method', 'Prevention', 'Status', 'Time'];
     const rows = submissions.map(s => [
-      s.id, `"${s.team_name}"`, `"${s.case_title}"`, `"${s.attacker_name}"`, 
-      `"${s.attack_method.replace(/"/g, '""')}"`, `"${s.prevention_measures.replace(/"/g, '""')}"`, 
+      s.id, `"${s.team_name}"`, `"${s.case_title}"`, `"${s.attacker_name}"`,
+      `"${s.attack_method.replace(/"/g, '""')}"`, `"${s.prevention_measures.replace(/"/g, '""')}"`,
       s.status, s.submitted_at
     ]);
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -232,13 +306,13 @@ export default function AdminDashboard() {
     link.click();
   };
 
-  const filteredSubmissions = submissions.filter(s => 
+  const filteredSubmissions = submissions.filter(s =>
     s.team_name?.toLowerCase().includes(filter.toLowerCase()) ||
     s.case_title?.toLowerCase().includes(filter.toLowerCase()) ||
     s.attacker_name.toLowerCase().includes(filter.toLowerCase())
   );
 
-  const filteredTeams = teams.filter(t => 
+  const filteredTeams = teams.filter(t =>
     t.name.toLowerCase().includes(filter.toLowerCase())
   );
 
@@ -270,16 +344,18 @@ export default function AdminDashboard() {
             { id: 'teams', label: 'Teams', icon: <Users className="w-3 h-3" />, color: 'cyber-blue' },
             { id: 'answers', label: 'Master_Key', icon: <Key className="w-3 h-3" />, color: 'cyber-amber' },
             { id: 'builder', label: 'Builder', icon: <Plus className="w-3 h-3" />, color: 'purple-500' },
-            { id: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-3 h-3" />, color: 'orange-500' }
+            { id: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-3 h-3" />, color: 'orange-500' },
+            { id: 'events', label: 'Event_Log', icon: <History className="w-3 h-3" />, color: 'cyan-400' },
+            { id: 'multipliers', label: 'Multipliers', icon: <TrendingUp className="w-3 h-3" />, color: 'yellow-400' },
+            { id: 'adversary', label: 'Adversary_AI', icon: <Crosshair className="w-3 h-3" />, color: 'red-500' }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => { playSound('click'); setActiveTab(tab.id as any); }}
-              className={`px-6 py-2.5 text-[10px] font-display uppercase tracking-widest transition-all flex items-center gap-2 ${
-                activeTab === tab.id ? `bg-${tab.color}/10 text-${tab.color} border border-${tab.color}/30` : 'text-gray-500 hover:text-white'
-              }`}
+              className={`px-4 py-2.5 text-[10px] font-display uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id ? `bg-${tab.color}/10 text-${tab.color} border border-${tab.color}/30` : 'text-gray-500 hover:text-white'
+                }`}
             >
-              {tab.icon} {tab.label}
+              {tab.icon} <span className="hidden md:inline">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -304,7 +380,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-600 group-focus-within:text-cyber-green transition-colors" />
-                    <input 
+                    <input
                       type="text"
                       placeholder="SEARCH..."
                       value={filter}
@@ -313,7 +389,7 @@ export default function AdminDashboard() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="cyber-panel overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left font-display text-xs">
@@ -343,7 +419,7 @@ export default function AdminDashboard() {
                               {s.submitted_at ? new Date(s.submitted_at.replace(' ', 'T') + 'Z').toLocaleString() : 'UNKNOWN'}
                             </td>
                             <td className="p-5 text-right">
-                              <button 
+                              <button
                                 onClick={() => { playSound('click'); setSelectedSubmission(s); }}
                                 className="cyber-button cyber-button-green text-[9px] font-bold"
                               >
@@ -364,10 +440,10 @@ export default function AdminDashboard() {
                   <Terminal className="w-5 h-5 text-cyber-green" />
                   <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Telemetry Analysis</h2>
                 </div>
-                
+
                 <AnimatePresence mode="wait">
                   {selectedSubmission ? (
-                    <motion.div 
+                    <motion.div
                       key={selectedSubmission.id}
                       initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -420,7 +496,7 @@ export default function AdminDashboard() {
                             NODE_ID_{selectedSubmission.id}
                           </span>
                         </div>
-                        <button 
+                        <button
                           onClick={() => { playSound('click'); setSelectedSubmission(null); }}
                           className="text-[9px] font-display text-gray-500 hover:text-white uppercase tracking-widest underline underline-offset-4"
                         >
@@ -452,7 +528,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="relative group">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-600 group-focus-within:text-cyber-blue transition-colors" />
-                  <input 
+                  <input
                     type="text"
                     placeholder="SEARCH_UNITS..."
                     value={filter}
@@ -461,7 +537,7 @@ export default function AdminDashboard() {
                   />
                 </div>
               </div>
-              
+
               <div className="cyber-panel overflow-hidden border-cyber-blue/20">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left font-display text-xs">
@@ -481,10 +557,10 @@ export default function AdminDashboard() {
                           <td className="p-5 text-gray-600 font-mono">0x{t.id.toString(16).toUpperCase()}</td>
                           <td className="p-5">
                             {editingTeamId === t.id ? (
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 value={editForm.name}
-                                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                                 className="cyber-input py-1 text-xs w-full focus:border-cyber-blue"
                               />
                             ) : (
@@ -493,10 +569,10 @@ export default function AdminDashboard() {
                           </td>
                           <td className="p-5">
                             {editingTeamId === t.id ? (
-                              <input 
-                                type="number" 
+                              <input
+                                type="number"
                                 value={editForm.score}
-                                onChange={(e) => setEditForm({...editForm, score: parseInt(e.target.value) || 0})}
+                                onChange={(e) => setEditForm({ ...editForm, score: parseInt(e.target.value) || 0 })}
                                 className="cyber-input py-1 text-cyber-green text-xs w-24 focus:border-cyber-green"
                               />
                             ) : (
@@ -516,7 +592,7 @@ export default function AdminDashboard() {
                           <td className="p-5 text-right">
                             <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                               {editingTeamId === t.id ? (
-                                <button 
+                                <button
                                   onClick={() => handleSaveTeam(t.id)}
                                   className="p-2 border border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-black transition-colors"
                                   title="Sync Changes"
@@ -524,7 +600,7 @@ export default function AdminDashboard() {
                                   <Save className="w-4 h-4" />
                                 </button>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => handleEditTeam(t)}
                                   className="p-2 border border-cyber-line text-gray-500 hover:text-white hover:border-white transition-colors"
                                   title="Override Data"
@@ -532,13 +608,12 @@ export default function AdminDashboard() {
                                   <Edit2 className="w-4 h-4" />
                                 </button>
                               )}
-                              <button 
+                              <button
                                 onClick={() => handleToggleDisable(t)}
-                                className={`p-2 border transition-colors ${
-                                  t.is_disabled 
-                                    ? 'border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-black' 
+                                className={`p-2 border transition-colors ${t.is_disabled
+                                    ? 'border-cyber-green text-cyber-green hover:bg-cyber-green hover:text-black'
                                     : 'border-cyber-red text-cyber-red hover:bg-cyber-red hover:text-white'
-                                }`}
+                                  }`}
                                 title={t.is_disabled ? "Restore Unit" : "Sever Connection"}
                               >
                                 {t.is_disabled ? <Check className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
@@ -560,7 +635,7 @@ export default function AdminDashboard() {
                 <Key className="w-5 h-5 text-cyber-amber" />
                 <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Master Logic Key [CLASSIFIED_LEVEL_4]</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 gap-10">
                 {masterKey.map((caseItem) => (
                   <div key={caseItem.id} className="cyber-panel overflow-hidden border-cyber-amber/30">
@@ -599,9 +674,9 @@ export default function AdminDashboard() {
                               <td className="p-4 text-gray-600 font-mono">0x{p.id.toString(16).toUpperCase()}</td>
                               <td className="p-4 text-gray-300 italic">" {p.question} "</td>
                               <td className="p-4">
-                               <div className="bg-cyber-amber/5 border border-cyber-amber/20 px-3 py-1 text-cyber-amber font-bold inline-block">
-                                 {p.answer}
-                               </div>
+                                <div className="bg-cyber-amber/5 border border-cyber-amber/20 px-3 py-1 text-cyber-amber font-bold inline-block">
+                                  {p.answer}
+                                </div>
                               </td>
                               <td className="p-4 text-cyber-green font-bold tabular-nums">+{p.points} XP</td>
                               <td className="p-4 text-gray-600 italic text-[10px] max-w-sm line-clamp-1">{p.hint || 'NO_HINT_RECORDED'}</td>
@@ -632,16 +707,16 @@ export default function AdminDashboard() {
                   <form onSubmit={handleCreateCase} className="space-y-6">
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Node Title</label>
-                      <input type="text" required value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} className="cyber-input w-full text-xs focus:border-purple-500" placeholder="CASE_IDENTIFIER" />
+                      <input type="text" required value={newCase.title} onChange={e => setNewCase({ ...newCase, title: e.target.value })} className="cyber-input w-full text-xs focus:border-purple-500" placeholder="CASE_IDENTIFIER" />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Briefing Analysis</label>
-                      <textarea required rows={4} value={newCase.description} onChange={e => setNewCase({...newCase, description: e.target.value})} className="cyber-input w-full text-xs resize-none focus:border-purple-500 font-light" placeholder="Describe the intrusion vector..." />
+                      <textarea required rows={4} value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} className="cyber-input w-full text-xs resize-none focus:border-purple-500 font-light" placeholder="Describe the intrusion vector..." />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Threat Level</label>
-                        <select value={newCase.difficulty} onChange={e => setNewCase({...newCase, difficulty: e.target.value})} className="cyber-input w-full text-xs bg-black focus:border-purple-500 tracking-widest">
+                        <select value={newCase.difficulty} onChange={e => setNewCase({ ...newCase, difficulty: e.target.value })} className="cyber-input w-full text-xs bg-black focus:border-purple-500 tracking-widest">
                           <option>Easy</option>
                           <option>Intermediate</option>
                           <option>Hard</option>
@@ -650,12 +725,12 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Reward XP</label>
-                        <input type="number" required value={newCase.points_on_solve} onChange={e => setNewCase({...newCase, points_on_solve: parseInt(e.target.value) || 0})} className="cyber-input w-full text-xs focus:border-purple-500 tabular-nums" />
+                        <input type="number" required value={newCase.points_on_solve} onChange={e => setNewCase({ ...newCase, points_on_solve: parseInt(e.target.value) || 0 })} className="cyber-input w-full text-xs focus:border-purple-500 tabular-nums" />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Root Answer (Threat Actor)</label>
-                      <input type="text" required value={newCase.correct_attacker} onChange={e => setNewCase({...newCase, correct_attacker: e.target.value})} className="cyber-input w-full text-xs focus:border-purple-500 border-l-2 border-l-purple-500" placeholder="FINAL_LOGIC_KEY" />
+                      <input type="text" required value={newCase.correct_attacker} onChange={e => setNewCase({ ...newCase, correct_attacker: e.target.value })} className="cyber-input w-full text-xs focus:border-purple-500 border-l-2 border-l-purple-500" placeholder="FINAL_LOGIC_KEY" />
                     </div>
                     <button type="submit" className="cyber-button w-full h-12 bg-purple-500 text-black font-bold text-xs tracking-[0.2em] border-none mt-4 hover:scale-[1.02] transition-transform">
                       DEPLOY_CASE_NODE
@@ -666,7 +741,7 @@ export default function AdminDashboard() {
 
               <div className="lg:col-span-2 space-y-10">
                 <div className="cyber-panel p-8 border-cyber-blue/40 relative overflow-hidden group">
-                   <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
                     <FileText className="w-24 h-24 text-cyber-blue" />
                   </div>
                   <div className="flex items-center gap-3 mb-8">
@@ -679,14 +754,14 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Parent Case Node</label>
-                        <select required value={newEvidence.case_id} onChange={e => setNewEvidence({...newEvidence, case_id: e.target.value})} className="cyber-input w-full text-xs bg-black focus:border-cyber-blue">
+                        <select required value={newEvidence.case_id} onChange={e => setNewEvidence({ ...newEvidence, case_id: e.target.value })} className="cyber-input w-full text-xs bg-black focus:border-cyber-blue">
                           <option value="">SELECT_TARGET_NODE...</option>
                           {masterKey.map(c => <option key={c.id} value={c.id}>0x{c.id.toString(16).toUpperCase()} // {c.title}</option>)}
                         </select>
                       </div>
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Telemetry Format</label>
-                        <select required value={newEvidence.type} onChange={e => setNewEvidence({...newEvidence, type: e.target.value})} className="cyber-input w-full text-xs bg-black focus:border-cyber-blue">
+                        <select required value={newEvidence.type} onChange={e => setNewEvidence({ ...newEvidence, type: e.target.value })} className="cyber-input w-full text-xs bg-black focus:border-cyber-blue">
                           <option value="chat">COMM_STREAM (Chat)</option>
                           <option value="html">SYSTEM_HEX (HTML)</option>
                           <option value="log">SERVER_TRACE (Log)</option>
@@ -697,30 +772,30 @@ export default function AdminDashboard() {
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Fragment Identifier</label>
-                      <input type="text" required value={newEvidence.title} onChange={e => setNewEvidence({...newEvidence, title: e.target.value})} className="cyber-input w-full text-xs focus:border-cyber-blue" placeholder="EVIDENCE_HEADING" />
+                      <input type="text" required value={newEvidence.title} onChange={e => setNewEvidence({ ...newEvidence, title: e.target.value })} className="cyber-input w-full text-xs focus:border-cyber-blue" placeholder="EVIDENCE_HEADING" />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Raw Data Content</label>
-                      <textarea required rows={5} value={newEvidence.content} onChange={e => setNewEvidence({...newEvidence, content: e.target.value})} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue text-cyber-blue/80 scrollbar-hide" placeholder="HEX_DATA_BLOCK..." />
+                      <textarea required rows={5} value={newEvidence.content} onChange={e => setNewEvidence({ ...newEvidence, content: e.target.value })} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue text-cyber-blue/80 scrollbar-hide" placeholder="HEX_DATA_BLOCK..." />
                     </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Metadata Matrix (JSON)</label>
-                        <input type="text" placeholder='{"source": "10.0.0.1"}' value={newEvidence.metadata} onChange={e => setNewEvidence({...newEvidence, metadata: e.target.value})} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue tracking-tighter" />
+                        <input type="text" placeholder='{"source": "10.0.0.1"}' value={newEvidence.metadata} onChange={e => setNewEvidence({ ...newEvidence, metadata: e.target.value })} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue tracking-tighter" />
                       </div>
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Security Protocol (Min Puzzle ID)</label>
-                        <input type="number" value={newEvidence.required_puzzle_id} onChange={e => setNewEvidence({...newEvidence, required_puzzle_id: e.target.value})} className="cyber-input w-full text-xs focus:border-cyber-blue" placeholder="LOCK_BY_ID" />
+                        <input type="number" value={newEvidence.required_puzzle_id} onChange={e => setNewEvidence({ ...newEvidence, required_puzzle_id: e.target.value })} className="cyber-input w-full text-xs focus:border-cyber-blue" placeholder="LOCK_BY_ID" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Cross-Referenced Tasks</label>
-                        <input type="text" placeholder="101, 102, 105" value={newEvidence.linked_puzzles} onChange={e => setNewEvidence({...newEvidence, linked_puzzles: e.target.value})} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue" />
+                        <input type="text" placeholder="101, 102, 105" value={newEvidence.linked_puzzles} onChange={e => setNewEvidence({ ...newEvidence, linked_puzzles: e.target.value })} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue" />
                       </div>
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Linked Evidence Nodes</label>
-                        <input type="text" placeholder="505, 508" value={newEvidence.linked_evidence} onChange={e => setNewEvidence({...newEvidence, linked_evidence: e.target.value})} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue" />
+                        <input type="text" placeholder="505, 508" value={newEvidence.linked_evidence} onChange={e => setNewEvidence({ ...newEvidence, linked_evidence: e.target.value })} className="cyber-input w-full text-xs font-mono focus:border-cyber-blue" />
                       </div>
                     </div>
                     <button type="submit" className="cyber-button w-full h-12 bg-cyber-blue text-black font-bold text-xs tracking-[0.2em] border-none mt-4 hover:scale-[1.02] transition-transform">
@@ -743,27 +818,27 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Deployment Target</label>
-                        <select required value={newPuzzle.case_id} onChange={e => setNewPuzzle({...newPuzzle, case_id: e.target.value})} className="cyber-input w-full text-xs bg-black focus:border-cyber-green">
+                        <select required value={newPuzzle.case_id} onChange={e => setNewPuzzle({ ...newPuzzle, case_id: e.target.value })} className="cyber-input w-full text-xs bg-black focus:border-cyber-green">
                           <option value="">SELECT_NODE...</option>
                           {masterKey.map(c => <option key={c.id} value={c.id}>0x{c.id.toString(16).toUpperCase()} // {c.title}</option>)}
                         </select>
                       </div>
                       <div className="space-y-2">
                         <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Operational Yield</label>
-                        <input type="number" required value={newPuzzle.points} onChange={e => setNewPuzzle({...newPuzzle, points: parseInt(e.target.value) || 0})} className="cyber-input w-full text-xs focus:border-cyber-green tabular-nums" />
+                        <input type="number" required value={newPuzzle.points} onChange={e => setNewPuzzle({ ...newPuzzle, points: parseInt(e.target.value) || 0 })} className="cyber-input w-full text-xs focus:border-cyber-green tabular-nums" />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Decryption Challenge (Question)</label>
-                      <input type="text" required value={newPuzzle.question} onChange={e => setNewPuzzle({...newPuzzle, question: e.target.value})} className="cyber-input w-full text-xs focus:border-cyber-green" placeholder="CHALLENGE_QUERY" />
+                      <input type="text" required value={newPuzzle.question} onChange={e => setNewPuzzle({ ...newPuzzle, question: e.target.value })} className="cyber-input w-full text-xs focus:border-cyber-green" placeholder="CHALLENGE_QUERY" />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Logic Anchor (Exact Answer)</label>
-                      <input type="text" required value={newPuzzle.answer} onChange={e => setNewPuzzle({...newPuzzle, answer: e.target.value})} className="cyber-input w-full text-xs focus:border-cyber-green border-l-2 border-l-cyber-green" placeholder="EXPECTED_RESPONSE" />
+                      <input type="text" required value={newPuzzle.answer} onChange={e => setNewPuzzle({ ...newPuzzle, answer: e.target.value })} className="cyber-input w-full text-xs focus:border-cyber-green border-l-2 border-l-cyber-green" placeholder="EXPECTED_RESPONSE" />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-[10px] font-display text-gray-500 uppercase tracking-[0.2em]">Partial Cipher (Hint)</label>
-                      <input type="text" value={newPuzzle.hint} onChange={e => setNewPuzzle({...newPuzzle, hint: e.target.value})} className="cyber-input w-full text-xs focus:border-cyber-green italic" placeholder="OPTIONAL_DECRYPT_GUIDE" />
+                      <input type="text" value={newPuzzle.hint} onChange={e => setNewPuzzle({ ...newPuzzle, hint: e.target.value })} className="cyber-input w-full text-xs focus:border-cyber-green italic" placeholder="OPTIONAL_DECRYPT_GUIDE" />
                     </div>
                     <button type="submit" className="cyber-button w-full h-12 bg-cyber-green text-black font-bold text-xs tracking-[0.2em] border-none mt-4 hover:scale-[1.02] transition-transform">
                       COMMIT_LOGIC_UNIT
@@ -801,19 +876,19 @@ export default function AdminDashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={analytics} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                        <XAxis 
-                          dataKey="puzzle_id" 
-                          stroke="#444" 
-                          tick={{ fill: '#666', fontSize: 10, fontFamily: 'Share Tech Mono' }} 
-                          tickFormatter={(val) => `UNIT_${val}`} 
+                        <XAxis
+                          dataKey="puzzle_id"
+                          stroke="#444"
+                          tick={{ fill: '#666', fontSize: 10, fontFamily: 'Share Tech Mono' }}
+                          tickFormatter={(val) => `UNIT_${val}`}
                           label={{ value: 'Task_Node_Address', position: 'insideBottom', offset: -10, fill: '#444', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                         />
-                        <YAxis 
-                          stroke="#444" 
+                        <YAxis
+                          stroke="#444"
                           tick={{ fill: '#666', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                           label={{ value: 'Failure_Count', angle: -90, position: 'insideLeft', fill: '#444', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                         />
-                        <Tooltip 
+                        <Tooltip
                           cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                           contentStyle={{ backgroundColor: '#050505', border: '1px solid #333', borderRadius: '0', fontFamily: 'JetBrains Mono' }}
                           itemStyle={{ color: '#ef4444', fontSize: '12px' }}
@@ -821,13 +896,13 @@ export default function AdminDashboard() {
                           formatter={(value: number) => [value, 'REJECTED_ATTEMPTS']}
                           labelFormatter={(label) => `Task Node 0x${parseInt(label).toString(16).toUpperCase()}`}
                         />
-                        <Bar 
-                          dataKey="failed_attempts" 
-                          fill="#ef4444" 
+                        <Bar
+                          dataKey="failed_attempts"
+                          fill="#ef4444"
                           fillOpacity={0.8}
                           stroke="#ef4444"
                           strokeWidth={1}
-                          radius={[0, 0, 0, 0]} 
+                          radius={[0, 0, 0, 0]}
                           activeBar={{ fill: '#ef4444', fillOpacity: 1 }}
                         />
                       </BarChart>
@@ -839,6 +914,195 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'events' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-cyber-line pb-4 px-2">
+                <div className="flex items-center gap-3">
+                  <History className="w-5 h-5 text-cyan-400" />
+                  <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Global Score Event Log</h2>
+                </div>
+              </div>
+              <div className="cyber-panel overflow-hidden border-cyan-400/20">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-display text-xs">
+                    <thead className="bg-cyan-400/5 border-b border-cyan-400/20">
+                      <tr>
+                         <th className="p-4 text-gray-400 uppercase">Unit</th>
+                         <th className="p-4 text-gray-400 uppercase">Event Type</th>
+                         <th className="p-4 text-gray-400 uppercase">Points</th>
+                         <th className="p-4 text-gray-400 uppercase">Metadata</th>
+                         <th className="p-4 text-gray-400 uppercase">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cyber-line/20">
+                      {events.map((e, i) => (
+                        <tr key={i} className="hover:bg-white/5 text-gray-300">
+                          <td className="p-4 font-bold">{e.team_name || `ID:${e.team_id}`}</td>
+                          <td className="p-4 text-cyan-400">{e.event_type}</td>
+                          <td className="p-4 tabular-nums text-cyber-green">{e.points > 0 ? `+${e.points}` : e.points}</td>
+                          <td className="p-4 text-[10px] font-mono text-gray-500">{JSON.stringify(e.metadata)}</td>
+                          <td className="p-4 text-gray-500">{new Date(e.created_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'multipliers' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="cyber-panel p-8 border-yellow-400/40">
+                <div className="flex items-center gap-3 mb-8">
+                  <TrendingUp className="w-5 h-5 text-yellow-400" />
+                  <h2 className="text-sm font-display font-bold text-white uppercase tracking-widest">Deploy Economy Multiplier</h2>
+                </div>
+                <form onSubmit={handleActivateMultiplier} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase text-gray-500">Multiplier Value (e.g. 1.5, 2)</label>
+                    <input name="multiplier" type="number" step="0.1" defaultValue="2" className="cyber-input w-full" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase text-gray-500">Duration (Minutes)</label>
+                    <input name="durationMinutes" type="number" defaultValue="15" className="cyber-input w-full" />
+                  </div>
+                  <button type="submit" className="cyber-button w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black">
+                    ACTIVATE MULTIPLIER
+                  </button>
+                </form>
+              </div>
+
+              <div className="cyber-panel p-8 border-cyber-line overflow-y-auto max-h-[500px] custom-scrollbar">
+                <h2 className="text-sm font-display font-bold text-white uppercase tracking-widest mb-6">Multiplier History</h2>
+                <div className="space-y-4">
+                  {multipliers.map((m, i) => {
+                     const isActive = new Date(m.ends_at) > new Date();
+                     return (
+                       <div key={i} className={`p-4 border ${isActive ? 'border-yellow-400 bg-yellow-400/10' : 'border-cyber-line bg-black/40'}`}>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-yellow-400">{m.multiplier}x BOOST</span>
+                            {isActive && <span className="text-[10px] px-2 border border-yellow-400 text-yellow-400 animate-pulse">LIVE</span>}
+                          </div>
+                          <div className="text-[10px] text-gray-500 font-mono">
+                            Ends: {new Date(m.ends_at).toLocaleString()}
+                          </div>
+                       </div>
+                     );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'adversary' && (
+            <div className="space-y-8">
+              {/* Config & Manual Trigger */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="cyber-panel p-8 border-red-500/40">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                      <Crosshair className="w-5 h-5 text-red-500" />
+                      <h2 className="text-sm font-display font-bold text-white uppercase tracking-widest">Adversary Configuration</h2>
+                    </div>
+                    {adversaryConfig && (
+                      <button 
+                        onClick={() => handleUpdateAdversary({ is_active: !adversaryConfig.is_active })}
+                        className={`text-xs px-3 py-1 border ${adversaryConfig.is_active ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-gray-500 text-gray-500'}`}
+                      >
+                        {adversaryConfig.is_active ? 'SYS: ONLINE' : 'SYS: OFFLINE'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {adversaryConfig && (
+                     <div className="space-y-6">
+                       <div>
+                         <label className="text-[10px] uppercase text-gray-500 block mb-2">Intensity Level</label>
+                         <div className="flex gap-2">
+                           {['low', 'medium', 'high'].map(level => (
+                             <button
+                               key={level}
+                               onClick={() => handleUpdateAdversary({ intensity: level })}
+                               className={`flex-1 py-2 text-xs uppercase transition-all ${adversaryConfig.intensity === level ? 'bg-red-500 text-black font-bold' : 'border border-cyber-line text-gray-400'}`}
+                             >
+                               {level}
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+                       <div>
+                         <label className="text-[10px] uppercase text-gray-500 block mb-2">Auto-Interference Lead Threshold</label>
+                         <input 
+                           type="number" 
+                           value={adversaryConfig.lead_threshold} 
+                           onChange={(e) => handleUpdateAdversary({ lead_threshold: parseInt(e.target.value) })}
+                           className="cyber-input w-full text-xs"
+                         />
+                       </div>
+                     </div>
+                  )}
+                </div>
+
+                <div className="cyber-panel p-8 border-red-500/40">
+                  <h2 className="text-sm font-display font-bold text-white uppercase tracking-widest mb-6">Manual Override (Target Unit)</h2>
+                  <form onSubmit={handleTriggerAdversary} className="space-y-4">
+                    <div>
+                      <select name="targetTeamId" required className="cyber-input w-full bg-black text-xs">
+                         <option value="">SELECT TEAM...</option>
+                         {teams.filter(t => !t.is_disabled).map(t => (
+                           <option key={t.id} value={t.id}>{t.name} ({t.score} XP)</option>
+                         ))}
+                      </select>
+                    </div>
+                    <div>
+                      <select name="actionType" required className="cyber-input w-full bg-black text-xs">
+                         <option value="signal_interference">VFX: Signal Interference (Glitch)</option>
+                         <option value="guidance_hint">HELP: Guidance Hint (Banner)</option>
+                         <option value="evidence_encrypt">ATTACK: Encrypt Evidence (De-Ice Cost)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <input name="message" type="text" placeholder="Custom Message (Optional)..." className="cyber-input w-full text-xs" />
+                    </div>
+                    <button type="submit" className="cyber-button w-full border-red-500 text-red-500 hover:bg-red-500 hover:text-black">
+                      EXECUTE OVERRIDE
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Action Log */}
+              <div className="cyber-panel overflow-hidden border-cyber-line">
+                 <div className="bg-black/80 px-6 py-4 border-b border-cyber-line">
+                    <h3 className="text-xs uppercase text-gray-400 tracking-widest font-bold">Adversary Deployment Log</h3>
+                 </div>
+                 <div className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left font-display text-xs">
+                       <thead className="bg-white/5 border-b border-cyber-line">
+                          <tr>
+                             <th className="p-4 text-gray-500">Target</th>
+                             <th className="p-4 text-gray-500">Action Type</th>
+                             <th className="p-4 text-gray-500">Resolved</th>
+                             <th className="p-4 text-gray-500">Time</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-cyber-line/20">
+                          {adversaryLog.map((log, i) => (
+                             <tr key={i} className="text-gray-300 hover:bg-white/5">
+                                <td className="p-4 font-bold">{log.team_name || `ID:${log.target_team_id}`}</td>
+                                <td className="p-4 text-red-400">{log.action_type}</td>
+                                <td className="p-4">{log.resolved ? <span className="text-cyber-green">YES</span> : <span className="text-gray-600">NO</span>}</td>
+                                <td className="p-4 text-[10px] text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
+                             </tr>
+                          ))}
+                       </tbody>
+                    </table>
+                 </div>
               </div>
             </div>
           )}

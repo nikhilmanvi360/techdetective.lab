@@ -7,6 +7,8 @@ import EvidenceViewer from './pages/EvidenceViewer';
 import Scoreboard from './pages/Scoreboard';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
+import BlackMarket from './pages/BlackMarket';
+import InvestigationBoard from './pages/InvestigationBoard';
 import Layout from './components/Layout';
 import { Team } from './types';
 
@@ -67,6 +69,8 @@ export default function App() {
           <Route path="/scoreboard" element={<Scoreboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/black-market" element={<BlackMarket />} />
+          <Route path="/board/:caseId" element={<InvestigationBoard />} />
         </Route>
       </Routes>
     </Router>
