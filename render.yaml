@@ -11,4 +11,8 @@ services:
       - key: NODE_VERSION
         value: 22.14.0
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

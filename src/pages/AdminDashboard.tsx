@@ -49,6 +49,13 @@ export default function AdminDashboard() {
           fetch('/api/admin/adversary/log', { headers }),
         ]);
 
+        if (subRes.status === 403 || subRes.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('team');
+          window.location.href = '/login';
+          return;
+        }
+
         if (subRes.ok && keyRes.ok && teamsRes.ok && analyticsRes.ok) {
           const subData = await subRes.json();
           const keyData = await keyRes.json();

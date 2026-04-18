@@ -16,6 +16,14 @@ export default function Dashboard() {
         const response = await fetch('/api/cases', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
+        
+        if (response.status === 403 || response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('team');
+          window.location.href = '/login';
+          return;
+        }
+
         const data = await response.json();
         if (Array.isArray(data)) {
           setCases(data);

@@ -25,9 +25,9 @@ const isTest = process.env.NODE_ENV === 'test';
 // export const db = ... (SQLite removed)
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: isTest ? 100 : 10, 
-  message: { error: 'Too many login attempts. Please try again after 15 minutes.' }
+  windowMs: 5 * 1000, 
+  max: isTest ? 100 : 5, 
+  message: { error: 'Security lockout active. Please wait 5 seconds before retrying.' }
 });
 
 const submissionLimiter = rateLimit({
@@ -38,7 +38,10 @@ const submissionLimiter = rateLimit({
 
 export const app = express();
 const server = http.createServer(app);
-export const io = new SocketIOServer(server, { cors: { origin: '*' } });
+export const io = new SocketIOServer(server, { 
+  cors: { origin: '*' },
+  transports: ['websocket', 'polling']
+});
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function startServer() {
@@ -57,10 +60,18 @@ async function startServer() {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    if (!token) {
+      console.log(`[AUTH] Missing token for ${req.method} ${req.url}`);
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-      if (err) return res.status(403).json({ error: 'Forbidden' });
+      if (err) {
+        console.error(`[AUTH] Token Verification Failed: ${err.message}`);
+        const status = err.name === 'TokenExpiredError' ? 401 : 403;
+        const message = err.name === 'TokenExpiredError' ? 'Session expired' : 'Forbidden';
+        return res.status(status).json({ error: message });
+      }
       req.user = user;
       next();
     });
@@ -165,38 +176,46 @@ async function startServer() {
     let assignedRole = role || 'hacker';
     if (teamName === 'CCU_ADMIN') assignedRole = 'admin';
     
-    // Supabase query
-    const { data: team, error: fetchError } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('name', teamName)
-      .single();
-    
-    if (fetchError || !team) {
-      const hashedPassword = bcrypt.hashSync(password, 10);
-      const { data: newTeam, error: insertError } = await supabase
+    try {
+      // Supabase query
+      const { data: team, error: fetchError } = await supabase
         .from('teams')
-        .insert([{ name: teamName, password: hashedPassword }])
-        .select()
+        .select('*')
+        .eq('name', teamName)
         .single();
-
-      if (insertError) return res.status(500).json({ error: 'Failed to create team' });
       
-      emitLiveEvent(`New team registered: ${teamName}`, 'badge');
-      const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: assignedRole }, JWT_SECRET, { expiresIn: '24h' });
-      return res.json({ token, team: { id: newTeam.id, name: newTeam.name, score: newTeam.score, is_disabled: !!newTeam.is_disabled, role: assignedRole } });
-    } else {
-      if (team.is_disabled) {
-        return res.status(403).json({ error: 'Account disabled by administrator' });
-      }
-      const validPassword = bcrypt.compareSync(password, team.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid password' });
-      }
-    }
+      if (fetchError || !team) {
+        const hashedPassword = bcrypt.hashSync(password, 10);
+        const { data: newTeam, error: insertError } = await supabase
+          .from('teams')
+          .insert([{ name: teamName, password: hashedPassword }])
+          .select()
+          .single();
 
-    const token = jwt.sign({ id: team.id, name: team.name, role: assignedRole }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, team: { id: team.id, name: team.name, score: team.score, is_disabled: !!team.is_disabled, role: assignedRole } });
+        if (insertError) {
+          console.error('[AUTH_LOGIN] Insertion Error:', insertError.message);
+          return res.status(500).json({ error: 'Failed to create team. Ensure database connection is configured.' });
+        }
+        
+        emitLiveEvent(`New team registered: ${teamName}`, 'badge');
+        const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: assignedRole }, JWT_SECRET, { expiresIn: '24h' });
+        return res.json({ token, team: { id: newTeam.id, name: newTeam.name, score: newTeam.score, is_disabled: !!newTeam.is_disabled, role: assignedRole } });
+      } else {
+        if (team.is_disabled) {
+          return res.status(403).json({ error: 'Account disabled by administrator' });
+        }
+        const validPassword = bcrypt.compareSync(password, team.password);
+        if (!validPassword) {
+          return res.status(401).json({ error: 'Invalid password' });
+        }
+      }
+
+      const token = jwt.sign({ id: team.id, name: team.name, role: assignedRole }, JWT_SECRET, { expiresIn: '24h' });
+      res.json({ token, team: { id: team.id, name: team.name, score: team.score, is_disabled: !!team.is_disabled, role: assignedRole } });
+    } catch (err: any) {
+      console.error('[AUTH_LOGIN] Critical Error:', err.message);
+      res.status(500).json({ error: 'Internal Server Error. Check database credentials.' });
+    }
   });
 
   // Team Profile section starts below board routes moved to line 49

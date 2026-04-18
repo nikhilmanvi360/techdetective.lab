@@ -59,7 +59,14 @@ export default function InvestigationBoard() {
         const data = await res.json();
         console.log('Board: Data received', data);
         if (data && Array.isArray(data.nodes) && Array.isArray(data.links)) {
-          setNodes(data.nodes);
+          // Sanitize coordinates and content
+          const sanitizedNodes = data.nodes.map((n: any) => ({
+            ...n,
+            x: Number(n.x),
+            y: Number(n.y),
+            content: n.content || { label: 'Unknown_Node' }
+          }));
+          setNodes(sanitizedNodes);
           setLinks(data.links);
         } else {
           console.error('Board API Error: Invalid data format', data);
@@ -86,16 +93,20 @@ export default function InvestigationBoard() {
   useEffect(() => {
     fetchBoard();
 
-    const socket = io();
+    const socket = io({
+      transports: ['websocket'],
+      reconnectionAttempts: 5
+    });
     socketRef.current = socket;
     const team = JSON.parse(localStorage.getItem('team') || '{}');
 
     socket.on('board_update', (update: any) => {
       if (update.teamId === team.id) {
         if (update.type === 'node_moved') {
-          setNodes(prev => prev.map(n => n.id === update.nodeId ? { ...n, x: update.x, y: update.y } : n));
+          setNodes(prev => prev.map(n => n.id === update.nodeId ? { ...n, x: Number(update.x), y: Number(update.y) } : n));
         } else if (update.type === 'node_added') {
-          setNodes(prev => prev.some(n => n.id === update.node.id) ? prev : [...prev, update.node]);
+          const sanitizedNode = { ...update.node, x: Number(update.node.x), y: Number(update.node.y) };
+          setNodes(prev => prev.some(n => n.id === sanitizedNode.id) ? prev : [...prev, sanitizedNode]);
           playSound('ping');
         } else if (update.type === 'node_deleted') {
           setNodes(prev => prev.filter(n => n.id !== update.nodeId));
@@ -138,11 +149,12 @@ export default function InvestigationBoard() {
       
       if (res.ok) {
         const newNode = await res.json();
-        console.log('Board: Node added', newNode);
+        const sanitizedNode = { ...newNode, x: Number(newNode.x), y: Number(newNode.y) };
+        console.log('Board: Node added', sanitizedNode);
         setNodes(prev => {
-          const exists = prev.some(n => n.id === newNode.id);
+          const exists = prev.some(n => n.id === sanitizedNode.id);
           if (exists) return prev;
-          return [...prev, newNode];
+          return [...prev, sanitizedNode];
         });
         setShowAddMenu(false);
       } else {
@@ -396,10 +408,10 @@ export default function InvestigationBoard() {
               </div>
               
               <div className="text-base font-display font-bold text-white mb-1 uppercase tracking-tighter leading-none">
-                {node.content.label.replace(' ', '_')}
+                {(node.content?.label || 'UNTITLED').replace(/\s+/g, '_')}
               </div>
               <div className="text-[10px] font-mono opacity-50 leading-tight border-t border-white/10 pt-2 mt-2">
-                {node.content.description || 'NO_ADDITIONAL_METADATA'}
+                {node.content?.description || 'NO_ADDITIONAL_METADATA'}
               </div>
 
               {/* Linking Button Overlay */}
