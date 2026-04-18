@@ -56,8 +56,14 @@ export default function InvestigationBoard() {
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        setNodes(data.nodes);
-        setLinks(data.links);
+        if (data && Array.isArray(data.nodes) && Array.isArray(data.links)) {
+          setNodes(data.nodes);
+          setLinks(data.links);
+        } else {
+          console.error('Board API Error: Invalid data format', data);
+          setNodes([]);
+          setLinks([]);
+        }
       } else if (!res.ok) {
         if (contentType && contentType.includes('application/json')) {
           const errorData = await res.json();

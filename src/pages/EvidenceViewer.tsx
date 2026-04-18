@@ -193,9 +193,9 @@ export default function EvidenceViewer() {
         </div>
 
         {/* Linked Records */}
-        {(metadata.linkedPuzzles?.length > 0 || metadata.linkedEvidence?.length > 0) && (
+        {((Array.isArray(metadata.linkedPuzzles) && metadata.linkedPuzzles.length > 0) || (Array.isArray(metadata.linkedEvidence) && metadata.linkedEvidence.length > 0)) && (
           <div className="bg-black/60 px-8 py-4 flex flex-wrap items-center gap-10 border-b border-cyber-line">
-            {metadata.linkedPuzzles?.length > 0 && (
+            {(Array.isArray(metadata.linkedPuzzles) && metadata.linkedPuzzles.length > 0) && (
               <div className="flex items-center gap-4">
                 <span className="text-[9px] font-display text-cyber-blue uppercase tracking-widest">Linked_Puzzles:</span>
                 <div className="flex gap-2">
@@ -213,7 +213,7 @@ export default function EvidenceViewer() {
               </div>
             )}
 
-            {metadata.linkedEvidence?.length > 0 && (
+            {(Array.isArray(metadata.linkedEvidence) && metadata.linkedEvidence.length > 0) && (
               <div className="flex items-center gap-4">
                 <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Cross_References:</span>
                 <div className="flex gap-2">

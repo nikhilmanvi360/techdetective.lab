@@ -36,8 +36,16 @@ export default function BlackMarket() {
         fetch('/api/team/profile', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
-      if (itemsRes.ok) setItems(await itemsRes.json());
-      if (targetsRes.ok) setTeams(await targetsRes.json());
+      if (itemsRes.ok) {
+        const data = await itemsRes.json();
+        if (Array.isArray(data)) setItems(data);
+        else console.error("Black Market API Error: Items not array", data);
+      }
+      if (targetsRes.ok) {
+        const data = await targetsRes.json();
+        if (Array.isArray(data)) setTeams(data);
+        else console.error("Black Market API Error: Targets not array", data);
+      }
       if (profileRes.ok) {
         const profile = await profileRes.json();
         setPlayerTeam(profile.team);

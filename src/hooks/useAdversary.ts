@@ -53,7 +53,12 @@ export function useAdversary() {
       });
       if (res.ok) {
         const actions = await res.json();
-        setState(prev => ({ ...prev, activeActions: actions }));
+        if (Array.isArray(actions)) {
+          setState(prev => ({ ...prev, activeActions: actions }));
+        } else {
+          console.error("Adversary Actions API Error: Expected array", actions);
+          setState(prev => ({ ...prev, activeActions: [] }));
+        }
       }
     } catch {}
   }, []);
