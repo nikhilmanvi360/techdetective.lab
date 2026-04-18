@@ -241,8 +241,7 @@ async function startServer() {
   app.get('/api/cases', authenticateToken, async (req: any, res: any) => {
     const { data: cases, error } = await supabase
       .from('cases')
-      .select('*')
-      .eq('status', 'active');
+      .select('*');
     
     if (error) return res.status(500).json({ error: 'Failed to fetch cases' });
     res.json(cases);

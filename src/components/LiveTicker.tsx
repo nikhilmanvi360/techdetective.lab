@@ -34,10 +34,10 @@ export default function LiveTicker() {
   if (events.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/95 border-t border-cyber-line p-2 z-50 flex items-center gap-4 overflow-hidden backdrop-blur-md">
-      <div className="flex items-center gap-2 text-cyber-green animate-pulse shrink-0 px-2 py-0.5 border border-cyber-green/20 rounded-sm">
+    <div className="fixed bottom-0 left-0 right-0 bg-[#eadda5] border-t-2 border-black p-2 z-[999] flex items-center gap-4 overflow-hidden shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+      <div className="flex items-center gap-2 text-black animate-pulse shrink-0 px-2 py-0.5 border-2 border-black bg-white rounded-none">
         <Radio className="w-4 h-4" />
-        <span className="text-[10px] font-display uppercase tracking-[0.2em] font-bold">Live_Comms</span>
+        <span className="text-[10px] font-display uppercase tracking-[0.2em] font-bold">DISPATCH_WIRE</span>
       </div>
       
       <div className="flex-1 relative h-6 overflow-hidden">
@@ -49,20 +49,20 @@ export default function LiveTicker() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="absolute inset-0 flex items-center gap-2 text-xs font-mono"
+              className="absolute inset-0 flex items-center gap-2 text-xs typewriter-text"
               style={{ zIndex: events.length - index }}
             >
-              {event.type === 'solve' && <CheckCircle className="w-3 h-3 text-cyber-green" />}
-              {event.type === 'badge' && <Award className="w-3 h-3 text-cyber-amber" />}
-              {event.type === 'case' && <ShieldAlert className="w-3 h-3 text-cyber-red" />}
+              {event.type === 'solve' && <CheckCircle className="w-3 h-3 text-[#15803d]" />}
+              {event.type === 'badge' && <Award className="w-3 h-3 text-[rgb(212,175,55)]" />}
+              {event.type === 'case' && <ShieldAlert className="w-3 h-3 text-[#8b0000]" />}
               
               <span className={
-                event.type === 'solve' ? 'text-cyber-green' :
-                event.type === 'badge' ? 'text-cyber-amber' : 'text-cyber-red'
+                event.type === 'solve' ? 'text-[#15803d] font-bold' :
+                event.type === 'badge' ? 'text-[rgb(212,175,55)] font-bold' : 'text-[#8b0000] font-bold'
               }>
                 {event.message}
               </span>
-              <span className="text-gray-600 text-[9px] font-display uppercase tracking-widest ml-auto px-4">
+              <span className="text-gray-500 text-[9px] font-sans uppercase tracking-widest ml-auto px-4 font-bold">
                 {new Date(event.timestamp).toLocaleTimeString()}
               </span>
             </motion.div>
@@ -72,4 +72,3 @@ export default function LiveTicker() {
     </div>
   );
 }
-
