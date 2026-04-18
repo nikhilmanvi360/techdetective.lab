@@ -53,9 +53,11 @@ export default function InvestigationBoard() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      console.log(`Board: Fetching state for case ${caseId}...`);
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
         const data = await res.json();
+        console.log('Board: Data received', data);
         if (data && Array.isArray(data.nodes) && Array.isArray(data.links)) {
           setNodes(data.nodes);
           setLinks(data.links);
@@ -136,8 +138,16 @@ export default function InvestigationBoard() {
       
       if (res.ok) {
         const newNode = await res.json();
-        setNodes(prev => prev.some(n => n.id === newNode.id) ? prev : [...prev, newNode]);
+        console.log('Board: Node added', newNode);
+        setNodes(prev => {
+          const exists = prev.some(n => n.id === newNode.id);
+          if (exists) return prev;
+          return [...prev, newNode];
+        });
         setShowAddMenu(false);
+      } else {
+        const errData = await res.json();
+        console.error('Board: Failed to add node', errData);
       }
     } catch (err) {
       console.error('Failed to add node');
