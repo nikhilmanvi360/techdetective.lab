@@ -50,15 +50,29 @@ export default function AdminDashboard() {
         ]);
 
         if (subRes.ok && keyRes.ok && teamsRes.ok && analyticsRes.ok) {
-          setSubmissions(await subRes.json());
-          setMasterKey(await keyRes.json());
-          setTeams(await teamsRes.json());
-          setAnalytics(await analyticsRes.json());
+          const subData = await subRes.json();
+          const keyData = await keyRes.json();
+          const teamsData = await teamsRes.json();
+          const analyticsData = await analyticsRes.json();
           
-          if (eventsRes.ok) setEvents(await eventsRes.json());
-          if (multRes.ok) setMultipliers(await multRes.json());
+          if (Array.isArray(subData)) setSubmissions(subData);
+          if (Array.isArray(keyData)) setMasterKey(keyData);
+          if (Array.isArray(teamsData)) setTeams(teamsData);
+          if (Array.isArray(analyticsData)) setAnalytics(analyticsData);
+          
+          if (eventsRes.ok) {
+            const evData = await eventsRes.json();
+            if (Array.isArray(evData)) setEvents(evData);
+          }
+          if (multRes.ok) {
+            const mData = await multRes.json();
+            if (Array.isArray(mData)) setMultipliers(mData);
+          }
           if (advConfRes.ok) setAdversaryConfig(await advConfRes.json());
-          if (advLogRes.ok) setAdversaryLog(await advLogRes.json());
+          if (advLogRes.ok) {
+            const alData = await advLogRes.json();
+            if (Array.isArray(alData)) setAdversaryLog(alData);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch admin data');

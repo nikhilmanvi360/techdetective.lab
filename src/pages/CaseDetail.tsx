@@ -97,9 +97,16 @@ export default function CaseDetail() {
         fetch(`/api/cases/${id}/state`, { headers })
       ]);
       const data = await caseRes.json();
-      setCaseData(data);
+      if (data && data.id && Array.isArray(data.evidence) && Array.isArray(data.puzzles)) {
+        setCaseData(data);
+      } else {
+        console.error('Case Detail API Error:', data.error || 'Malformed data');
+        setCaseData(null);
+      }
+      
       if (stateRes.ok) {
-        setDynamicState(await stateRes.json());
+        const stateData = await stateRes.json();
+        setDynamicState(stateData);
       }
     } catch (err) {
       console.error('Failed to fetch case');
@@ -216,10 +223,10 @@ export default function CaseDetail() {
     </div>
   );
 
-  if (!caseData) return <div className="text-cyber-red font-display tracking-widest text-center mt-20 text-xl">CRITICAL_ERROR: CASE_NODE_NOT_FOUND</div>;
+  if (!caseData || !Array.isArray(caseData.puzzles)) return <div className="text-cyber-red font-display tracking-widest text-center mt-20 text-xl">CRITICAL_ERROR: CASE_NODE_NOT_FOUND</div>;
 
-  const solvedCount = caseData.puzzles.filter(p => p.solved).length;
-  const totalCount = caseData.puzzles.length;
+  const solvedCount = (caseData.puzzles || []).filter(p => p.solved).length;
+  const totalCount = (caseData.puzzles || []).length;
 
   return (
     <div className="space-y-12">
@@ -304,7 +311,7 @@ export default function CaseDetail() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {caseData.evidence.map((ev, idx) => (
+          {(caseData.evidence || []).map((ev, idx) => (
             <motion.div
               key={ev.id}
               initial={{ opacity: 0, y: 10 }}
@@ -376,7 +383,7 @@ export default function CaseDetail() {
             {/* Puzzle progress dots with tactical design */}
             <div className="hidden md:flex items-center gap-2 bg-black/40 p-2 border border-cyber-line">
               <span className="text-xs font-display text-gray-500 uppercase tracking-widest mr-2">Decryption_Status:</span>
-              {caseData.puzzles.map((p) => (
+              {(caseData.puzzles || []).map((p) => (
                 <div
                   key={p.id}
                   className={`w-4 h-4 border flex items-center justify-center transition-all ${p.solved
@@ -399,7 +406,7 @@ export default function CaseDetail() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 relative z-10">
-          {caseData.puzzles.map((p, idx) => (
+          {(caseData.puzzles || []).map((p, idx) => (
             <motion.div
               key={p.id}
               id={`puzzle-${p.id}`}

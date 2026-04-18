@@ -25,10 +25,16 @@ export default function Profile() {
         ]);
         
         if (profileRes.ok) {
-          setData(await profileRes.json());
+          const profileData = await profileRes.json();
+          if (profileData && profileData.team) {
+            setData(profileData);
+          }
         }
         if (timelineRes.ok) {
-          setTimeline(await timelineRes.json());
+          const timelineData = await timelineRes.json();
+          if (Array.isArray(timelineData)) {
+            setTimeline(timelineData);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch profile');
@@ -101,7 +107,7 @@ export default function Profile() {
             <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Operational Commendations</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {team.badges.map((badge, idx) => (
+            {(team.badges || []).map((badge, idx) => (
               <motion.div
                 key={idx}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -186,8 +192,8 @@ export default function Profile() {
           </div>
           <div className="cyber-panel overflow-hidden border-cyber-line/50">
             <div className="divide-y divide-cyber-line/30">
-              {solvedPuzzles.length > 0 ? (
-                solvedPuzzles.map((p) => (
+              {(solvedPuzzles || []).length > 0 ? (
+                (solvedPuzzles || []).map((p) => (
                   <div key={p.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-colors group">
                     <div className="space-y-1">
                       <p className="text-sm font-display text-white uppercase tracking-widest group-hover:text-cyber-green transition-colors">TASK_UNIT_0x{p.id}</p>
@@ -217,8 +223,8 @@ export default function Profile() {
           </div>
           <div className="cyber-panel overflow-hidden border-cyber-line/50">
             <div className="divide-y divide-cyber-line/30">
-              {submissions.length > 0 ? (
-                submissions.map((s) => (
+              {(submissions || []).length > 0 ? (
+                (submissions || []).map((s) => (
                   <div key={s.id} className="p-6 space-y-3 hover:bg-white/5 transition-colors group">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-display font-bold text-white uppercase tracking-widest group-hover:text-cyber-blue transition-colors">{s.case_title.replace(' ', '_')}</h3>

@@ -50,9 +50,15 @@ export default function Scoreboard() {
     try {
       const response = await fetch('/api/scoreboard');
       const data = await response.json();
-      setScores(data);
+      if (Array.isArray(data)) {
+        setScores(data);
+      } else {
+        console.error('Scoreboard API Error:', data.error || 'Unknown format');
+        setScores([]);
+      }
     } catch (err) {
       console.error('Failed to fetch scoreboard');
+      setScores([]);
     } finally {
       setLoading(false);
     }
@@ -62,7 +68,12 @@ export default function Scoreboard() {
     fetchScores();
     
     // Fetch multipliers and recent events
-    fetch('/api/multipliers/active').then(r => r.json()).then(setActiveMultipliers).catch(() => {});
+    fetch('/api/multipliers/active')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setActiveMultipliers(data);
+      })
+      .catch(() => {});
 
     const socket = io();
     socket.on('score_update', () => {
