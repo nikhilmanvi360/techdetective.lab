@@ -459,13 +459,15 @@ export default function CaseDetail() {
                 </div>
 
                 {!p.solved ? (() => {
-                  const isLocked = dynamicState?.lockouts?.[p.id] && new Date(dynamicState.lockouts[p.id]) > new Date();
+                  const isFirewallLocked = dynamicState?.lockouts?.[p.id] && new Date(dynamicState.lockouts[p.id]) > new Date();
+                  const isDependencyLocked = p.is_locked;
+                  const isLocked = isFirewallLocked || isDependencyLocked;
                   const autoHint = dynamicState?.dynamic_hints?.[p.id];
 
                   return (
                   <div className="space-y-6">
                     {/* Lockout Timer */}
-                    {isLocked && (
+                    {isFirewallLocked && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -476,6 +478,21 @@ export default function CaseDetail() {
                           <span className="text-sm font-display font-bold text-cyber-red uppercase tracking-[0.2em]">FIREWALL_LOCKOUT</span>
                         </div>
                         <p className="text-xs font-mono text-cyber-red/70">Too many failed attempts. Task locked until {new Date(dynamicState!.lockouts[p.id]).toLocaleTimeString()}</p>
+                      </motion.div>
+                    )}
+
+                    {/* Dependency Lock */}
+                    {isDependencyLocked && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-5 bg-gray-900/40 border-2 border-gray-700/50"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <LockIcon className="w-5 h-5 text-gray-500" />
+                          <span className="text-sm font-display font-bold text-gray-500 uppercase tracking-[0.2em]">DEPENDENCY_LOCKED</span>
+                        </div>
+                        <p className="text-xs font-mono text-gray-600">This subsystem is encrypted. You must bypass TASK_UNIT_0x{p.depends_on_puzzle_id?.toString().padStart(2, '0')} first.</p>
                       </motion.div>
                     )}
 
@@ -502,10 +519,10 @@ export default function CaseDetail() {
                         </div>
                         <input
                           type="text"
-                          disabled={solvingPuzzle[p.id]}
+                          disabled={solvingPuzzle[p.id] || isLocked}
                           value={puzzleAnswers[p.id] || ''}
                           onChange={(e) => setPuzzleAnswers(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          className={`cyber-input w-full h-14 text-base pl-12 pr-4 bg-black/50 border-cyber-line focus:neon-border-green focus:bg-black/80 transition-all font-mono ${solvingPuzzle[p.id] ? 'opacity-50 cursor-wait' : ''}`}
+                          className={`cyber-input w-full h-14 text-base pl-12 pr-4 bg-black/50 border-cyber-line focus:neon-border-green focus:bg-black/80 transition-all font-mono ${(solvingPuzzle[p.id] || isLocked) ? 'opacity-50 cursor-not-allowed' : ''}`}
                           placeholder="ENTER_DECRYPTION_KEY..."
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -519,9 +536,9 @@ export default function CaseDetail() {
                       </div>
                       <button
                         type="button"
-                        disabled={solvingPuzzle[p.id]}
+                        disabled={solvingPuzzle[p.id] || isLocked}
                         onClick={() => handleSolvePuzzle(p.id)}
-                        className={`cyber-button w-full sm:w-auto h-14 px-8 bg-cyber-green text-black flex items-center justify-center hover:bg-white transition-all border border-cyber-green flex-shrink-0 group/btn shadow-[0_0_15px_rgba(0,255,170,0.2)] ${solvingPuzzle[p.id] ? 'opacity-50 cursor-wait' : ''}`}
+                        className={`cyber-button w-full sm:w-auto h-14 px-8 bg-cyber-green text-black flex items-center justify-center hover:bg-white transition-all border border-cyber-green flex-shrink-0 group/btn shadow-[0_0_15px_rgba(0,255,170,0.2)] ${(solvingPuzzle[p.id] || isLocked) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         {solvingPuzzle[p.id] ? (
                           <Cpu className="w-6 h-6 animate-spin" />
