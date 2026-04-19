@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS teams (
   password TEXT NOT NULL,
   score INTEGER DEFAULT 0,
   is_disabled BOOLEAN DEFAULT FALSE,
+  token_version INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- Cases Table
 CREATE TABLE IF NOT EXISTS cases (
@@ -28,7 +30,8 @@ CREATE TABLE IF NOT EXISTS puzzles (
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
   points INTEGER DEFAULT 10,
-  hint TEXT
+  hint TEXT,
+  depends_on_puzzle_id INTEGER REFERENCES puzzles(id) ON DELETE SET NULL
 );
 
 -- Evidence Table
@@ -39,7 +42,8 @@ CREATE TABLE IF NOT EXISTS evidence (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   metadata JSONB, -- JSON storage for extra info
-  required_puzzle_id INTEGER REFERENCES puzzles(id) ON DELETE SET NULL
+  required_puzzle_id INTEGER REFERENCES puzzles(id) ON DELETE SET NULL,
+  unlock_at TIMESTAMPTZ -- Automated timer unlocking
 );
 
 -- Submissions Table
@@ -108,8 +112,20 @@ CREATE TABLE IF NOT EXISTS score_events (
   event_type TEXT NOT NULL, -- 'puzzle_solve', 'case_solve', 'first_blood', 'hint_penalty', 'admin_adjust', 'adversary_action'
   points INTEGER NOT NULL,
   metadata JSONB DEFAULT '{}',
+  event_hash TEXT, -- For real-time score integrity checksum
+  prev_hash TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Real-time snapshots of global game state
+CREATE TABLE IF NOT EXISTS score_snapshots (
+  id SERIAL PRIMARY KEY,
+  snapshot_hash TEXT NOT NULL,
+  state_data JSONB NOT NULL,
+  created_by TEXT DEFAULT 'system',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- Active multiplier windows (admin-controlled, fair for all teams)
 CREATE TABLE IF NOT EXISTS score_multipliers (
@@ -202,4 +218,16 @@ CREATE TABLE IF NOT EXISTS investigation_links (
   target_node_id INTEGER NOT NULL REFERENCES investigation_nodes(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ============================================================
+-- MIGRATION UPGRADES (Run these manually or via init script)
+-- Ensure existing tables have new columns applied safely
+-- ============================================================
+
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1;
+ALTER TABLE puzzles ADD COLUMN IF NOT EXISTS depends_on_puzzle_id INTEGER REFERENCES puzzles(id) ON DELETE SET NULL;
+ALTER TABLE evidence ADD COLUMN IF NOT EXISTS unlock_at TIMESTAMPTZ;
+ALTER TABLE score_events ADD COLUMN IF NOT EXISTS event_hash TEXT;
+ALTER TABLE score_events ADD COLUMN IF NOT EXISTS prev_hash TEXT;
+
 

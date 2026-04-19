@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
+import { isFuzzyMatch } from './src/utils/fuzzyMatch';
 
 // Engine imports
 import * as eventStore from './src/engine/eventStore';
@@ -33,8 +34,17 @@ const loginLimiter = rateLimit({
 const submissionLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: isTest ? 20 : 10,
+  keyGenerator: (req: any) => {
+    // Custom key gen: use user ID if authenticated, else IP
+    return req.user?.id ? `user_${req.user.id}` : req.ip;
+  },
   message: { error: 'Submission rate limit exceeded. Slow down, detective.' }
 });
+
+// =========================================================
+// Global Memory State for Admin Overrides
+// =========================================================
+export const teamTokenVersions = new Map<number, number>();
 
 // =========================================================
 // App & Socket.IO setup
@@ -68,6 +78,12 @@ const authenticateToken = (req: any, res: any, next: any) => {
       const message = err.name === 'TokenExpiredError' ? 'Session expired. Please log in again.' : 'Forbidden';
       return res.status(status).json({ error: message });
     }
+    // Kill Switch: verify token version is still valid
+    const min_version = teamTokenVersions.get(user.id) || 1;
+    if ((user.tokenVersion || 1) < min_version) {
+      return res.status(401).json({ error: 'Session invalidated by administrator. Please log in again.' });
+    }
+
     req.user = user;
     next();
   });
@@ -84,6 +100,12 @@ const requireAdmin = (req: any, res: any, next: any) => {
 async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
+
+  // Load token versions for Kill Switch (#6)
+  const { data: teams } = await supabase.from('teams').select('id, token_version');
+  if (teams) {
+    teams.forEach(t => teamTokenVersions.set(t.id, t.token_version || 1));
+  }
 
   // -------------------------------------------------------
   // SOCKET.IO
@@ -135,17 +157,21 @@ async function startServer() {
         // Auto-register new team
         const hashedPassword = bcrypt.hashSync(password, 10);
         const { data: newTeam, error: insertError } = await supabase
-          .from('teams').insert([{ name: teamName, password: hashedPassword }]).select().single();
+          .from('teams').insert([{ name: teamName, password: hashedPassword, token_version: 1 }]).select().single();
         if (insertError) return res.status(500).json({ error: 'Failed to create team. Check DB connection.' });
         emitLiveEvent(`New team registered: ${teamName}`, 'badge');
-        const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: assignedRole }, JWT_SECRET, { expiresIn: '48h' });
+        const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: assignedRole, tokenVersion: 1 }, JWT_SECRET, { expiresIn: '48h' });
         return res.json({ token, team: { id: newTeam.id, name: newTeam.name, score: newTeam.score || 0, role: assignedRole } });
       }
 
       if (team.is_disabled) return res.status(403).json({ error: 'Account disabled by administrator' });
       if (!bcrypt.compareSync(password, team.password)) return res.status(401).json({ error: 'Invalid password' });
 
-      const token = jwt.sign({ id: team.id, name: team.name, role: assignedRole }, JWT_SECRET, { expiresIn: '48h' });
+      // Load correct token version
+      const currentTokenVersion = team.token_version || 1;
+      teamTokenVersions.set(team.id, currentTokenVersion);
+
+      const token = jwt.sign({ id: team.id, name: team.name, role: assignedRole, tokenVersion: currentTokenVersion }, JWT_SECRET, { expiresIn: '48h' });
       res.json({ token, team: { id: team.id, name: team.name, score: team.score || 0, is_disabled: !!team.is_disabled, role: assignedRole } });
     } catch (err: any) {
       console.error('[AUTH] Login error:', err.message);
@@ -183,7 +209,7 @@ async function startServer() {
     const isCompleted = !!completion;
 
     let evidenceQuery = supabase.from('evidence')
-      .select('id, type, title, metadata, required_puzzle_id').eq('case_id', req.params.id);
+      .select('id, type, title, metadata, required_puzzle_id, unlock_at').eq('case_id', req.params.id);
 
     if (req.user.role !== 'admin') {
       if (req.user.role === 'hacker') evidenceQuery = evidenceQuery.in('type', ['log', 'html', 'code']);
@@ -201,22 +227,37 @@ async function startServer() {
     const dynamicState = await caseEngine.getCaseState(parseInt(req.params.id), req.user.id);
     const encryptedIds = new Set(dynamicState.encrypted_evidence || []);
 
-    const evidenceWithStatus = evidence?.map((e: any) => ({
-      ...e,
-      is_locked: (e.required_puzzle_id && !solvedPuzzleIds.has(e.required_puzzle_id)) && !purchasedEvidenceIds.includes(e.id),
-      is_encrypted: encryptedIds.has(e.id)
-    }));
+    const now = new Date().getTime();
+
+    const evidenceWithStatus = evidence?.map((e: any) => {
+      let timeLocked = false;
+      if (e.unlock_at) {
+         const unlockTime = new Date(e.unlock_at).getTime();
+         if (unlockTime > now) timeLocked = true;
+      }
+      return {
+        ...e,
+        is_locked: ((e.required_puzzle_id && !solvedPuzzleIds.has(e.required_puzzle_id)) || timeLocked) && !purchasedEvidenceIds.includes(e.id),
+        is_encrypted: encryptedIds.has(e.id),
+        time_locked: timeLocked,
+        unlock_at: e.unlock_at
+      }
+    });
 
     const puzzlesWithStatus = puzzles?.map((p: any) => {
       const hintUsedAt = usedHintsMap.get(p.id);
       const isSolved = solvedPuzzleIds.has(p.id);
       const isPurchased = purchasedHintPuzzleIds.includes(p.id);
       const isHintAvailable = isPurchased || (hintUsedAt && (new Date(hintUsedAt).getTime() + 5 * 60 * 1000) <= Date.now());
+      const isLockedByDependency = p.depends_on_puzzle_id ? !solvedPuzzleIds.has(p.depends_on_puzzle_id) : false;
+
       return {
         id: p.id, question: p.question, points: p.points, has_hint: !!p.hint,
         hint: isHintAvailable ? p.hint : null, solved: isSolved ? 1 : 0,
         hint_used: (hintUsedAt || isPurchased) ? 1 : 0, hint_used_at: hintUsedAt,
-        is_purchased_hint: isPurchased
+        is_purchased_hint: isPurchased,
+        is_locked: isLockedByDependency,
+        depends_on_puzzle_id: p.depends_on_puzzle_id
       };
     });
 
@@ -229,7 +270,24 @@ async function startServer() {
     const { data: caseData, error: caseError } = await supabase.from('cases').select('*').eq('id', req.params.id).single();
     if (caseError || !caseData) return res.status(404).json({ error: 'Case not found' });
 
-    const isCorrect = caseData.correct_attacker?.toLowerCase().trim() === attackerName?.toLowerCase().trim();
+    // Role Specialization Engine (#1)
+    const { data: caseEvidence } = await supabase.from('evidence').select('type, required_puzzle_id').eq('case_id', req.params.id).not('required_puzzle_id', 'is', null);
+    const { data: solvedPuzzles } = await supabase.from('solved_puzzles').select('puzzle_id').eq('team_id', req.user.id);
+    if (caseEvidence && solvedPuzzles) {
+      const solvedIds = new Set(solvedPuzzles.map(sp => sp.puzzle_id));
+      const hackerEv = caseEvidence.filter((e: any) => ['log','html','code'].includes(e.type));
+      const analystEv = caseEvidence.filter((e: any) => ['chat','email'].includes(e.type));
+      
+      const hasHackerEvSolved = hackerEv.length === 0 || hackerEv.some((e: any) => solvedIds.has(e.required_puzzle_id));
+      const hasAnalystEvSolved = analystEv.length === 0 || analystEv.some((e: any) => solvedIds.has(e.required_puzzle_id));
+      
+      if (!hasHackerEvSolved || !hasAnalystEvSolved) {
+         return res.status(403).json({ error: 'Team Collaboration Required: Your team must investigate both the Technical (Hacker) and Communication (Analyst) evidence trails before submitting.' });
+      }
+    }
+
+    // Fuzzy Match Validation (#2)
+    const isCorrect = isFuzzyMatch(attackerName || '', caseData.correct_attacker || '');
     const status = isCorrect ? 'correct' : 'incorrect';
 
     try {
@@ -302,6 +360,10 @@ async function startServer() {
       if (!solve) return res.status(403).json({ error: 'Evidence is locked. Solve the required puzzle first.' });
     }
 
+    if (item.unlock_at && new Date(item.unlock_at).getTime() > new Date().getTime()) {
+      return res.status(403).json({ error: 'Evidence is time-locked by the administrator.' });
+    }
+
     const state = await caseEngine.getCaseState(item.case_id, req.user.id);
     if (state.encrypted_evidence?.includes(item.id)) {
       return res.status(403).json({
@@ -318,6 +380,12 @@ async function startServer() {
     const { data: puzzle, error: puzzleError } = await supabase.from('puzzles').select('*').eq('id', req.params.id).single();
     if (puzzleError || !puzzle) return res.status(404).json({ error: 'Puzzle not found' });
 
+    if (puzzle.depends_on_puzzle_id) {
+       const { data: solve } = await supabase.from('solved_puzzles').select('1')
+         .eq('team_id', req.user.id).eq('puzzle_id', puzzle.depends_on_puzzle_id).single();
+       if (!solve) return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
+    }
+
     const caseState = await caseEngine.getCaseState(puzzle.case_id, req.user.id);
     if (caseState.lockouts[puzzle.id] && new Date(caseState.lockouts[puzzle.id]) > new Date()) {
       return res.status(429).json({
@@ -327,7 +395,8 @@ async function startServer() {
       });
     }
 
-    const isCorrect = puzzle.answer.toLowerCase().trim() === answer.toLowerCase().trim();
+    // Fuzzy Match Validation (#2)
+    const isCorrect = isFuzzyMatch(answer || '', puzzle.answer || '');
     await supabase.from('puzzle_attempts').insert([{ team_id: req.user.id, puzzle_id: puzzle.id, is_correct: isCorrect }]);
 
     const engineResult = await caseEngine.evaluatePostAttempt(puzzle.case_id, req.user.id, puzzle.id, isCorrect);
@@ -597,6 +666,32 @@ async function startServer() {
   adminRouter.post('/recompute-scores', async (req: any, res: any) => {
     const result = await eventStore.recomputeAllScores();
     res.json(result);
+  });
+
+  // Session Kill Switch (#6)
+  adminRouter.post('/teams/:id/invalidate', async (req: any, res: any) => {
+    const teamId = parseInt(req.params.id);
+    const { data: team } = await supabase.from('teams').select('token_version').eq('id', teamId).single();
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    const newVersion = (team.token_version || 1) + 1;
+    await supabase.from('teams').update({ token_version: newVersion }).eq('id', teamId);
+    teamTokenVersions.set(teamId, newVersion);
+    res.json({ success: true, newVersion });
+  });
+
+  // Recompute & Snapshots (#4, #5)
+  adminRouter.post('/snapshots', async (req: any, res: any) => {
+    try {
+       const snapshot = await eventStore.createGlobalSnapshot();
+       res.json(snapshot);
+    } catch (e) {
+       res.status(500).json({ error: 'Failed to create snapshot' });
+    }
+  });
+
+  adminRouter.get('/snapshots', async (req: any, res: any) => {
+    const snaps = await eventStore.getSnapshots();
+    res.json(snaps);
   });
 
   // Case Builder

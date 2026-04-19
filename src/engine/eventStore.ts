@@ -6,6 +6,20 @@
  */
 
 import { supabase } from '../lib/supabase';
+import crypto from 'crypto';
+
+// Minimal Webhook helper (#8)
+async function fireWebhook(type: string, message: string) {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `🚨 **${type}** 🚨\n${message}` })
+    });
+  } catch (e) { console.error('Webhook failed', e); }
+}
 
 export interface EventInput {
   teamId: number;
@@ -41,17 +55,39 @@ export async function appendEvent({ teamId, eventType, basePoints, metadata = {}
     }
   }
 
+  // Score Integrity Hashes (#4)
+  const { data: lastEvent } = await supabase
+    .from('score_events')
+    .select('event_hash')
+    .order('id', { ascending: false })
+    .limit(1)
+    .single();
+  
+  const prev_hash = lastEvent?.event_hash || 'genesis';
+  const event_hash = crypto.createHash('sha256')
+    .update(`${prev_hash}|${teamId}|${eventType}|${finalPoints}|${now}`)
+    .digest('hex');
+
   // Insert the event
   await supabase.from('score_events').insert([{
     team_id: teamId,
     event_type: eventType,
     points: finalPoints,
+    prev_hash,
+    event_hash,
     metadata: {
       ...metadata,
       base_points: basePoints,
       multiplier: multiplierApplied,
     }
   }]);
+
+  // Webhooks (#8)
+  if (eventType === 'first_blood') {
+    fireWebhook('FIRST BLOOD', `Team ${teamId} just claimed first blood on ${metadata.case_id ? `Case ${metadata.case_id}` : `Puzzle ${metadata.puzzle_id}`}!`);
+  } else if (eventType === 'case_solve') {
+    fireWebhook('CASE SOLVED', `Team ${teamId} solved Case ${metadata.case_id}!`);
+  }
 
   // Recompute team score from all events
   await recomputeTeamScore(teamId);
@@ -175,4 +211,25 @@ export async function recomputeAllScores(): Promise<{ teamsUpdated: number }> {
   }
 
   return { teamsUpdated: teams.length };
+}
+
+/**
+ * Event Replay & Snapshots (#5)
+ */
+export async function createGlobalSnapshot(): Promise<any> {
+  const { data: teams } = await supabase.from('teams').select('id, name, score');
+  const snapshot_hash = crypto.randomBytes(16).toString('hex');
+  
+  const { data } = await supabase.from('score_snapshots').insert([{
+    snapshot_hash,
+    state_data: { teams, timestamp: new Date().toISOString() },
+    created_by: 'admin'
+  }]).select().single();
+  
+  return data;
+}
+
+export async function getSnapshots(): Promise<any[]> {
+  const { data } = await supabase.from('score_snapshots').select('*').order('created_at', { ascending: false });
+  return data || [];
 }
