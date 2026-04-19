@@ -81,6 +81,7 @@ export async function processPurchase(
     metadata: {
       item_id: itemId,
       item_name: item.name,
+      consumed: itemId === 'data_shield' ? false : undefined,
       ...metadata
     }
   });
@@ -123,4 +124,38 @@ export async function getPurchasedHints(teamId: number, caseId: number): Promise
     .filter(e => e.metadata?.item_id === 'intel_draft' && e.metadata?.case_id === caseId)
     .map(e => e.metadata?.puzzle_id)
     .filter(Boolean);
+}
+
+export async function hasActiveShield(teamId: number): Promise<boolean> {
+  const { data: event } = await supabase
+    .from('score_events')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('event_type', 'shop_purchase')
+    .eq('metadata->>item_id', 'data_shield')
+    .eq('metadata->>consumed', 'false')
+    .limit(1)
+    .single();
+
+  return !!event;
+}
+
+export async function consumeShield(teamId: number): Promise<void> {
+  const { data: event } = await supabase
+    .from('score_events')
+    .select('id, metadata')
+    .eq('team_id', teamId)
+    .eq('event_type', 'shop_purchase')
+    .eq('metadata->>item_id', 'data_shield')
+    .eq('metadata->>consumed', 'false')
+    .limit(1)
+    .single();
+
+  if (event) {
+    const newMetadata = { ...event.metadata, consumed: true, consumed_at: new Date().toISOString() };
+    await supabase
+      .from('score_events')
+      .update({ metadata: newMetadata })
+      .eq('id', event.id);
+  }
 }

@@ -67,6 +67,9 @@ export default function EvidenceViewer() {
         if (response.ok) {
           setEvidence(data);
           playSound('ping');
+        } else if (data.is_encrypted) {
+          setEvidence({ id: parseInt(id), title: 'SCRAMBLED_DATA', content: '0x00'.repeat(100), type: 'log', case_id: 0 } as any);
+          playSound('error');
         } else {
           playSound('error');
         }

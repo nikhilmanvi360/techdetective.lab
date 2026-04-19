@@ -4,6 +4,7 @@ import { Terminal, LogOut, LayoutDashboard, Trophy, ShieldAlert, User, Shield, A
 import { Team } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import LiveTicker from './LiveTicker';
+import GameAdvisor from './GameAdvisor';
 import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 import { useAdversary } from '../hooks/useAdversary';
@@ -179,7 +180,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
                 <Activity className="w-3 h-3" /> Investigative_Board
               </Link>
             )}
-            {team?.name === 'CCU_ADMIN' && navItem('/admin', <Shield className="w-5 h-5" />, 'Admin')}
+            {(team?.role === 'admin' || team?.name === 'CCU_ADMIN') && navItem('/admin', <Shield className="w-5 h-5" />, 'Admin')}
           </nav>
 
           <div className="flex items-center gap-6">
@@ -256,6 +257,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
       </footer>
 
       {team && <LiveTicker />}
+      {team && <GameAdvisor team={team} location={location.pathname} />}
     </div>
   );
 }

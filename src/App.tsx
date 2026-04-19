@@ -27,9 +27,16 @@ export default function App() {
   }, []);
 
   const handleLogin = (teamData: Team, token: string) => {
-    localStorage.setItem('team', JSON.stringify(teamData));
+    // Always decode role from the JWT to avoid stale localStorage issues
+    let roleFromToken = 'hacker';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      roleFromToken = payload.role || 'hacker';
+    } catch (e) { /* ignore */ }
+    const teamWithRole = { ...teamData, role: roleFromToken };
+    localStorage.setItem('team', JSON.stringify(teamWithRole));
     localStorage.setItem('token', token);
-    setTeam(teamData);
+    setTeam(teamWithRole);
   };
 
   const handleLogout = () => {

@@ -67,19 +67,18 @@ export default function Scoreboard() {
   useEffect(() => {
     fetchScores();
     
-    // Fetch multipliers and recent events
     fetch('/api/multipliers/active')
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (Array.isArray(data)) setActiveMultipliers(data);
       })
       .catch(() => {});
 
-    const socket = io();
+    const socket = io({ transports: ['websocket'] });
     socket.on('score_update', () => {
       playSound('ping');
       fetchScores();
-      fetch('/api/multipliers/active').then(r => r.json()).then(setActiveMultipliers).catch(() => {});
+      fetch('/api/multipliers/active').then(r => r.ok ? r.json() : []).then(setActiveMultipliers).catch(() => {});
     });
 
     return () => {

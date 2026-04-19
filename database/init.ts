@@ -93,6 +93,19 @@ async function seed() {
   if (evidenceError) console.error('Error seeding evidence:', evidenceError.message);
   else console.log('✔ Evidence seeded');
 
+  // 5. Seed default adversary config
+  const { error: advError } = await supabase
+    .from('adversary_config')
+    .upsert({
+      is_active: false,
+      intensity: 'low',
+      lead_threshold: 200,
+      actions_enabled: ['signal_interference', 'guidance_hint', 'evidence_encrypt']
+    });
+  
+  if (advError) console.error('Error seeding adversary config:', advError.message);
+  else console.log('✔ Adversary config initialized');
+
   console.log('--- SEEDING COMPLETE ---');
 }
 

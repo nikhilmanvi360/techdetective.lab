@@ -1,9 +1,4 @@
 import * as esbuild from 'esbuild';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function build() {
   try {
@@ -13,11 +8,17 @@ async function build() {
       platform: 'node',
       format: 'cjs',
       outfile: 'dist/server.cjs',
-      external: ['better-sqlite3', 'express', 'vite'],
+      // Mark these as external so they use the installed node_modules at runtime
+      external: [
+        'better-sqlite3', 'vite',
+        // All engine/src files are bundled in, so just mark heavy native deps
+      ],
+      // Bundle all engine files into the output
+      packages: 'bundle',
     });
-    console.log('Server built successfully');
+    console.log('✅ Server bundled successfully to dist/server.cjs');
   } catch (error) {
-    console.error('Server build failed:', error);
+    console.error('❌ Server build failed:', error);
     process.exit(1);
   }
 }

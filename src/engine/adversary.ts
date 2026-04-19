@@ -12,6 +12,8 @@
 
 import { supabase } from '../lib/supabase';
 import type { Server as SocketIOServer } from 'socket.io';
+import { hasActiveShield, consumeShield } from './shopEngine';
+import { encryptEvidence } from './caseEngine';
 
 interface AdversaryConfig {
   is_active: boolean;
@@ -152,12 +154,31 @@ async function executeAction(
   actionType: string,
   metadata: Record<string, any>
 ): Promise<void> {
+  // Check for active Data Shield
+  if (actionType !== 'guidance_hint') {
+    const hasShield = await hasActiveShield(targetTeamId);
+    if (hasShield) {
+      await consumeShield(targetTeamId);
+      io.emit('live_event', {
+        message: `🛡️ SHIELD ACTIVE: "${targetTeamName}" absorbed an Adversary attack!`,
+        type: 'badge',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+  }
+
   // Log the action
   await supabase.from('adversary_actions').insert([{
     target_team_id: targetTeamId,
     action_type: actionType,
     metadata,
   }]);
+
+  // Execute actual mechanics if applicable
+  if (actionType === 'evidence_encrypt' && metadata.case_id && metadata.evidence_id) {
+    await encryptEvidence(metadata.case_id, targetTeamId, metadata.evidence_id);
+  }
 
   // Emit to all clients — they filter by their own team ID
   io.emit('adversary_action', {
@@ -210,8 +231,16 @@ export async function manualTrigger(
     metadata.message = customMessage || '💡 The Adversary offers a clue: "Think about what connects the evidence..."';
     metadata.helpful = true;
   } else if (actionType === 'evidence_encrypt') {
-    metadata.message = customMessage || '🔒 The Adversary has scrambled some of your evidence. Solve more puzzles to de-ice it!';
-    metadata.cost_to_resolve = 25;
+    // Target a specific piece of evidence for the team
+    const { data: cases } = await supabase.from('cases').select('id').limit(1);
+    const caseId = cases?.[0]?.id || 1;
+    const { data: evidence } = await supabase.from('evidence').select('id').eq('case_id', caseId).limit(5);
+    const evidenceId = evidence?.[Math.floor(Math.random() * (evidence?.length || 1))]?.id || 1;
+
+    metadata.case_id = caseId;
+    metadata.evidence_id = evidenceId;
+    metadata.message = customMessage || `🔒 The Adversary has scrambled Evidence #${evidenceId}. Restore it from the Shadow Market!`;
+    metadata.cost_to_resolve = 80; // Cost of Evidence Decrypter
   }
 
   await executeAction(io, targetTeamId, team.name, actionType, metadata);

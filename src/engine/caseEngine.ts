@@ -12,6 +12,7 @@ interface CaseTeamState {
   dynamic_hints: Record<number, string>; // puzzle_id -> auto-hint text
   mutated_evidence: number[];            // evidence IDs with appended content
   unlocked_hidden: number[];             // hidden puzzle IDs unlocked
+  encrypted_evidence: number[];          // evidence IDs blocked by Adversary
   messages: string[];                    // system messages to show the team
 }
 
@@ -20,6 +21,7 @@ const DEFAULT_STATE: CaseTeamState = {
   dynamic_hints: {},
   mutated_evidence: [],
   unlocked_hidden: [],
+  encrypted_evidence: [],
   messages: []
 };
 
@@ -253,4 +255,20 @@ export async function getMutatedContent(caseId: number, evidenceId: number): Pro
   }
 
   return null;
+}
+
+export async function encryptEvidence(caseId: number, teamId: number, evidenceId: number): Promise<void> {
+  const state = await getOrCreateState(caseId, teamId);
+  if (!state.encrypted_evidence.includes(evidenceId)) {
+    state.encrypted_evidence.push(evidenceId);
+    state.messages.push(`🛑 ADVERSARY ALERT: Evidence node ${evidenceId} has been scrambled! Buy a De-Ice from the Shadow Market to restore it.`);
+    await saveState(caseId, teamId, state);
+  }
+}
+
+export async function decryptEvidence(caseId: number, teamId: number, evidenceId: number): Promise<void> {
+  const state = await getOrCreateState(caseId, teamId);
+  state.encrypted_evidence = state.encrypted_evidence.filter(id => id !== evidenceId);
+  state.messages.push(`🟢 SYSTEM: Evidence node ${evidenceId} has been successfully decrypted and restored.`);
+  await saveState(caseId, teamId, state);
 }

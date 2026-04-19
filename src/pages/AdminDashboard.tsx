@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [multipliers, setMultipliers] = useState<any[]>([]);
   const [adversaryConfig, setAdversaryConfig] = useState<any>(null);
   const [adversaryLog, setAdversaryLog] = useState<any[]>([]);
+  const [velocityData, setVelocityData] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -38,7 +39,7 @@ export default function AdminDashboard() {
     const fetchData = async () => {
       try {
         const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
-        const [subRes, keyRes, teamsRes, analyticsRes, eventsRes, multRes, advConfRes, advLogRes] = await Promise.all([
+        const results = await Promise.allSettled([
           fetch('/api/admin/submissions', { headers }),
           fetch('/api/admin/master-key', { headers }),
           fetch('/api/admin/teams', { headers }),
@@ -49,40 +50,39 @@ export default function AdminDashboard() {
           fetch('/api/admin/adversary/log', { headers }),
         ]);
 
-        if (subRes.status === 403 || subRes.status === 401) {
+        // Process settled promises
+        const responses = results.map(r => r.status === 'fulfilled' ? r.value : null);
+        
+        // Handle Auth failure early
+        if (responses[0] && (responses[0].status === 403 || responses[0].status === 401)) {
           localStorage.removeItem('token');
-          localStorage.removeItem('team');
           window.location.href = '/login';
           return;
         }
 
-        if (subRes.ok && keyRes.ok && teamsRes.ok && analyticsRes.ok) {
-          const subData = await subRes.json();
-          const keyData = await keyRes.json();
-          const teamsData = await teamsRes.json();
-          const analyticsData = await analyticsRes.json();
-          
-          if (Array.isArray(subData)) setSubmissions(subData);
-          if (Array.isArray(keyData)) setMasterKey(keyData);
-          if (Array.isArray(teamsData)) setTeams(teamsData);
-          if (Array.isArray(analyticsData)) setAnalytics(analyticsData);
-          
-          if (eventsRes.ok) {
-            const evData = await eventsRes.json();
-            if (Array.isArray(evData)) setEvents(evData);
-          }
-          if (multRes.ok) {
-            const mData = await multRes.json();
-            if (Array.isArray(mData)) setMultipliers(mData);
-          }
-          if (advConfRes.ok) setAdversaryConfig(await advConfRes.json());
-          if (advLogRes.ok) {
-            const alData = await advLogRes.json();
-            if (Array.isArray(alData)) setAdversaryLog(alData);
-          }
+        if (responses[0]?.ok) setSubmissions(await responses[0].json());
+        if (responses[1]?.ok) setMasterKey(await responses[1].json());
+        if (responses[2]?.ok) setTeams(await responses[2].json());
+        if (responses[3]?.ok) setAnalytics(await responses[3].json());
+        
+        if (responses[4]?.ok) {
+          const evData = await responses[4].json();
+          setEvents(evData);
+          // Velocity calc
+          const solvedEvents = evData.filter((e: any) => e.event_type === 'puzzle_solve').slice(0, 30);
+          setVelocityData(solvedEvents.map((e: any) => ({
+            time: new Date(e.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            points: e.points,
+            name: e.team_name
+          })).reverse());
         }
+
+        if (responses[5]?.ok) setMultipliers(await responses[5].json());
+        if (responses[6]?.ok) setAdversaryConfig(await responses[6].json());
+        if (responses[7]?.ok) setAdversaryLog(await responses[7].json());
+
       } catch (err) {
-        console.error('Failed to fetch admin data');
+        console.error('Critical Admin Fetch Error:', err);
       } finally {
         setLoading(false);
       }
@@ -205,7 +205,9 @@ export default function AdminDashboard() {
       if (res.ok) {
         playSound('success');
         alert('Evidence added successfully');
-        setNewEvidence({ case_id: '', type: 'chat', title: '', content: '', metadata: '', required_puzzle_id: '', linked_puzzles: '', linked_evidence: '' });
+        setNewEvidence({ case_id: '', type: 'log', title: '', content: '', metadata: '', required_puzzle_id: '', linked_puzzles: '', linked_evidence: '' });
+        const keyRes = await fetch('/api/admin/master-key', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
+        if (keyRes.ok) setMasterKey(await keyRes.json());
       } else {
         playSound('error');
       }
@@ -871,70 +873,70 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'analytics' && (
-            <div className="space-y-8">
-              <div className="flex items-center justify-between border-b border-cyber-line pb-4 px-2">
-                <div className="flex items-center gap-3">
-                  <BarChart2 className="w-5 h-5 text-orange-500" />
-                  <h2 className="text-xs font-display font-bold text-white uppercase tracking-[0.3em]">Operational Metrics & Logic Export</h2>
-                </div>
-                <div className="flex gap-4">
-                  <button onClick={exportTeamsCSV} className="cyber-button cyber-button-blue text-[9px] font-bold py-1.5 flex items-center gap-2">
-                    <Download className="w-3 h-3" /> EXPORT_UNITS
-                  </button>
-                  <button onClick={exportSubmissionsCSV} className="cyber-button cyber-button-green text-[9px] font-bold py-1.5 flex items-center gap-2">
-                    <Download className="w-3 h-3" /> EXPORT_REPORTS
-                  </button>
-                </div>
-              </div>
-
-              <div className="cyber-panel p-10 border-orange-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
-                  <BarChart2 className="w-32 h-32 text-orange-500" />
-                </div>
-                <h3 className="text-sm font-display font-bold text-white uppercase tracking-[0.2em] mb-10 border-l-2 border-orange-500 pl-4">Task Resilience Index (Failure Rates)</h3>
-                <div className="h-[450px] w-full">
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Puzzle Failure Rates */}
+                <div className="cyber-panel p-8 border-cyber-red/20 min-h-[400px]">
+                  <h3 className="text-xs font-display font-bold text-cyber-red uppercase tracking-[0.3em] mb-8">Critical Failure Nodes (Puzzles)</h3>
                   {analytics.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analytics} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={analytics}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
                         <XAxis
                           dataKey="puzzle_id"
                           stroke="#444"
                           tick={{ fill: '#666', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                           tickFormatter={(val) => `UNIT_${val}`}
-                          label={{ value: 'Task_Node_Address', position: 'insideBottom', offset: -10, fill: '#444', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                         />
                         <YAxis
                           stroke="#444"
                           tick={{ fill: '#666', fontSize: 10, fontFamily: 'Share Tech Mono' }}
-                          label={{ value: 'Failure_Count', angle: -90, position: 'insideLeft', fill: '#444', fontSize: 10, fontFamily: 'Share Tech Mono' }}
                         />
                         <Tooltip
-                          cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                          contentStyle={{ backgroundColor: '#050505', border: '1px solid #333', borderRadius: '0', fontFamily: 'JetBrains Mono' }}
-                          itemStyle={{ color: '#ef4444', fontSize: '12px' }}
-                          labelStyle={{ color: '#fff', marginBottom: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                          formatter={(value: number) => [value, 'REJECTED_ATTEMPTS']}
-                          labelFormatter={(label) => `Task Node 0x${parseInt(label).toString(16).toUpperCase()}`}
+                          cursor={{ fill: 'rgba(239, 68, 68, 0.05)' }}
+                          contentStyle={{ backgroundColor: '#050505', border: '1px solid #333' }}
                         />
-                        <Bar
-                          dataKey="failed_attempts"
-                          fill="#ef4444"
-                          fillOpacity={0.8}
-                          stroke="#ef4444"
-                          strokeWidth={1}
-                          radius={[0, 0, 0, 0]}
-                          activeBar={{ fill: '#ef4444', fillOpacity: 1 }}
-                        />
+                        <Bar dataKey="failed_attempts" fill="#ef4444" radius={[2, 2, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-700 font-display text-[10px] uppercase tracking-[0.5em] gap-6">
-                      <div className="w-16 h-1 w-cyber-line bg-gray-900" />
-                      Awaiting Investigative Data Stream...
-                    </div>
+                    <div className="h-full flex items-center justify-center text-gray-700 uppercase tracking-widest text-[10px]">No Failure Data Available</div>
                   )}
                 </div>
+
+                {/* Performance Velocity */}
+                <div className="cyber-panel p-8 border-cyber-blue/20 min-h-[400px]">
+                  <h3 className="text-xs font-display font-bold text-cyber-blue uppercase tracking-[0.3em] mb-8">Performance Velocity (Live)</h3>
+                  {velocityData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={velocityData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                        <XAxis dataKey="time" stroke="#444" tick={{ fontSize: 9 }} />
+                        <YAxis stroke="#444" tick={{ fontSize: 9 }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#050505', border: '1px solid #333' }} />
+                        <Bar dataKey="points" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-700 uppercase tracking-widest text-[10px]">Awaiting Performance Data...</div>
+                  )}
+                </div>
+              </div>
+
+              {/* XP Distribution */}
+              <div className="cyber-panel p-8 border-cyber-green/20">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xs font-display font-bold text-cyber-green uppercase tracking-[0.3em]">Unit XP Payload Distribution</h3>
+                  <span className="text-[10px] font-mono text-gray-600 uppercase">Top 15 Sectors</span>
+                </div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={teams.sort((a,b) => b.score - a.score).slice(0, 15)}>
+                    <XAxis dataKey="name" stroke="#444" tick={{ fontSize: 9 }} />
+                    <YAxis stroke="#444" tick={{ fontSize: 9 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#050505', border: '1px solid #333' }} />
+                    <Bar dataKey="score" fill="#22c55e" fillOpacity={0.6} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}
