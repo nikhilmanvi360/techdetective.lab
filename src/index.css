@@ -529,14 +529,39 @@
 
 /* ========== ADVERSARY AI GLITCH EFFECT ========== */
 @keyframes adversary-flicker {
-  0%, 100% { filter: none; }
-  10% { filter: hue-rotate(20deg) brightness(1.05); }
-  20% { filter: hue-rotate(-10deg) brightness(0.95); }
-  30% { filter: none; }
-  50% { filter: hue-rotate(5deg) saturate(1.2); }
-  60% { filter: none; }
-  80% { filter: hue-rotate(-5deg) brightness(1.02); }
-  90% { filter: none; }
+
+  0%,
+  100% {
+    filter: none;
+  }
+
+  10% {
+    filter: hue-rotate(20deg) brightness(1.05);
+  }
+
+  20% {
+    filter: hue-rotate(-10deg) brightness(0.95);
+  }
+
+  30% {
+    filter: none;
+  }
+
+  50% {
+    filter: hue-rotate(5deg) saturate(1.2);
+  }
+
+  60% {
+    filter: none;
+  }
+
+  80% {
+    filter: hue-rotate(-5deg) brightness(1.02);
+  }
+
+  90% {
+    filter: none;
+  }
 }
 
 .adversary-glitch {

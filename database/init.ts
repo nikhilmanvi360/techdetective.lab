@@ -1,6 +1,19 @@
 import { supabase } from '../src/lib/supabase.js';
 import bcrypt from 'bcryptjs';
 
+const INITIAL_TEAMS = [
+  {
+    name: 'CCU_ADMIN',
+    password: 'password123',
+    role: 'admin',
+    score: 0,
+  }
+];
+
+const INITIAL_CASES: any[] = [];
+const INITIAL_PUZZLES: any[] = [];
+const INITIAL_EVIDENCE: any[] = [];
+
 async function seed() {
   console.log('--- SEEDING SUPABASE DATABASE ---');
 
