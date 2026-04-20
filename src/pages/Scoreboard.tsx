@@ -1,344 +1,306 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trophy, Medal, Target, Users, Activity, Zap, Cpu, Search, ShieldAlert, Crown, TrendingUp, Timer, CheckCircle2 } from 'lucide-react';
+import { Trophy, Medal, Crown, Users, Clock, Search, ChevronLeft, Zap, Timer } from 'lucide-react';
 import { motion, AnimatePresence, useInView } from 'motion/react';
-import { ScoreEntry, ScoreEvent, ScoreMultiplier } from '../types';
+import { ScoreEntry, ScoreMultiplier } from '../types';
 import { io } from 'socket.io-client';
-import { getRankTitle, getRankColor } from '../utils/ranks';
+import { getRankTitle } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
+import { Link } from 'react-router-dom';
 
+// ── Animated number counter ───────────────────────────────────────────────────
 function AnimatedScore({ value, className }: { value: number; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
-  const [displayValue, setDisplayValue] = useState(0);
+  const [display, setDisplay] = useState(0);
 
   useEffect(() => {
     if (!isInView) return;
-
-    let start = 0;
-    const end = value;
     const duration = 1200;
-    const startTime = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      start = Math.floor(eased * end);
-      setDisplayValue(start);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      setDisplay(Math.floor((1 - Math.pow(1 - p, 3)) * value));
+      if (p < 1) requestAnimationFrame(tick);
     };
-
-    requestAnimationFrame(animate);
+    requestAnimationFrame(tick);
   }, [value, isInView]);
 
-  return <span ref={ref} className={className}>{displayValue.toLocaleString()}</span>;
+  return <span ref={ref} className={className}>{display.toLocaleString()}</span>;
 }
+
+// Medal colors for top 3
+const podiumStyle = [
+  { color: '#d4a017', label: '1st Place', icon: <Crown className="w-5 h-5" /> },
+  { color: '#9e9e9e', label: '2nd Place', icon: <Medal className="w-4 h-4" /> },
+  { color: '#8B6914', label: '3rd Place', icon: <Medal className="w-4 h-4" /> },
+];
 
 export default function Scoreboard() {
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [search, setSearch] = useState('');
   const [activeMultipliers, setActiveMultipliers] = useState<ScoreMultiplier[]>([]);
-  const [recentEvents, setRecentEvents] = useState<ScoreEvent[]>([]);
   const { playSound } = useSound();
 
-  const fetchScores = async () => {
-    try {
-      const response = await fetch('/api/scoreboard');
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setScores(data);
-      } else {
-        console.error('Scoreboard API Error:', data.error || 'Unknown format');
-        setScores([]);
-      }
-    } catch (err) {
-      console.error('Failed to fetch scoreboard');
-      setScores([]);
-    } finally {
-      setLoading(false);
-    }
+  const fetchAll = () => {
+    fetch('/api/scoreboard')
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setScores(d); })
+      .catch(() => {}).finally(() => setLoading(false));
+
+    fetch('/api/multipliers/active')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setActiveMultipliers(d); })
+      .catch(() => {});
   };
 
   useEffect(() => {
-    fetchScores();
-    
-    fetch('/api/multipliers/active')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        if (Array.isArray(data)) setActiveMultipliers(data);
-      })
-      .catch(() => {});
-
+    fetchAll();
     const socket = io({ transports: ['websocket'] });
-    socket.on('score_update', () => {
-      playSound('ping');
-      fetchScores();
-      fetch('/api/multipliers/active').then(r => r.ok ? r.json() : []).then(setActiveMultipliers).catch(() => {});
-    });
-
-    return () => {
-      socket.disconnect();
-    };
+    socket.on('score_update', () => { playSound('ping'); fetchAll(); });
+    return () => { socket.disconnect(); };
   }, [playSound]);
 
-  const filteredScores = scores.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = scores.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+
+  if (loading) return (
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4"
+      style={{ fontFamily: "'Georgia', serif" }}>
+      <Trophy className="w-12 h-12 animate-pulse" style={{ color: '#d4a017' }} />
+      <p className="uppercase tracking-[0.4em] text-sm" style={{ color: '#c8a050' }}>
+        Compiling Rankings...
+      </p>
+    </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-        <Activity className="w-12 h-12 text-cyber-green animate-pulse" />
-        <div className="font-display text-cyber-green uppercase tracking-[0.4em] flicker-anim text-center">
-          Aggregating_Field_Intelligence...
+  return (
+    <div
+      className="min-h-screen px-8 py-8 max-w-5xl mx-auto"
+      style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
+    >
+      {/* Back nav */}
+      <Link to="/" className="inline-flex items-center gap-2 mb-8 text-[11px] uppercase tracking-widest transition-colors"
+        style={{ color: 'rgba(200,160,80,0.5)' }}
+        onMouseEnter={e => (e.currentTarget.style.color = '#d4a017')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(200,160,80,0.5)')}
+      >
+        <ChevronLeft className="w-3 h-3" /> Return to Case Files
+      </Link>
+
+      {/* Page header */}
+      <div className="mb-10 pb-6 border-b" style={{ borderColor: 'rgba(200,160,80,0.15)' }}>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-px w-6" style={{ background: '#c8a050' }} />
+          <span className="text-[10px] uppercase tracking-[0.5em] font-mono" style={{ color: 'rgba(200,160,80,0.55)' }}>
+            Official Rankings
+          </span>
+        </div>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <h1 className="text-4xl font-bold uppercase" style={{ color: '#e8d5a3', letterSpacing: '0.05em' }}>
+            Case Leaderboard
+          </h1>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#5a8a3c' }} />
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.45)' }}>
+              Live — {scores.length} Operatives Active
+            </span>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="max-w-6xl mx-auto space-y-12">
-      {/* HUD Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="cyber-panel border-cyber-amber/30 p-10 relative overflow-hidden gradient-border"
-      >
-        <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-          <Trophy className="w-48 h-48 text-cyber-amber animate-float" />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-8">
-          <div className="space-y-4 flex-1">
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-cyber-amber fill-cyber-amber" />
-              <span className="text-xs font-display text-cyber-amber uppercase tracking-[0.4em]">Tactical Rankings</span>
+      {/* Active XP Multiplier banner */}
+      {activeMultipliers.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-4 px-6 py-4 mb-8 border"
+          style={{
+            background: 'rgba(212,160,23,0.08)',
+            borderColor: 'rgba(212,160,23,0.35)',
+          }}
+        >
+          <Zap className="w-5 h-5 animate-pulse flex-shrink-0" style={{ color: '#d4a017' }} />
+          <div className="flex-1">
+            <div className="text-sm font-bold uppercase tracking-wide" style={{ color: '#d4a017' }}>
+              {activeMultipliers[0].multiplier}× Score Multiplier Active
             </div>
-            <h1 className="text-5xl font-display font-bold text-white uppercase tracking-tight glitch-text">Operation_Leaderboard</h1>
-            <p className="text-gray-500 font-mono text-sm max-w-xl leading-relaxed italic">
-              // Real-time tracking of active investigation units. Rank is determined by cumulative score across all case nodes.
+            <div className="flex items-center gap-1.5 text-[10px] font-mono mt-0.5" style={{ color: 'rgba(200,160,80,0.5)' }}>
+              <Timer className="w-3 h-3" />
+              Expires: {new Date(activeMultipliers[0].ends_at).toLocaleTimeString()}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Podium (top 3) */}
+      {filtered.length >= 3 && (
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          {[
+            { entry: filtered[1], pos: 1 },
+            { entry: filtered[0], pos: 0 },
+            { entry: filtered[2], pos: 2 },
+          ].map(({ entry, pos }) => {
+            const ps = podiumStyle[pos];
+            const height = pos === 0 ? 'h-40' : pos === 1 ? 'h-32' : 'h-28';
+            return (
+              <motion.div
+                key={pos}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: pos * 0.1 }}
+                className={`flex flex-col items-center justify-end ${height} border px-4 py-5 relative`}
+                style={{
+                  background: `linear-gradient(to top, ${ps.color}15, transparent)`,
+                  borderColor: `${ps.color}40`,
+                }}
+              >
+                <div className="absolute top-3 left-1/2 -translate-x-1/2" style={{ color: ps.color }}>
+                  {ps.icon}
+                </div>
+                <div className="text-xs font-bold uppercase tracking-widest text-center" style={{ color: ps.color }}>
+                  {entry?.name || '—'}
+                </div>
+                <AnimatedScore
+                  value={entry?.score ?? 0}
+                  className="text-xl font-bold tabular-nums"
+                  // @ts-ignore
+                  style={{ color: ps.color }}
+                />
+                <div className="text-[9px] font-mono uppercase tracking-widest mt-0.5" style={{ color: 'rgba(200,160,80,0.4)' }}>
+                  pts
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'rgba(200,160,80,0.4)' }} />
+          <input
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search operative..."
+            className="w-full pl-9 py-2 text-sm outline-none font-mono"
+            style={{
+              background: 'rgba(245,225,185,0.04)',
+              border: '1px solid rgba(200,160,80,0.2)',
+              color: '#e8d5a3',
+              caretColor: '#d4a017',
+            }}
+          />
+        </div>
+        <span className="text-[10px] font-mono" style={{ color: 'rgba(200,160,80,0.35)' }}>
+          {filtered.length} results
+        </span>
+      </div>
+
+      {/* Rankings table */}
+      <div className="border overflow-hidden" style={{ borderColor: 'rgba(200,160,80,0.15)' }}>
+        {/* Table header */}
+        <div
+          className="grid grid-cols-12 px-6 py-3 border-b"
+          style={{
+            background: 'rgba(30,16,4,0.9)',
+            borderColor: 'rgba(200,160,80,0.15)',
+          }}
+        >
+          <div className="col-span-1 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.45)' }}>#</div>
+          <div className="col-span-7 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.45)' }}>Operative</div>
+          <div className="col-span-2 text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.45)' }}>Rank</div>
+          <div className="col-span-2 text-right text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.45)' }}>Score</div>
+        </div>
+
+        <AnimatePresence mode="popLayout">
+          {filtered.map((entry, i) => {
+            const isGold = i === 0;
+            const medal = i < 3 ? podiumStyle[i] : null;
+            return (
+              <motion.div
+                key={entry.name}
+                layout
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="grid grid-cols-12 items-center px-6 py-4 border-b transition-all"
+                style={{
+                  borderColor: 'rgba(200,160,80,0.07)',
+                  background: isGold ? 'rgba(212,160,23,0.05)' : 'transparent',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,225,185,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = isGold ? 'rgba(212,160,23,0.05)' : 'transparent')}
+              >
+                {/* Rank number */}
+                <div className="col-span-1 flex items-center gap-2">
+                  <span className="text-lg font-bold tabular-nums"
+                    style={{ color: medal ? medal.color : 'rgba(200,160,80,0.25)' }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                </div>
+
+                {/* Name + avatar */}
+                <div className="col-span-7 flex items-center gap-3">
+                  {medal && (
+                    <span style={{ color: medal.color }}>{medal.icon}</span>
+                  )}
+                  <div
+                    className="w-8 h-8 flex items-center justify-center text-sm font-bold border flex-shrink-0"
+                    style={{
+                      background: isGold ? 'rgba(212,160,23,0.12)' : 'rgba(245,225,185,0.04)',
+                      borderColor: medal ? `${medal.color}50` : 'rgba(200,160,80,0.15)',
+                      color: medal ? medal.color : 'rgba(200,160,80,0.5)',
+                    }}
+                  >
+                    {entry.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="font-bold uppercase tracking-wide text-sm"
+                    style={{ color: isGold ? '#f5e6c8' : 'rgba(232,213,163,0.7)' }}>
+                    {entry.name}
+                  </span>
+                </div>
+
+                {/* Rank title */}
+                <div className="col-span-2">
+                  <span className="text-[9px] font-mono uppercase tracking-wide px-2 py-0.5"
+                    style={{
+                      color: 'rgba(200,160,80,0.6)',
+                      border: '1px solid rgba(200,160,80,0.15)',
+                      background: 'rgba(200,160,80,0.05)',
+                    }}>
+                    {getRankTitle(entry.score)}
+                  </span>
+                </div>
+
+                {/* Score */}
+                <div className="col-span-2 text-right">
+                  <AnimatedScore
+                    value={entry.score}
+                    className="text-lg font-bold tabular-nums"
+                    // @ts-ignore
+                    style={{ color: medal ? medal.color : 'rgba(200,160,80,0.7)' }}
+                  />
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        {filtered.length === 0 && (
+          <div className="py-20 text-center">
+            <Users className="w-10 h-10 mx-auto mb-3" style={{ color: 'rgba(200,160,80,0.2)' }} />
+            <p className="uppercase tracking-widest text-sm" style={{ color: 'rgba(200,160,80,0.35)' }}>
+              No operatives found
             </p>
           </div>
+        )}
+      </div>
 
-          <div className="w-full md:w-80 space-y-4">
-            <div className="flex items-center justify-between text-[10px] font-display text-cyber-blue uppercase tracking-widest px-1">
-              <div className="flex items-center gap-2">
-                <Target className="w-3 h-3" />
-                Filter_By_Team
-              </div>
-              <span>Sec: 0x4A</span>
-            </div>
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 group-focus-within:text-cyber-blue transition-colors" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="cyber-input w-full pl-12 h-12 border-cyber-line focus:border-cyber-blue"
-                placeholder="SEARCH_TEAM_ID..."
-              />
-              <div className="absolute bottom-0 left-0 h-[1px] w-0 group-focus-within:w-full bg-cyber-blue transition-all duration-500" />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Main Rankings Table */}
-        <div className="lg:col-span-3">
-          <div className="cyber-panel border-cyber-line bg-black/40 gradient-border">
-            <div className="bg-black/80 px-8 py-4 border-b border-cyber-line flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4 text-cyber-blue" />
-                <span className="text-[10px] font-display text-white uppercase tracking-widest">Active_Units_Stream</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
-                <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Live_Sync: Active</span>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full font-display border-collapse">
-                <thead>
-                  <tr className="border-b border-cyber-line bg-black/20">
-                    <th className="px-8 py-6 text-left text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">#Rk</th>
-                    <th className="px-8 py-6 text-left text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">Unit_Identifier</th>
-                    <th className="px-8 py-6 text-right text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">Payload_XP</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cyber-line/30">
-                  <AnimatePresence mode="popLayout">
-                    {filteredScores.map((entry, index) => (
-                      <motion.tr
-                        key={entry.name}
-                        layout
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={`group hover:bg-white/5 transition-all duration-300 ${index === 0 ? 'bg-cyber-amber/[0.03]' : ''}`}
-                      >
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <span className={`text-xl font-display font-bold tabular-nums ${index === 0 ? 'text-cyber-amber text-shadow-amber' :
-                                index === 1 ? 'text-gray-400' :
-                                  index === 2 ? 'text-amber-700' : 'text-gray-700'
-                              }`}>
-                              {(index + 1).toString().padStart(2, '0')}
-                            </span>
-                            {index === 0 && (
-                              <div className="relative pulse-ring">
-                                <Crown className="w-5 h-5 text-cyber-amber fill-cyber-amber/30 flicker-anim" />
-                              </div>
-                            )}
-                            {index === 1 && <Medal className="w-4 h-4 text-gray-400" />}
-                            {index === 2 && <Medal className="w-4 h-4 text-amber-700" />}
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-5">
-                            <div className={`w-10 h-10 flex items-center justify-center text-md font-bold border transition-all ${index === 0 ? 'bg-cyber-amber/10 border-cyber-amber text-cyber-amber neon-border-amber' : 'bg-black/60 border-cyber-line text-gray-500 group-hover:border-cyber-blue group-hover:text-cyber-blue'
-                              }`}>
-                              {entry.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className={`text-lg font-display font-bold uppercase tracking-tight ${index === 0 ? 'text-white' : 'text-gray-300 group-hover:text-white transition-colors'}`}>
-                                {entry.name.replace(' ', '_')}
-                              </span>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-[9px] font-display px-2 py-0.5 border uppercase tracking-widest ${getRankColor(entry.score).replace('text-', 'border-').replace('bg-', 'bg-opacity-5 bg-')}`}>
-                                  {getRankTitle(entry.score)}
-                                </span>
-                                <div className="w-1 h-1 rounded-full bg-cyber-line" />
-                                <span className="text-[8px] font-mono text-gray-600 uppercase">Sector_Verified</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <div className="flex flex-col items-end">
-                            <AnimatedScore
-                              value={entry.score}
-                              className={`text-2xl font-display font-bold tabular-nums transition-colors ${index === 0 ? 'text-cyber-amber' : 'text-white group-hover:text-cyber-blue'}`}
-                            />
-                            <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-1">XP_ACCUMULATED</span>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </AnimatePresence>
-
-                  {filteredScores.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="px-8 py-20 text-center">
-                        <div className="flex flex-col items-center gap-4 text-gray-600">
-                          <Activity className="w-10 h-10 opacity-20" />
-                          <p className="font-display uppercase tracking-[0.3em] text-xs">No_Units_Found_In_Registry</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Analytics */}
-        <div className="space-y-8">
-          {/* Active Multiplier Banner */}
-          {activeMultipliers.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="cyber-panel p-6 border-cyber-amber/40 bg-cyber-amber/5 relative overflow-hidden"
-            >
-              <motion.div
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 bg-gradient-to-r from-cyber-amber/5 via-transparent to-cyber-amber/5"
-              />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-cyber-amber/10 border border-cyber-amber/30 animate-pulse">
-                    <Zap className="w-5 h-5 text-cyber-amber fill-cyber-amber/30" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-display font-bold text-cyber-amber uppercase tracking-widest">MULTIPLIER ACTIVE</h4>
-                    <p className="text-[9px] font-mono text-cyber-amber/60 uppercase">{activeMultipliers[0].multiplier}x XP Boost</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[9px] font-mono text-gray-500 uppercase">
-                  <Timer className="w-3 h-3 text-cyber-amber" />
-                  Expires: {new Date(activeMultipliers[0].ends_at).toLocaleTimeString()}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          <div className="cyber-panel p-8 border-cyber-blue/20 corner-brackets">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-cyber-blue/10 border border-cyber-blue/30">
-                <Target className="w-4 h-4 text-cyber-blue" />
-              </div>
-              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">Field_Density</h4>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-display font-bold text-white tabular-nums">
-                <AnimatedScore value={scores.length} />
-              </div>
-              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Active_Investigator_Units</p>
-            </div>
-            <div className="mt-8 pt-8 border-t border-cyber-line">
-              <div className="h-1 w-full bg-cyber-line relative overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '65%' }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                  className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet"
-                />
-              </div>
-              <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest mt-2 block">Bandwidth: 65% Capacity</span>
-            </div>
-          </div>
-
-          <div className="cyber-panel p-8 border-cyber-green/20 corner-brackets">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-cyber-green/10 border border-cyber-green/30">
-                <Cpu className="w-4 h-4 text-cyber-green" />
-              </div>
-              <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-widest">XP_Throughput</h4>
-            </div>
-            <div className="space-y-2">
-              <div className="text-4xl font-display font-bold text-white tabular-nums">
-                <AnimatedScore value={scores.length > 0 ? Math.round(scores.reduce((acc, s) => acc + s.score, 0) / scores.length) : 0} />
-              </div>
-              <p className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Average_Payload_Per_Unit</p>
-            </div>
-            <div className="mt-8 pt-8 border-t border-cyber-line">
-              <div className="flex items-center gap-2">
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="w-1.5 h-1.5 rounded-full bg-cyber-green"
-                />
-                <span className="text-[8px] font-display text-gray-600 uppercase tracking-widest">Processor: Nominal_State</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="cyber-panel p-6 border-dashed border-cyber-line opacity-40">
-            <div className="bg-black/40 p-10 flex items-center justify-center">
-              <ShieldAlert className="w-8 h-8 text-gray-700" />
-            </div>
-            <p className="text-[8px] font-mono text-gray-700 uppercase p-4 text-center tracking-[0.2em]">Encrypted_Telemetry_Node_09</p>
-          </div>
-        </div>
+      {/* Footer */}
+      <div className="mt-6 flex items-center gap-2">
+        <Clock className="w-3 h-3" style={{ color: 'rgba(200,160,80,0.3)' }} />
+        <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgba(200,160,80,0.3)' }}>
+          Updates in real-time via secure CCU link
+        </span>
       </div>
     </div>
   );
