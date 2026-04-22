@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "tech_detective__the_digital_crime_lab",
+  "project_id": "1a5e6770-d50f-4bbc-aab7-5e2160690d80"
+}
