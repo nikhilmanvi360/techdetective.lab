@@ -1,4 +1,4 @@
-import { supabase } from '../src/lib/supabase.js';
+import { supabase } from '../src/lib/supabase';
 
 async function reinitialize() {
   console.log('--- REINITIALIZING DATABASE (WIPE ALL, KEEP CCU_ADMIN) ---');

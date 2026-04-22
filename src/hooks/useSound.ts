@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-// Single global instance to prevent "AudioContext was not allowed to start" duplication
+// Single global instance to prevent"AudioContext was not allowed to start" duplication
 let globalAudioCtx: AudioContext | null = null;
 
 function getAudioContext() {
@@ -21,7 +21,7 @@ export function useSound() {
   const playSound = useCallback(async (type: 'click' | 'success' | 'error' | 'ping') => {
     const ctx = getAudioContext();
     if (!ctx) return;
-    
+
     // Attempt to resume context on every interaction to satisfy browser security
     if (ctx.state === 'suspended') {
       try {
@@ -49,7 +49,7 @@ export function useSound() {
         osc.start(now);
         osc.stop(now + 0.1);
         break;
-      
+
       case 'ping':
         osc.type = 'sine';
         osc.frequency.setValueAtTime(1200, now);

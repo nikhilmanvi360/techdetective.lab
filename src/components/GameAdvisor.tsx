@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io } from 'socket.io-client';
-import { Send, Cpu, X, HelpCircle, MessageCircle, AlertTriangle, Zap } from 'lucide-react';
+import { Send, Cpu, X, Zap, Activity } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 import { Team } from '../types';
 
@@ -34,14 +34,13 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   const addMessage = useCallback((text: string) => {
-    setLastMessage(null); // Clear previous
+    setLastMessage(null);
     setTimeout(() => {
       setLastMessage(text);
       setIsOpen(true);
     }, 50);
   }, []);
 
-  // Update sign-in status
   const checkAuth = useCallback(async () => {
     if (puter && puter.auth) {
       const signedIn = await puter.auth.isSignedIn();
@@ -53,11 +52,9 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
     checkAuth();
   }, [checkAuth]);
 
-  // Hybrid Interjection Logic
   useEffect(() => {
     const socket = io();
     
-    // 1. Reactive Interjections (Events)
     socket.on('live_event', (event: any) => {
       if (event.type === 'solve' && Math.random() > 0.5) {
         addMessage(`I see you handled "${event.message.split(': ')[1]}". Quite straightforward, wasn't it?`);
@@ -70,12 +67,11 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
       }
     });
 
-    // 2. Proactive Interjections (Random Timer)
     const interval = setInterval(() => {
       if (!isOpen && Math.random() > 0.7) {
         addMessage(JANE_QUOTES[Math.floor(Math.random() * JANE_QUOTES.length)]);
       }
-    }, 180000); // Check every 3 mins
+    }, 180000);
 
     return () => {
       socket.disconnect();
@@ -107,7 +103,6 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
 
     try {
       if (puter && puter.ai) {
-        // Double check auth before API call
         const signedIn = await puter.auth.isSignedIn();
         if (!signedIn) {
           addMessage("Security clearance denied. I need you to authenticate your credentials (sign in to Puter) before we talk shop.");
@@ -116,22 +111,21 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
         }
 
         const prompt = `
-          Role: You are Patrick Jane, a high-level forensic cyber-consultant. 
-          Personality: Witty, sarcastic, deeply technical, and slightly condescending but helpful.
-          Current Game Context: 
-          - Team: ${team.name}
-          - Score: ${team.score}
-          - Current Sector: ${location}
-          
-          User Query: "${question}"
-          
-          CRITICAL INSTRUCTIONS:
-          1. NEVER provide direct answers or solutions to puzzles/cases.
-          2. Focus on GUIDING the player by explaining complex technical terms or jargon found in their query.
-          3. Use a professional, forensic, and highly technical tone.
-          4. Maintain your trademark wit and sarcasm—make them work for the answer.
-          5. Keep the response to 1-2 sharp, technical sentences (max 30 words).
-        `;
+        Role: You are Patrick Jane, a high-level forensic cyber-consultant. 
+        Personality: Witty, sarcastic, deeply technical, and slightly condescending but helpful.
+        Current Game Context: 
+        - Team: ${team.name}
+        - Score: ${team.score}
+        - Current Sector: ${location}
+        
+        User Query: "${question}"
+        
+        CRITICAL INSTRUCTIONS:
+        1. NEVER provide direct answers or solutions to puzzles/cases.
+        2. Focus on GUIDING the player by explaining complex technical terms or jargon found in their query.
+        3. Use a professional, forensic, and highly technical tone.
+        4. Maintain your trademark wit and sarcasm—make them work for the answer.
+        5. Keep the response to 1-2 sharp, technical sentences (max 30 words). `;
         const response = await puter.ai.chat(prompt);
         addMessage(response.toString());
       } else {
@@ -150,7 +144,7 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
 
   const closeAdvisor = () => {
     setIsOpen(false);
-    setLastMessage(null); // Auto-clear on close per user request
+    setLastMessage(null);
     setUserInput('');
   };
 
@@ -162,76 +156,81 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
             initial={{ opacity: 0, y: 20, scale: 0.9, x: 20 }}
             animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="pointer-events-auto w-72 bg-black/95 border border-cyber-line p-4 shadow-[0_0_40px_rgba(0,0,0,0.8)] relative"
+            className="pointer-events-auto w-80 bg-[#e8d8a0] border-2 border-[#a07830] shadow-[0_8px_40px_rgba(0,0,0,0.6)] relative"
           >
-            <button onClick={closeAdvisor} className="absolute top-2 right-2 text-gray-600 hover:text-white transition-colors">
-               <X className="w-3 h-3" />
-            </button>
-            
-            <div className="text-[9px] font-display text-cyber-green uppercase tracking-[0.3em] mb-2 border-b border-cyber-line pb-1">
-              Consultant // Profile: P. Jane
-            </div>
-            
-            <div className="font-mono text-xs leading-relaxed text-gray-200 mb-4 h-auto min-h-[3em]">
-              <span className="text-cyber-green mr-2">{'>'}</span>{lastMessage || "How can I help you, detective? Or are you just here to admire my tea cup?"}
-            </div>
-
-            {!isSignedIn && (
-              <button
-                onClick={handleSignIn}
-                className="w-full mb-4 bg-cyber-blue/10 border border-cyber-blue/50 text-cyber-blue text-[10px] font-display uppercase tracking-widest py-2 hover:bg-cyber-blue/20 transition-all flex items-center justify-center gap-2"
-              >
-                <Zap className="w-3 h-3" /> Authenticate_Credentials
-              </button>
-            )}
-
-            <form onSubmit={handleConsult} className="relative mt-2">
-              <input
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder="Ask Jane..."
-                className="w-full bg-black border border-cyber-line rounded-none p-2 pr-10 text-[10px] font-mono text-white focus:outline-none focus:border-cyber-blue transition-all"
-              />
+            {/* Bureau Header */}
+            <div className="bg-black/5 px-4 py-2 border-b border-[#a07830]/30 flex items-center justify-between">
+              <span className="text-[10px] font-black text-[#1a0e04]/50 uppercase tracking-[0.3em]">
+                Consultant // Profile: P. Jane
+              </span>
               <button 
-                type="submit" 
-                disabled={isThinking}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-cyber-blue hover:text-white disabled:opacity-30"
+                onClick={closeAdvisor} 
+                className="text-[#1a0e04]/40 hover:text-red-900 transition-colors"
+                title="Close Link"
               >
-                {isThinking ? <Cpu className="w-4 h-4 animate-spin text-cyber-green" /> : <Send className="w-3 h-3" />}
+                <X className="w-3 h-3" />
               </button>
-            </form>
+            </div>
             
-            {/* Speech Bubble Tail */}
-            <div className="absolute bottom-[-1px] right-8 translate-y-full w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-cyber-line" />
-            <div className="absolute bottom-0 right-8 translate-y-full w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[9px] border-t-black" />
+            <div className="p-5 space-y-4">
+              <div className="font-mono text-xs leading-relaxed text-[#1a0e04] h-auto min-h-[3em] pr-2">
+                <span className="text-[#a07830] mr-2 font-black">▶</span>
+                {lastMessage || "How can I help you, detective? Or are you just here to admire my tea cup?"}
+              </div>
+
+              {!isSignedIn && (
+                <button
+                  onClick={handleSignIn}
+                  className="w-full bg-[#1a0e04]/5 border-2 border-[#a07830]/40 text-[#1a0e04] text-[10px] font-black uppercase tracking-widest py-2.5 hover:bg-[#d4a017]/10 transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-3.5 h-3.5 text-[#a07830]" /> 
+                  Authenticate_Neural_Link
+                </button>
+              )}
+
+              <form onSubmit={handleConsult} className="relative pt-2 border-t border-[#a07830]/20">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  placeholder="CONSULT JANE..."
+                  className="w-full bg-black/5 border-2 border-[#a07830]/30 p-2.5 pr-10 text-[10px] font-black uppercase tracking-widest text-[#1a0e04] placeholder-[#1a0e04]/30 focus:outline-none focus:border-[#a07830] transition-all"
+                />
+                <button 
+                  type="submit" 
+                  disabled={isThinking}
+                  className="absolute right-3 top-[calc(50%+4px)] -translate-y-1/2 text-[#a07830] hover:text-[#1a0e04] disabled:opacity-30"
+                >
+                  {isThinking ? <Cpu className="w-4 h-4 animate-spin text-[#d4a017]" /> : <Send className="w-3.5 h-3.5" />}
+                </button>
+              </form>
+            </div>
+            
+            {/* The "Anchor" triangle */}
+            <div className="absolute bottom-[-2px] right-8 translate-y-full w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-[#a07830]" />
+            <div className="absolute bottom-0 right-8 translate-y-full w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[9px] border-t-[#e8d8a0]" />
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="pointer-events-auto relative group">
-        {/* The Consultant Portrait */}
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="relative w-20 h-20 rounded-full border-2 border-cyber-line overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.5)] bg-[#050505]"
+          className="relative w-24 h-24 rounded-full border-[3px] border-[#a07830] overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.6)] bg-[#140e06]"
         >
           <img 
             src="/images/jane.png" 
             alt="Patrick Jane" 
             className={`w-full h-full object-cover transition-all duration-700 ${isOpen ? 'brightness-110' : 'brightness-75 saturate-50 hover:saturate-100 hover:brightness-100'}`}
           />
-          
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-          
-          {/* Active indicator */}
-          <div className={`absolute bottom-1 right-1 w-3 h-3 rounded-full border border-black shadow-lg transition-all ${isThinking ? 'bg-cyber-blue animate-pulse' : 'bg-cyber-green'}`} />
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(20,10,0,0.4)] to-transparent pointer-events-none" />
+          <div className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-[#140e06] shadow-[0_0_10px_rgba(212,160,23,0.8)] transition-all ${isThinking ? 'bg-[#f0a030] animate-pulse' : 'bg-[#d4a017]'}`} />
         </motion.button>
-
-        {/* Status tooltip */}
-        <div className="absolute top-1/2 right-full mr-4 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-black/90 border border-cyber-line px-3 py-1 pointer-events-none">
-          <span className="text-[10px] font-display text-cyber-green uppercase tracking-[0.2em]">Consultant Status: Online</span>
+        
+        <div className="absolute top-1/2 right-full mr-4 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-[#1a0e04] border-2 border-[#a07830] px-4 py-1.5 pointer-events-none shadow-2xl">
+          <span className="text-[10px] font-black text-[#f0d070] uppercase tracking-[0.25em]">Consultant Status: Online</span>
         </div>
       </div>
     </div>

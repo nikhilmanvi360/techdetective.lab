@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  ShoppingBag, Skull, Zap, Shield, 
+import {
+  ShoppingBag, Skull, Zap, Shield,
   Activity, Terminal, Lock, AlertCircle,
   Radio, Archive, ChevronRight, Check
 } from 'lucide-react';
@@ -24,7 +24,7 @@ export default function BlackMarket() {
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
   const [playerTeam, setPlayerTeam] = useState<Team | null>(null);
-  
+
   const { playSound } = useSound();
 
   const fetchData = async () => {
@@ -117,8 +117,8 @@ export default function BlackMarket() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Skull className="w-12 h-12 text-cyber-red animate-pulse" />
-        <div className="font-display text-cyber-red uppercase tracking-[0.4em] flicker-anim">
+        <Skull className="w-12 h-12 text-[#A52A2A] animate-pulse" />
+        <div className="font-display text-[#A52A2A] uppercase tracking-[0.4em]">
           Establishing_Dark_Link...
         </div>
       </div>
@@ -128,37 +128,37 @@ export default function BlackMarket() {
   return (
     <div className="space-y-10 max-w-6xl mx-auto pb-20">
       {/* Header Panel */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="cyber-panel border-cyber-red/30 p-8 relative overflow-hidden bg-gradient-to-br from-black via-black to-cyber-red/5"
+        className="detective-panel border-[#8B1A1A]/30 p-8 relative overflow-hidden bg-gradient-to-br from-black via-black to-[#8B1A1A]/5"
       >
         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-          <Skull className="w-32 h-32 text-cyber-red" />
+          <Skull className="w-32 h-32 text-[#A52A2A]" />
         </div>
-        
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
           <div className="space-y-2">
-            <div className="flex items-center gap-3 text-cyber-red mb-1">
-              <span className="text-[10px] font-display uppercase tracking-[0.5em] font-bold py-1 px-3 bg-cyber-red/10 border border-cyber-red/30">Restricted_Access</span>
+            <div className="flex items-center gap-3 text-[#A52A2A] mb-1">
+              <span className="text-[10px] font-display uppercase tracking-[0.5em] font-bold py-1 px-3 bg-[#8B1A1A]/10 border border-[#8B1A1A]/30">Restricted_Access</span>
               <span className="text-[10px] font-mono text-gray-600">Encrypted_Vortex_Market_v0.9</span>
             </div>
-            <h1 className="text-4xl font-display font-bold text-white tracking-widest glitch-text">
-              BLACK<span className="text-cyber-red">_MARKET</span>
+            <h1 className="text-4xl font-display font-bold text-white tracking-widest">
+              BLACK<span className="text-[#A52A2A]">_MARKET</span>
             </h1>
             <p className="text-gray-400 font-mono text-sm max-w-xl">
-              Spend accumulated XP units to bypass security protocols or disrupt rival operations. 
+              Spend accumulated XP units to bypass security protocols or disrupt rival operations.
               Transactions are non-refundable and permanently logged.
             </p>
           </div>
 
-          <div className="flex flex-col items-end gap-2 bg-black/60 border border-cyber-red/20 p-6 corner-brackets relative min-w-[200px]">
+          <div className="flex flex-col items-end gap-2 bg-black/60 border border-[#8B1A1A]/20 p-6 corner-brackets relative min-w-[200px]">
             <div className="flex items-center gap-2">
-              <Zap className="w-3 h-3 text-cyber-amber animate-pulse" />
+              <Zap className="w-3 h-3 text-[#c8a050] animate-pulse" />
               <span className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Available_Credits</span>
             </div>
-            <span className="text-3xl font-display font-bold text-cyber-amber tracking-tighter tabular-nums">
-              {playerTeam?.score?.toLocaleString() || 0} <span className="text-xs text-cyber-amber/50 font-normal">XP</span>
+            <span className="text-3xl font-display font-bold text-[#c8a050] tracking-tighter tabular-nums">
+              {playerTeam?.score?.toLocaleString() || 0} <span className="text-xs text-[#c8a050]/50 font-normal">XP</span>
             </span>
           </div>
         </div>
@@ -172,21 +172,20 @@ export default function BlackMarket() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className={`group relative flex flex-col h-full bg-black/40 border border-cyber-line p-6 hover:border-cyber-red/40 transition-all ${
-              playerTeam && playerTeam.score < item.cost ? 'opacity-50 grayscale pointer-events-none' : ''
-            }`}
+            className={`group relative flex flex-col h-full bg-black/40 border border-[rgba(139,105,20,0.4)] p-6 hover:border-[#8B1A1A]/40 transition-all ${playerTeam && playerTeam.score < item.cost ? 'opacity-50 grayscale pointer-events-none' : ''
+              }`}
           >
-            <div className="absolute top-0 right-0 p-3 text-gray-800 pointer-events-none group-hover:text-cyber-red/10 transition-colors">
+            <div className="absolute top-0 right-0 p-3 text-gray-800 pointer-events-none group-hover:text-[#A52A2A]/10 transition-colors">
               <Activity className="w-12 h-12" />
             </div>
 
             <div className="flex items-start gap-4 mb-6">
-              <div className="p-4 bg-cyber-red/5 border border-cyber-red/20 group-hover:neon-border-red transition-all">
+              <div className="p-4 bg-[#8B1A1A]/5 border border-[#8B1A1A]/20 group-hover:border-[#c8a050] shadow-[0_0_8px_rgba(200,160,80,0.3)] transition-all">
                 {getIcon(item.id === 'intel_draft' ? 'FileSearch' : item.id === 'evidence_decrypter' ? 'Unlock' : item.id === 'emp_jammer' ? 'Radio' : 'Shield')}
               </div>
               <div className="space-y-1">
-                <h3 className="text-xl font-display font-bold text-white tracking-wide uppercase group-hover:text-cyber-red transition-colors">{item.name}</h3>
-                <div className="text-xs font-mono text-cyber-red/60 font-bold uppercase tracking-widest flex items-center gap-2">
+                <h3 className="text-xl font-display font-bold text-white tracking-wide uppercase group-hover:text-[#A52A2A] transition-colors">{item.name}</h3>
+                <div className="text-xs font-mono text-[#A52A2A]/60 font-bold uppercase tracking-widest flex items-center gap-2">
                   <Archive className="w-3 h-3" />
                   Cost: {item.cost} XP
                 </div>
@@ -199,18 +198,17 @@ export default function BlackMarket() {
 
             {/* Special Options: Target Selection for EMP */}
             {item.id === 'emp_jammer' && (
-              <div className="mb-6 space-y-3 p-3 bg-red-950/20 border border-cyber-red/10">
-                <label className="text-[9px] font-display text-cyber-red uppercase tracking-widest">Target_Deployment_Zone:</label>
+              <div className="mb-6 space-y-3 p-3 bg-red-950/20 border border-[#8B1A1A]/10">
+                <label className="text-[9px] font-display text-[#A52A2A] uppercase tracking-widest">Target_Deployment_Zone:</label>
                 <div className="flex flex-wrap gap-2">
                   {teams.length > 0 ? teams.map(t => (
                     <button
                       key={t.id}
                       onClick={() => setSelectedTargetId(t.id)}
-                      className={`px-3 py-1.5 text-[10px] font-mono border transition-all ${
-                        selectedTargetId === t.id 
-                          ? 'bg-cyber-red border-cyber-red text-black font-bold' 
-                          : 'border-cyber-red/20 text-cyber-red hover:bg-cyber-red/10'
-                      }`}
+                      className={`px-3 py-1.5 text-[10px] font-mono border transition-all ${selectedTargetId === t.id
+                        ? 'bg-[#8B1A1A] border-[#8B1A1A] text-black font-bold'
+                        : 'border-[#8B1A1A]/20 text-[#A52A2A] hover:bg-[#8B1A1A]/10'
+                        }`}
                     >
                       {t.name}
                     </button>
@@ -224,11 +222,10 @@ export default function BlackMarket() {
             <button
               onClick={() => handleBuy(item.id)}
               disabled={purchasing !== null || (playerTeam && playerTeam.score < item.cost)}
-              className={`w-full h-12 flex items-center justify-center gap-3 font-display uppercase tracking-widest transition-all ${
-                purchasing === item.id 
-                  ? 'bg-cyber-red/20 text-cyber-red border border-cyber-red/40 animate-pulse'
-                  : 'bg-cyber-red text-black font-bold hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] clip-path-slant'
-              }`}
+              className={`w-full h-12 flex items-center justify-center gap-3 font-display uppercase tracking-widest transition-all ${purchasing === item.id
+                ? 'bg-[#8B1A1A]/20 text-[#A52A2A] border border-[#8B1A1A]/40 animate-pulse'
+                : 'bg-[#8B1A1A] text-black font-bold hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] clip-path-slant'
+                }`}
             >
               {purchasing === item.id ? (
                 <>
@@ -253,17 +250,16 @@ export default function BlackMarket() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className={`fixed bottom-10 right-10 p-5 border flex items-center gap-4 shadow-2xl z-50 ${
-              feedback.success ? 'bg-black border-cyber-green text-cyber-green' : 'bg-black border-cyber-red text-cyber-red'
-            }`}
+            className={`fixed bottom-10 right-10 p-5 border flex items-center gap-4 shadow-2xl z-50 ${feedback.success ? 'bg-black border-[#d4a017] text-[#d4a017]' : 'bg-black border-[#8B1A1A] text-[#A52A2A]'
+              }`}
           >
             {feedback.success ? <Check className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
             <div>
               <div className="text-[10px] font-display uppercase tracking-widest font-bold">System_Feedback</div>
               <div className="text-xs font-mono">{feedback.message}</div>
             </div>
-            <button 
-              onClick={() => setFeedback(null)} 
+            <button
+              onClick={() => setFeedback(null)}
               className="ml-4 p-1 hover:bg-white/10 rounded transition-colors"
             >
               <ChevronRight className="w-4 h-4 rotate-90" />

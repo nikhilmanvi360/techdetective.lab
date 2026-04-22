@@ -1,4 +1,4 @@
-import { supabase } from '../src/lib/supabase.js';
+import { supabase } from '../src/lib/supabase';
 import bcrypt from 'bcryptjs';
 
 const INITIAL_TEAMS = [
@@ -10,12 +10,8 @@ const INITIAL_TEAMS = [
   }
 ];
 
-const INITIAL_CASES: any[] = [];
-const INITIAL_PUZZLES: any[] = [];
-const INITIAL_EVIDENCE: any[] = [];
-
 async function seed() {
-  console.log('--- SEEDING SUPABASE DATABASE ---');
+  console.log('--- SEEDING SUPABASE DATABASE (EXPANSION PACK 1) ---');
 
   // 1. Seed default team (admin/admin)
   const hashedPassword = bcrypt.hashSync('admin123', 10);
@@ -26,56 +22,47 @@ async function seed() {
   if (teamError) console.error('Error seeding teams:', teamError.message);
   else console.log('✔ Teams seeded');
 
-  // 2. Seed cases
+  // 2. Seed cases (1-7)
   const cases = [
-    { id: 1, title: 'The Phantom Leak', description: 'A sensitive user database from a fintech startup was leaked on a dark web forum. The CEO suspects a targeted attack or a disgruntled employee. Your task is to trace the digital breadcrumbs, identify the vulnerability exploited, and find the culprit.', difficulty: 'Intermediate', correct_attacker: 'Shadow', points_on_solve: 150, status: 'active' },
-    { id: 2, title: 'The Exam Portal Breach (CCU-2026-017)', description: 'The KLE College Examination Portal was hacked and the BCA semester exam paper was leaked online 24 hours before the exam. The administration suspects an insider attack. Identify the attacker among the three primary suspects: Rahul, Neha, and Arjun.', difficulty: 'Hard', correct_attacker: 'Neha', points_on_solve: 250, status: 'active' },
-    { id: 3, title: 'Operation Phantom Proxy', description: 'The college\'s Automated Attendance System (AAS) has been compromised. Over the last month, a specific group of students has maintained 100% attendance, despite professors noting their physical absence in class. The administration suspects someone has found a backdoor into the web portal to inject fake attendance records. You have three main suspects: Vikram, Rohan, and Priya (Database TA).', difficulty: 'Hard', correct_attacker: 'Priya', points_on_solve: 300, status: 'active' },
-    { id: 4, title: 'The Junior Developer\'s Blunder', description: 'A junior developer at "TechCorp" accidentally pushed some raw debug files to the production server. These files contain sensitive tokens and internal notes. Your task is to examine these files and find the hidden data.', difficulty: 'Easy', correct_attacker: 'Junior_Dev_Manoj', points_on_solve: 100, status: 'active' },
-    { id: 5, title: 'The Zero-Day Syndicate', description: 'A sophisticated ransomware attack encrypted the Active Directory servers of a Fortune 500 hospital. The attack used a zero-day exploit, but communication logs suggest an insider helped them bypass physical access controls. Your Hacker must trace the malware payload, while your Analyst must trace the communication and financial logs. You must collaborate to identify the inside man.', difficulty: 'Expert', correct_attacker: 'Dr. Jonathan Crane', points_on_solve: 500, status: 'active' }
+    { id: 1, title: 'The Phantom Leak', description: 'A sensitive user database from a fintech startup was leaked on a dark web forum. Trace the digital breadcrumbs and find the culprit.', difficulty: 'Intermediate', correct_attacker: 'Shadow', points_on_solve: 150, status: 'active' },
+    { id: 2, title: 'The Exam Portal Breach', description: 'The KLE Exam Portal was hacked and papers leaked online. Identify the attacker among Neha, Rahul, and Arjun.', difficulty: 'Hard', correct_attacker: 'Neha', points_on_solve: 250, status: 'active' },
+    { id: 3, title: 'Operation Phantom Proxy', description: 'The attendance system has been compromised. Digital signatures suggest a frame job.', difficulty: 'Hard', correct_attacker: 'Priya', points_on_solve: 300, status: 'active' },
+    { id: 4, title: 'The Junior Dev Blunder', description: 'Debug files leaked tokens. Find the hidden data Manoj left behind.', difficulty: 'Easy', correct_attacker: 'Junior_Dev_Manoj', points_on_solve: 100, status: 'active' },
+    { id: 5, title: 'The Zero-Day Syndicate', description: 'Expert level ransom attack. Collaborate to find the inside man in the Fortune 500 hospital.', difficulty: 'Expert', correct_attacker: 'Dr. Jonathan Crane', points_on_solve: 500, status: 'active' },
+    { id: 6, title: 'The Ghost in the Exchange', description: 'Micro-pennies are vanishing from the Central City Exchange. Trace the financial ghost and the disgraced analyst behind the algorithm.', difficulty: 'Expert', correct_attacker: 'Silver_Fox', points_on_solve: 450, status: 'active' },
+    { id: 7, title: 'Operation Shadow Canvas', description: 'A multi-million dollar NFT was stolen from a private gallery. Find the rival curator who exploited the smart contract logic.', difficulty: 'Intermediate', correct_attacker: 'The_Curator', points_on_solve: 200, status: 'active' }
   ];
 
   const { error: casesError } = await supabase.from('cases').upsert(cases);
   if (casesError) console.error('Error seeding cases:', casesError.message);
-  else console.log('✔ Cases seeded');
+  else console.log('✔ Cases seeded (7 total)');
 
   // 3. Seed puzzles
   const puzzles = [
     // Case 1
-    { id: 1, case_id: 1, question: 'What is the IP address of the attacker?', answer: '192.168.1.45', points: 20, hint: 'Check the "Encrypted Chat Log" or "Auth Server Logs".' },
-    { id: 2, case_id: 1, question: 'What is the admin password hidden in the source code? (Decode the base64)', answer: 'p@ssw0rd123', points: 30, hint: 'Look for a base64 string in the HTML comments of index.html.' },
-    { id: 3, case_id: 1, question: 'What username did the attacker use to log in?', answer: 'dev_admin', points: 20, hint: 'The server logs show a successful login.' },
+    { id: 1, case_id: 1, question: 'What is the IP address of the attacker?', answer: '192.168.1.45', points: 20 },
+    { id: 2, case_id: 1, question: 'What is the admin password hidden in the source code?', answer: 'p@ssw0rd123', points: 30 },
+    { id: 3, case_id: 1, question: 'What username did the attacker use?', answer: 'dev_admin', points: 20 },
     // Case 2
-    { id: 4, case_id: 2, question: 'Inspect the "Admin Login Source". What is the value of the hidden CSRF token?', answer: 'admin_bypass_99', points: 10, hint: 'Look for an <input> tag with type="hidden".' },
-    { id: 5, case_id: 2, question: 'What is the hidden backup directory mentioned in the HTML comments?', answer: '/admin_backup_v2', points: 10, hint: 'Read the green comment text in the HTML file.' },
-    { id: 6, case_id: 2, question: 'Look at the "Portal Stylesheet". What is the hidden API route used to export the PDF?', answer: '/api/v2/export_pdf', points: 20, hint: 'Find the CSS class that has "display: none".' },
-    { id: 7, case_id: 2, question: 'The login requires a daily PIN generated by a C program. Read "keygen.c" and calculate the PIN.', answer: '100', points: 30, hint: 'x << y means bitwise left shift. 15 shifted left by 3 is 15 * (2^3). Then subtract 20.' },
-    { id: 8, case_id: 2, question: 'Decode the secret note in the C program to find the exact filename of the stolen exam.', answer: 'secret_exam_file_2026.pdf', points: 30, hint: 'The string ends with ==, which means it is Base64 encoded.' },
-    { id: 9, case_id: 2, question: 'Check the "Portal Access Log". Which IP address successfully logged in using the correct PIN?', answer: '192.168.0.15', points: 20, hint: 'Look for the "LOGIN SUCCESS" line.' },
-    { id: 10, case_id: 2, question: 'Cross-reference the IP with the "Lab IP Mapping". Which physical computer was used?', answer: 'Lab Computer 4', points: 20, hint: 'Match the IP from the access log to the mapping list.' },
-    { id: 11, case_id: 2, question: 'A Python script ("frame_job.py") was found on that computer. Who is the script designed to frame?', answer: 'Arjun', points: 30, hint: 'Read the comments and the target variable in the Python code.' },
-    { id: 12, case_id: 2, question: 'The attacker tried to frame Arjun, but the CCTV logs don\'t lie. Who was the only person physically present in the lab at the time of the successful login (21:41)?', answer: 'Neha', points: 50, hint: 'Compare the timestamp of the successful login with the Lab Entry Log.' },
+    { id: 4, case_id: 2, question: 'What is the hidden CSRF token in the admin source?', answer: 'admin_bypass_99', points: 20 },
+    { id: 5, case_id: 2, question: 'What is the Daily PIN (calculate from keygen.c)?', answer: '100', points: 40 },
+    { id: 6, case_id: 2, question: 'Who was physically present in the lab at 21:41?', answer: 'Neha', points: 60 },
     // Case 3
-    { id: 13, case_id: 3, question: 'The attacker didn\'t use the standard login form. What hidden API endpoint did they use to bypass the system?', answer: '/api/v1/attendance_override', points: 20, hint: 'Inspect the HTML source code carefully. Developers often leave comments behind.' },
-    { id: 14, case_id: 3, question: 'To use the hidden API, the attacker needed a specific Dev Auth Key. Decode the key found in the HTML source.', answer: 'admin_backdoor', points: 30, hint: 'The string ends with an equals sign (=), which is a massive giveaway that it is Base64 encoded.' },
-    { id: 15, case_id: 3, question: 'Look at the Auth Server Logs. What IP address appears to be making the late-night requests to the override API?', answer: '192.168.5.101', points: 20, hint: 'Find the exact timestamp when the /api/v1/attendance_override was accessed and look at the end of that log line.' },
-    { id: 16, case_id: 3, question: 'Vikram claims to have hacked the system. Decode his "ultimate bypass code" from the chat logs to see what his actual method is.', answer: 'Hey, it\'s just a fake medical certificate lol', points: 30, hint: 'Like the Dev Key, this is Base64 encoded. Vikram isn\'t a hacker; he\'s just a liar.' },
-    { id: 17, case_id: 3, question: 'The IP address in the server logs belongs to Rohan (192.168.5.101). However, look at the Python script. What specific HTTP Header did the real attacker use to spoof the IP and frame Rohan?', answer: 'X-Forwarded-For', points: 40, hint: 'Read the comments in the Python code. It explicitly states which line overrides the origin IP.' },
-    { id: 18, case_id: 3, question: 'Since Rohan was framed, we need to find the actual machine that ran the Python script. What is the real origin IP address?', answer: '10.0.0.55', points: 30, hint: 'Look at the variables defined at the top of the Python script.' },
-    { id: 19, case_id: 3, question: 'We know the attack came from 10.0.0.55. Read the IT Internal Email to find out where that machine is located. Then, check the CSS file. Whose initials are left in the code, proving they built the hidden debug panel?', answer: 'P.S.', points: 50, hint: 'The email points to the TA lab. Look for a CSS comment inside the .debug-panel class. Who matches those initials?' },
+    { id: 13, case_id: 3, question: 'What hidden API endpoint was used for override?', answer: '/api/v1/attendance_override', points: 20 },
+    { id: 14, case_id: 3, question: 'What HTTP Header was used to spoof the IP?', answer: 'X-Forwarded-For', points: 40 },
     // Case 4
-    { id: 20, case_id: 4, question: 'What is the hidden developer code found in the HTML comments?', answer: 'DEV_HTM_2026', points: 20, hint: 'Look for green text in the source code or use "Inspect Element".' },
-    { id: 21, case_id: 4, question: 'What is the Hex color code of the ".alert-msg" class in the stylesheet?', answer: '#E74C3C', points: 20, hint: 'Open the "Debug Stylesheet" and look for the color property.' },
-    { id: 22, case_id: 4, question: 'What is the value of the "internal_key" variable in the Python script?', answer: 'PY_KEY_44', points: 30, hint: 'Read the "Cleanup Script" carefully.' },
-    { id: 23, case_id: 4, question: 'Read "math_check.c". What value does the program print? (Calculate: 5 + 5 * 2)', answer: '15', points: 30, hint: 'Remember operator precedence: Multiply before Add.' },
-    // Case 5 - Hacker Trail
-    { id: 24, case_id: 5, question: 'Analyze the Firewall Access Log. At exactly 03:14 AM, a massive payload was dropped. Which destination port was targeted?', answer: '445', points: 50, hint: 'Look for the log entry at 03:14:00 and observe the DPT (Destination Port).' },
-    { id: 25, case_id: 5, question: 'Port 445 is SMB. The attacker used a known wrapper. Inspect the SMB Packet Capture. What was the exact filename of the payload uploaded?', answer: 'smb_updater_v4.exe', points: 100, hint: 'Find the filename parameter in the packet trace.', depends_on_puzzle_id: 24 },
-    { id: 26, case_id: 5, question: 'The payload contains a hardcoded decryption key for the C2 server. Decompile the malware and find the XOR key used in the init_c2_comms function.', answer: '0xDEADBEEF', points: 150, hint: 'Read the decompiled C++ code carefully. Look for the XOR operator (^).', depends_on_puzzle_id: 25 },
-    // Case 5 - Analyst Trail
-    { id: 27, case_id: 5, question: 'The attackers are communicating with the inside man. What time did the insider confirm the physical USB drop was complete?', answer: '02:45 AM', points: 50, hint: 'Check the Intercepted Telegram Logs for a message confirming physical access.' },
-    { id: 28, case_id: 5, question: 'The insider mentions he hid the flash drive in a specific room. Decode his base64 message to find the room number.', answer: 'Server Room B', points: 100, hint: 'Use a Base64 decoder on the capitalized string at the end of the chat log.', depends_on_puzzle_id: 27 },
-    { id: 29, case_id: 5, question: 'The payment was made via privacy coin, but an email receipt contains a slip up. What is the unique transaction ID (TXID)?', answer: 'TX-9948271A', points: 150, hint: 'Check the Offshore Payment Receipt for the explicit TXID string.', depends_on_puzzle_id: 28 }
+    { id: 20, case_id: 4, question: 'What is the internal dev code?', answer: 'DEV_HTM_2026', points: 50 },
+    // Case 5
+    { id: 24, case_id: 5, question: 'Which destination port was targeted at 03:14 AM?', answer: '445', points: 50 },
+    { id: 25, case_id: 5, question: 'What was the XOR key found in init_c2_comms?', answer: '0xDEADBEEF', points: 150, depends_on_puzzle_id: 24 },
+    // Case 6 - FINANCIAL GHOST
+    { id: 30, case_id: 6, question: 'What is the abnormal HFT order port identified in the Exchange Logs?', answer: '8888', points: 50, hint: 'Check the "Exchange Traffic Log" for high-volume frequency on an unusual port.' },
+    { id: 31, case_id: 6, question: 'Decode the obfuscated trade volume found in "ghost_alg.py". (Hex to Dec)', answer: '4096', points: 100, hint: 'The variable "v_buf" is 0x1000 in hex.', depends_on_puzzle_id: 30 },
+    { id: 32, case_id: 6, question: 'Find the "Silver_Fox" employee ID in the HR records matching the origin IP 10.5.5.9.', answer: 'EMP-9822', points: 150, hint: 'Cross-reference the "Terminal Access List" with the "Staff Directory".', depends_on_puzzle_id: 31 },
+    // Case 7 - SHADOW CANVAS
+    { id: 33, case_id: 7, question: 'Identify the "Exploiter Address" from the "Gallery Transaction Log".', answer: '0x71C...a9E1', points: 40, hint: 'Look for the contract call with status "VULN_SUCCESS".' },
+    { id: 34, case_id: 7, question: 'What is the hidden EXIF metadata value "Curator_Note" in the stolen art file?', answer: 'Final_Bidding_War', points: 60, hint: 'Use "strings" or "exiftool" logic on the Art Metadata file.' },
+    { id: 35, case_id: 7, question: 'The stolen NFT was sent to a wallet named after a constellation. Which one?', answer: 'Orion', points: 80, hint: 'Read the "Intercepted DM" between the Curator and the buyer.' }
   ];
 
   const { error: puzzlesError } = await supabase.from('puzzles').upsert(puzzles);
@@ -84,56 +71,23 @@ async function seed() {
 
   // 4. Seed evidence
   const evidence = [
-    // Case 1
-    { id: 1, case_id: 1, type: 'chat', title: 'Encrypted Chat Log', content: 'Shadow: Did you get the dump?\nGhost: Yeah, it was too easy. They left the debug mode on.\nShadow: Good. Send it to the usual IP: 192.168.1.45\nGhost: Wait, I think I saw someone else in the logs. "dev_admin"?\nShadow: Ignore it. Just get the data out.', metadata: { source: 'Internal Messenger', timestamp: '2026-04-10 23:00', protocol: 'XMPP-SEC' }, required_puzzle_id: null },
-    { id: 2, case_id: 1, type: 'html', title: 'Portal Source Code', content: '<!DOCTYPE html>\n<html>\n<!-- DEBUG INFO: Admin bypass enabled for testing -->\n<!-- TODO: Remove this before prod: btoa("admin:p@ssw0rd123") -->\n<script>\n  function checkDebug() {\n    if(window.location.hash === "#debug") console.log("Debug mode active");\n  }\n</script>\n<body>...</body>\n</html>', metadata: { file: 'index.html', version: 'v2.1.0', server: 'Nginx/1.18.0' }, required_puzzle_id: 1 },
-    { id: 3, case_id: 1, type: 'log', title: 'Auth Server Logs', content: '2026-04-10 22:15:01 - 192.168.1.45 - LOGIN_SUCCESS - user: dev_admin\n2026-04-10 22:16:05 - 192.168.1.45 - EXPORT_REQUEST - resource: user_db_final.csv\n2026-04-10 22:18:10 - 192.168.1.45 - LOGOUT - user: dev_admin', metadata: { server: 'Auth-Node-01', log_level: 'INFO' }, required_puzzle_id: 2 },
-    { id: 4, case_id: 1, type: 'code', title: 'Recovery Script', content: 'import base64\n\ndef recover_key(cipher):\n    # The key is hidden in the XOR\n    return "".join(chr(ord(c) ^ 0x42) for c in cipher)\n\n# Found string: "6\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b\\x0b"', metadata: { language: 'python', location: '/tmp/recovery.py', owner: 'root' }, required_puzzle_id: 3 },
-    // Case 2
-    { id: 5, case_id: 2, type: 'html', title: 'Admin Login Source', content: '<!DOCTYPE html>\n<html>\n<head>\n  <link rel="stylesheet" href="portal_style.css">\n</head>\n<body>\n  <h2>KLE Exam Portal</h2>\n  <form action="/login" method="post">\n    <input type="hidden" name="csrf_token" value="admin_bypass_99">\n    Username: <input type="text" name="username">\n    Password: <input type="password" name="password">\n    <input type="submit" value="Login">\n  </form>\n  <!-- TODO: Migrate to /admin_backup_v2 -->\n  <!-- Note: Daily PIN is generated by keygen.c -->\n</body>\n</html>', metadata: { file: 'admin_login.html', encoding: 'UTF-8' }, required_puzzle_id: null },
-    { id: 6, case_id: 2, type: 'html', title: 'Portal Stylesheet (CSS)', content: 'body {\n  background-color: #f0f0f0;\n}\n.login-box {\n  border: 1px solid #ccc;\n}\n.hidden-route {\n  display: none;\n  /* Route: /api/v2/export_pdf */\n}', metadata: { file: 'portal_style.css', type: 'text/css' }, required_puzzle_id: 4 },
-    { id: 7, case_id: 2, type: 'code', title: 'Key Generator (keygen.c)', content: '#include <stdio.h>\n#include <string.h>\n\nint main() {\n    int x = 15;\n    int y = 3;\n    // Calculate PIN using bitwise shift\n    int pin = (x << y) - 20;\n    printf("Daily PIN: %d\\n", pin);\n\n    // Secret note: "c2VjcmV0X2V4YW1fZmlsZV8yMDI2LnBkZg=="\n    return 0;\n}', metadata: { language: 'c', compiler: 'gcc 9.4.0' }, required_puzzle_id: 5 },
-    { id: 8, case_id: 2, type: 'log', title: 'Portal Access Log', content: '21:39:05 FAILED LOGIN admin 192.168.0.15\n21:41:10 LOGIN SUCCESS admin 192.168.0.15 (PIN: 100)\n21:41:40 POST /api/v2/export_pdf\n21:42:05 LOGOUT admin', metadata: { server: 'KLE-Portal-SRV', uptime: '142 days' }, required_puzzle_id: 7 },
-    { id: 9, case_id: 2, type: 'log', title: 'Lab IP Mapping', content: '192.168.0.12  Lab Computer 1\n192.168.0.13  Lab Computer 2\n192.168.0.14  Lab Computer 3\n192.168.0.15  Lab Computer 4', metadata: { location: 'Computer Lab 1', subnet: '255.255.255.0' }, required_puzzle_id: 9 },
-    { id: 10, case_id: 2, type: 'code', title: 'Suspicious Script (frame_job.py)', content: '# Script left on Lab Computer 4 to mislead investigators\ndef encode(text):\n    return "".join(chr(ord(c) + 1) for c in text)\n\n# Target to frame:\ntarget = "Arjun"\n\n# Output generated: "Bskvo"\nprint("Framing complete. Logs wiped.")', metadata: { language: 'python', permissions: 'rwx------' }, required_puzzle_id: 10 },
-    { id: 11, case_id: 2, type: 'log', title: 'CCTV & Entry Log', content: '21:30 Lab Entry Log:\nRahul - Left campus at 18:00\nNeha - Working in lab (21:00 - 22:30)\nArjun - Not present (Attending Tech Club Meeting in Block B)', metadata: { source: 'Security Office', camera: 'CAM-04' }, required_puzzle_id: 11 },
-    // Case 3
-    { id: 12, case_id: 3, type: 'html', title: 'Portal Login Source', content: '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <title>AAS - Faculty Login</title>\n    <link rel="stylesheet" href="style.css">\n</head>\n<body>\n    <div class="login-container">\n        <h2>Attendance Portal</h2>\n        <form action="/login" method="POST">\n            <input type="text" name="username" placeholder="Faculty ID">\n            <input type="password" name="password" placeholder="Password">\n            <button type="submit">Login</button>\n        </form>\n    </div>\n    <!-- DEBUG: The old v1 API is deprecated but still active for emergency DB rollbacks. -->\n    <!-- TODO: Remove /api/v1/attendance_override before final deployment. -->\n    <!-- Dev Auth Key: YWRtaW5fYmFja2Rvb3I= -->\n</body>\n</html>', metadata: { file: 'index.html', server: 'Apache/2.4.41' }, required_puzzle_id: null },
-    { id: 13, case_id: 3, type: 'html', title: 'Portal Stylesheet (CSS)', content: 'body {\n    background-color: #f4f4f9;\n    font-family: "Courier New", Courier, monospace;\n}\n\n.login-container {\n    width: 300px;\n    margin: 100px auto;\n    padding: 20px;\n    border: 1px solid #ccc;\n}\n\n/* Hidden elements */\n.error-log {\n    visibility: hidden;\n}\n\n.debug-panel {\n    display: none; /* Custom override panel - property of P.S. Do not delete! */\n    position: absolute;\n    top: 0;\n}', metadata: { file: 'style.css', type: 'text/css' }, required_puzzle_id: null },
-    { id: 14, case_id: 3, type: 'log', title: 'Auth Server Logs', content: '[2026-04-12 08:30:12] INFO: Successful login - FacultyID: F-402\n[2026-04-12 09:15:44] WARN: Failed login attempt - IP: 192.168.1.50\n[2026-04-12 23:45:01] INFO: POST /api/v1/attendance_override - Status: 200 OK - IP: 192.168.5.101\n[2026-04-12 23:45:05] INFO: POST /api/v1/attendance_override - Status: 200 OK - IP: 192.168.5.101\n[2026-04-13 23:50:12] INFO: POST /api/v1/attendance_override - Status: 200 OK - IP: 192.168.5.101\n[2026-04-14 08:00:00] INFO: Daily attendance report generated.', metadata: { server: 'AAS-Prod-Server', log_level: 'INFO/WARN' }, required_puzzle_id: 13 },
-    { id: 15, case_id: 3, type: 'chat', title: 'Intercepted Campus Chat', content: '[Campus_General_Channel]\nVikram: Bro, I don\'t even need to wake up for the 8 AM classes anymore. 100% attendance baby!\nRahul: Wait, how? Did you hack the AAS?\nVikram: I\'m basically a master hacker now. I got the ultimate bypass code.\nRahul: Prove it.\nVikram: SGV5LCBpdCdzIGp1c3QgYSBmYWtlIG1lZGljYWwgY2VydGlmaWNhdGUgbG9s\nVikram: Decode that if you can, script kiddie.', metadata: { source: 'Campus Discord', channel: '#general' }, required_puzzle_id: null },
-    { id: 16, case_id: 3, type: 'code', title: 'Suspicious Script', content: 'import requests\nimport time\n\n# Target the legacy endpoint\nurl = "http://aas.college.edu/api/v1/attendance_override"\n\n# The real machine running this script\norigin_ip = "10.0.0.55"\n\n# The target we want the server logs to see (Tech Club President\'s IP)\nframed_ip = "192.168.5.101"\n\nheaders = {\n    "Authorization": "Bearer admin_backdoor",\n    "X-Forwarded-For": framed_ip, # This overrides the origin IP in poorly configured servers\n    "User-Agent": "Mozilla/5.0"\n}\n\npayload = {\n    "student_id": "BCA-2024-089",\n    "status": "PRESENT"\n}\n\nprint("Injecting attendance record...")\nresponse = requests.post(url, headers=headers, json=payload)\nprint(f"Status: {response.status_code}")', metadata: { language: 'python', location: 'Shared Drive /Temp' }, required_puzzle_id: 15 },
-    { id: 17, case_id: 3, type: 'email', title: 'IT Dept Internal Email', content: 'From: sysadmin@college.edu\nTo: teaching_assistants@college.edu\nSubject: URGENT: Lab Computers Left On\n\nDear TAs,\n\nPlease ensure you are shutting down the computers in the Database Lab (Subnet 10.0.0.x) before leaving. \n\nLast night, our network monitor detected outbound traffic coming from Machine #5 (IP: 10.0.0.55) at nearly midnight. If you are running long database queries overnight, please notify IT beforehand.\n\nRegards,\nIT Admin', metadata: { mail_server: 'Exchange', priority: 'High' }, required_puzzle_id: 18 },
-    // Case 4
-    { id: 18, case_id: 4, type: 'html', title: 'Junior Landing Page', content: '<!DOCTYPE html>\n<html>\n<head>\n  <link rel="stylesheet" href="theme.css">\n</head>\n<body>\n  <h1 class="alert-msg">System Maintenance</h1>\n  <p>Please wait while we update the portal.</p>\n  <!-- INTERNAL DEBUG CODE: DEV_HTM_2026 -->\n</body>\n</html>', metadata: { file: 'landing.html', status: 'staging' }, required_puzzle_id: null },
-    { id: 19, case_id: 4, type: 'html', title: 'Debug Stylesheet (CSS)', content: '.alert-msg {\n  color: #E74C3C;\n  font-weight: bold;\n  text-align: center;\n}\n\n.hidden-panel {\n  display: none;\n  /* Use local_admin for access */\n}', metadata: { file: 'theme.css', author: 'Manoj' }, required_puzzle_id: 20 },
-    { id: 20, case_id: 4, type: 'code', title: 'Cleanup Script (Python)', content: '#!/usr/bin/python3\nimport os\n\ninternal_key = "PY_KEY_44"\n\ndef cleanup():\n    print("Cleaning up temporary files...")\n    # os.remove("/tmp/debug_logs.txt")\n\nif __name__ == "__main__":\n    cleanup()', metadata: { language: 'python', version: '3.10' }, required_puzzle_id: 21 },
-    { id: 21, case_id: 4, type: 'code', title: 'Math Verification (C)', content: '#include <stdio.h>\n\nint main() {\n    int a = 5;\n    int b = 5;\n    int c = 2;\n    // Verify the system logic\n    printf("Verification Code: %d\\n", a + b * c);\n    return 0;\n}', metadata: { language: 'c', compiler: 'gcc' }, required_puzzle_id: 22 },
-    // Case 5 (Zero-Day Syndicate)
-    { id: 22, case_id: 5, type: 'log', title: 'Firewall Access Log', content: '[03:12:44] SRC: 198.51.100.41 DST: 10.0.0.5 DPT: 80\n[03:14:00] SRC: 198.51.100.41 DST: 10.0.0.5 DPT: 445 -> LARGE_PAYLOAD_DETECTED\n[03:15:22] SRC: 10.0.0.5 DST: 198.51.100.41 DPT: 443 -> OUTBOUND_CONNECT', metadata: { server: 'Hospital-FW-01' }, required_puzzle_id: null },
-    { id: 23, case_id: 5, type: 'log', title: 'SMB Packet Capture', content: 'Packet 4022:\nSMB2 Write Request\nFile Id: 0x0119\nOffset: 0\nData Length: 4096\nFilename: "smb_updater_v4.exe"\nStatus: STATUS_SUCCESS', metadata: { capture_tool: 'Wireshark' }, required_puzzle_id: 24 },
-    { id: 24, case_id: 5, type: 'code', title: 'Decompiled Payload (C++)', content: 'void init_c2_comms() {\n    char buffer[256];\n    int master_key = 0xDEADBEEF;\n    for(int i = 0; i < sizeof(buffer); i++) {\n        buffer[i] ^= master_key;\n    }\n    send_beacon(buffer);\n}', metadata: { language: 'c++' }, required_puzzle_id: 25 },
-    { id: 25, case_id: 5, type: 'chat', title: 'Intercepted Telegram Logs', content: 'Phantom: Are you in position?\nInsider: Yes, bypassing keycard entry now.\nPhantom: We need the exploit on the internal subnet.\nInsider: [02:45 AM] Drop is complete. It\'s plugged into the maintenance terminal.\nPhantom: Where did you leave the drive?\nInsider: U2VydmVyIFJvb20gQg==\nPhantom: Good. The transfer is processing.', metadata: {}, required_puzzle_id: null },
-    { id: 26, case_id: 5, type: 'email', title: 'Offshore Payment Receipt (Encrypted Timer)', content: 'From: no-reply@mixer-crypto.net\nTo: dr.j.crane@proton.me\nSubject: Transfer Confirmed\n\nYour recent anonymous deposit has cleared.\nAmount: 45.2 XMR\nDestination Wallet: 48f9j3...a9b2\nInternal Reference: TX-9948271A\n\nThank you for using our privacy service.', metadata: {}, required_puzzle_id: 28, unlock_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() }
+    // Case 6 - THE GHOST IN THE EXCHANGE
+    { id: 27, case_id: 6, type: 'log', title: 'Exchange Traffic Log', content: '[HFT-CORE] ALERT: High frequency burst detected.\n[HFT-CORE] PORT: 8888\n[HFT-CORE] SRC: 10.5.5.9 [Internal Terminal]\n[HFT-CORE] VOL: 0x1000 shares/ms\n[HFT-CORE] STATUS: LOGGING_DISABLED', metadata: { server: 'CC-EXCH-01', region: 'Central' }, required_puzzle_id: null },
+    { id: 28, case_id: 6, type: 'code', title: 'Decompiled Algorithm (ghost_alg.py)', content: '# Fragment of suspicious siphoning script\ndef execute_trade(vol):\n    v_buf = 0x1000\n    if vol >= v_buf:\n        siphon_micros(vol - v_buf)\n\n# Trace shows origin terminal: 10.5.5.9', metadata: { language: 'python', owner: 'unknown' }, required_puzzle_id: 30 },
+    { id: 29, case_id: 6, type: 'log', title: 'Staff Terminal Directory', content: '10.5.5.1  Reception\n10.5.5.9  Quant_Lab_Terminal_03 [ID: EMP-9822]\n10.5.5.12 Server_Admin', metadata: { source: 'HR-Security' }, required_puzzle_id: 31 },
+    // Case 7 - OPERATION SHADOW CANVAS
+    { id: 30, case_id: 7, type: 'log', title: 'Gallery Transaction Log', content: '[TX-998] MINT NFT #221 -> Success\n[TX-999] CALL CONTRACT "GalleryCore" from 0x71C...a9E1 -> VULN_SUCCESS\n[TX-1000] TRANSFER NFT #221 to 0x71C...a9E1', metadata: { contract: '0xGallery', chain: 'Ethereum' }, required_puzzle_id: null },
+    { id: 31, case_id: 7, type: 'log', title: 'Art Object Metadata (EXIF)', content: 'Filename: The_Eternal_Void.webp\nDimensions: 4096x4096\nArtist: Neural_Zen\nCurator_Note: Final_Bidding_War\nHash: 0x98f9...2', metadata: { filetype: 'webp' }, required_puzzle_id: 33 },
+    { id: 32, case_id: 7, type: 'chat', title: 'Intercepted DM', content: 'The_Curator: The contract is live. Use the "Orion" wallet for the final transfer.\nBuyer: Are you sure they won\'t trace it?\nThe_Curator: Their security is a joke. They still use the v1 bidding logic.', metadata: { source: 'Signal' }, required_puzzle_id: 34 }
   ];
 
   const { error: evidenceError } = await supabase.from('evidence').upsert(evidence);
   if (evidenceError) console.error('Error seeding evidence:', evidenceError.message);
   else console.log('✔ Evidence seeded');
 
-  // 5. Seed default adversary config
-  const { error: advError } = await supabase
-    .from('adversary_config')
-    .upsert({
-      is_active: false,
-      intensity: 'low',
-      lead_threshold: 200,
-      actions_enabled: ['signal_interference', 'guidance_hint', 'evidence_encrypt']
-    });
+  // 5. Seed adversary config
+  await supabase.from('adversary_config').upsert({ is_active: false, intensity: 'low', lead_threshold: 200, actions_enabled: ['signal_interference', 'guidance_hint'] });
   
-  if (advError) console.error('Error seeding adversary config:', advError.message);
-  else console.log('✔ Adversary config initialized');
-
   console.log('--- SEEDING COMPLETE ---');
 }
 

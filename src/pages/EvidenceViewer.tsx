@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, Terminal, Download, Copy, Check, Link as LinkIcon, Activity, Send, ShieldAlert, History, Lock as LockIcon, Zap, Cpu, User, Database, Unlock } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ChevronLeft, Terminal, Download, Copy, Check, Activity,
+  ShieldAlert, Lock as LockIcon, Zap, Cpu, Database, Unlock, FileText
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Evidence } from '../types';
 import { useSound } from '../hooks/useSound';
 import { useAdversary } from '../hooks/useAdversary';
+import { getRankTitle } from '../utils/ranks';
 
+/* ─── Line Numbered Content ────────────────────────────────── */
 function LineNumberedContent({ content, type, isEncrypted }: { content: string; type: string, isEncrypted?: boolean }) {
   const lines = content.split('\n');
 
-  const baseColor = (type === 'log' || isEncrypted) ? 'text-cyber-green' :
-    type === 'code' ? 'text-cyber-amber' :
-      type === 'chat' ? 'text-cyber-blue' :
-        'text-gray-300';
+  const baseColor = (type === 'log' || isEncrypted) ? 'text-[#1a0e04]' :
+    type === 'code' ? 'text-[#2a1c0a]' :
+      type === 'chat' ? 'text-[#3a2a10]' :
+        'text-[#1a0e04]';
 
   const scrambleLine = (line: string) => {
     if (!line.trim()) return '';
@@ -20,29 +25,30 @@ function LineNumberedContent({ content, type, isEncrypted }: { content: string; 
   };
 
   return (
-    <div className={`font-mono text-sm ${isEncrypted ? 'adversary-glitch opacity-80' : ''}`}>
+    <div className={`font-mono text-sm leading-relaxed ${isEncrypted ? 'opacity-40 select-none pointer-events-none' : ''}`}>
       {lines.map((line, i) => {
         const displayLine = isEncrypted ? scrambleLine(line) : line;
-        
+
         return (
-        <div key={i} className="flex group hover:bg-white/[0.02] transition-colors">
-          <span className="select-none w-14 flex-shrink-0 text-right pr-4 text-gray-700 text-[11px] border-r border-cyber-line/30 tabular-nums font-display group-hover:text-gray-500 transition-colors">
-            {(i + 1).toString().padStart(3, ' ')}
-          </span>
-          <span className={`pl-4 flex-1 whitespace-pre-wrap break-all ${baseColor} ${!isEncrypted && (line.trim().startsWith('//') || line.trim().startsWith('#')) ? 'text-gray-600 italic' :
-              !isEncrypted && (line.trim().startsWith('ERROR') || line.trim().startsWith('[ERROR]')) ? 'text-cyber-red' :
-                !isEncrypted && (line.trim().startsWith('WARNING') || line.trim().startsWith('[WARN]')) ? 'text-cyber-amber' :
-                  !isEncrypted && (line.includes('===') || line.includes('---')) ? 'text-gray-600' :
-                    ''
-            }`}>
-            {displayLine || '\u00A0'}
-          </span>
-        </div>
-      )})}
+          <div key={i} className="flex group hover:bg-black/5 transition-colors">
+            <span className="select-none w-14 flex-shrink-0 text-right pr-4 text-[#1a0e04]/30 text-[11px] border-r border-[#1a0e04]/10 tabular-nums font-display group-hover:text-[#1a0e04]/50 transition-colors">
+              {(i + 1).toString().padStart(3, ' ')}
+            </span>
+            <span className={`pl-4 flex-1 whitespace-pre-wrap break-all ${baseColor} ${!isEncrypted && (line.trim().startsWith('//') || line.trim().startsWith('#')) ? 'opacity-40 italic' :
+              !isEncrypted && (line.trim().startsWith('ERROR') || line.trim().startsWith('[ERROR]')) ? 'text-red-900 font-bold' :
+                !isEncrypted && (line.trim().startsWith('WARNING') || line.trim().startsWith('[WARN]')) ? 'text-[#B8860B]' :
+                  ''
+              }`}>
+              {displayLine || '\u00A0'}
+            </span>
+          </div>
+        )
+      })}
     </div>
   );
 }
 
+/* ─── Main Component ────────────────────────────────────────── */
 export default function EvidenceViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -54,11 +60,16 @@ export default function EvidenceViewer() {
   const { activeActions, resolveAction } = useAdversary();
 
   const encryptAction = activeActions.find(a => a.action_type === 'evidence_encrypt');
+  const team = (() => { try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } })();
+  const rankTitle = getRankTitle(team?.score || 0);
+  const xp = team?.score || 0;
+  const xpPct = Math.min(100, Math.round((xp / 500) * 100));
 
   useEffect(() => {
     if (!id) return;
 
     const fetchEvidence = async () => {
+      setLoading(true);
       try {
         const response = await fetch(`/api/evidence/${id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -98,7 +109,7 @@ export default function EvidenceViewer() {
     if (!encryptAction || resolving) return;
     playSound('click');
     if (!window.confirm(`De-Icing will deduct ${encryptAction.metadata?.cost_to_resolve || 25} XP. Proceed?`)) return;
-    
+
     setResolving(true);
     const result = await resolveAction(encryptAction.id);
     if (result.success) {
@@ -109,219 +120,189 @@ export default function EvidenceViewer() {
     setResolving(false);
   };
 
+  const handleLogout = () => {
+    playSound('click');
+    localStorage.clear();
+    window.location.href = '/';
+  };
+
   if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-      <Activity className="w-12 h-12 text-cyber-blue animate-pulse" />
-      <div className="font-display text-cyber-blue uppercase tracking-[0.4em] flicker-anim text-center">
-        Decrypting_Data_Stream...
-      </div>
+    <div className="fixed inset-0 flex items-center justify-center bg-[#1a120a]">
+      <Activity className="w-10 h-10 text-[#d4a017] animate-pulse" />
     </div>
   );
 
-  if (!evidence) return <div className="text-cyber-red font-display tracking-widest text-center mt-20">CRITICAL_ERROR: EVIDENCE_NOT_FOUND</div>;
+  if (!evidence) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#1a120a]">
+      <div className="text-red-900 font-display font-black uppercase tracking-[0.4em]">CRITICAL_ERROR: DATA_CORRUPT</div>
+    </div>
+  );
 
-  // Supabase returns JSONB as an object, but sometimes it might be a string depending on the fetch layer
-  const metadata = typeof evidence.metadata === 'string' 
-    ? JSON.parse(evidence.metadata) 
+  const metadata = typeof evidence.metadata === 'string'
+    ? JSON.parse(evidence.metadata)
     : (evidence.metadata || {});
 
   return (
-    <div className="space-y-10">
-      <button
-        type="button"
-        onClick={() => { playSound('click'); navigate(-1); }}
-        className="flex items-center gap-2 text-[10px] font-display text-gray-500 hover:text-cyber-green transition-all uppercase tracking-[0.3em] group"
+    <div className="fixed inset-0 flex flex-col overflow-hidden select-none" style={{ fontFamily: "'Georgia', serif", background: '#140e06' }}>
+      
+      {/* ═══════════ TOP CHROME (HUD) ═══════════ */}
+      <div
+        className="flex-shrink-0 flex items-center justify-between px-6 h-14 z-50"
+        style={{
+          background: 'linear-gradient(to bottom, #4a3820, #3a2a12)',
+          borderBottom: '3px solid #6a5020',
+          boxShadow: '0 3px 16px rgba(0,0,0,0.8)',
+        }}
       >
-        <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        Return_to_Node_Analogue
-      </button>
-
-      <div className="cyber-panel border-cyber-blue/30 overflow-hidden relative gradient-border">
-        {/* Decorative Scans */}
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyber-blue/40 to-transparent" />
-
-        <div className="bg-black/80 px-8 py-5 border-b border-cyber-line flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-2 border border-cyber-blue/40 relative">
-              <Database className="w-5 h-5 text-cyber-blue flicker-anim" />
-              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-cyber-blue rounded-full animate-pulse" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-display text-cyber-blue uppercase tracking-widest">Evidence_Object_{evidence.id}</span>
-              <span className="text-lg font-display font-bold text-white uppercase tracking-tight">{evidence.title.replace(' ', '_')}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-green hover:text-cyber-green hover:bg-cyber-green/5 transition-all flex items-center gap-2 group"
-              title="Copy to Local Memory"
-            >
-              {copied ? <Check className="w-4 h-4 text-cyber-green" /> : <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-              <span className="text-[10px] font-display uppercase tracking-widest hidden sm:block">{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-            <button
-              type="button"
-              className="px-4 py-2 border border-cyber-line text-gray-400 hover:border-cyber-blue hover:text-cyber-blue hover:bg-cyber-blue/5 transition-all flex items-center gap-2 group"
-              title="Download Binary Data"
-            >
-              <Download className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
-              <span className="text-[10px] font-display uppercase tracking-widest hidden sm:block">Download</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Metadata HUD */}
-        <div className="bg-black/40 border-b border-cyber-line px-8 py-3 flex flex-wrap items-center gap-8">
-          <div className="flex items-center gap-3">
-            <Activity className="w-3 h-3 text-cyber-green" />
-            <span className="text-[9px] font-display text-cyber-green uppercase tracking-[0.2em]">{evidence.type}_ENCODED</span>
-          </div>
-          <div className="w-[1px] h-4 bg-cyber-line" />
-          <div className="flex flex-wrap items-center gap-6">
-            {Object.entries(metadata).map(([key, value]) => {
-              if (key === 'linkedPuzzles' || key === 'linkedEvidence') return null;
-              return (
-                <div key={key} className="flex flex-col">
-                  <span className="text-[8px] font-display text-gray-600 uppercase mb-0.5">{key}</span>
-                  <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">{String(value)}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="ml-auto text-[9px] font-mono text-gray-500 tabular-nums uppercase tracking-widest">
-            Size: {evidence.content.length.toLocaleString()} Bytes | Lines: {evidence.content.split('\n').length}
-          </div>
-        </div>
-
-        {/* Linked Records */}
-        {((Array.isArray(metadata.linkedPuzzles) && metadata.linkedPuzzles.length > 0) || (Array.isArray(metadata.linkedEvidence) && metadata.linkedEvidence.length > 0)) && (
-          <div className="bg-black/60 px-8 py-4 flex flex-wrap items-center gap-10 border-b border-cyber-line">
-            {(Array.isArray(metadata.linkedPuzzles) && metadata.linkedPuzzles.length > 0) && (
-              <div className="flex items-center gap-4">
-                <span className="text-[9px] font-display text-cyber-blue uppercase tracking-widest">Linked_Puzzles:</span>
-                <div className="flex gap-2">
-                  {metadata.linkedPuzzles.map((pid: number) => (
-                    <Link
-                      key={`p-${pid}`}
-                      to={`/case/${evidence.case_id}#puzzle-${pid}`}
-                      onClick={() => playSound('click')}
-                      className="px-2 py-0.5 bg-cyber-blue/10 border border-cyber-blue/30 text-cyber-blue hover:bg-cyber-blue/20 text-[10px] font-display transition-all"
-                    >
-                      TASK_0x{pid}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(Array.isArray(metadata.linkedEvidence) && metadata.linkedEvidence.length > 0) && (
-              <div className="flex items-center gap-4">
-                <span className="text-[9px] font-display text-cyber-green uppercase tracking-widest">Cross_References:</span>
-                <div className="flex gap-2">
-                  {metadata.linkedEvidence.map((eid: number) => (
-                    <Link
-                      key={`e-${eid}`}
-                      to={`/evidence/${eid}`}
-                      onClick={() => playSound('click')}
-                      className="px-2 py-0.5 bg-cyber-green/10 border border-cyber-green/30 text-cyber-green hover:bg-cyber-green/20 text-[10px] font-display transition-all"
-                    >
-                      FILE_0x{eid}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Binary Content Area — with line numbers */}
-        <div className="p-6 overflow-x-auto relative custom-scrollbar">
-          {encryptAction && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-full max-w-sm">
-              <div className="bg-black/90 p-8 border-2 border-cyber-red shadow-[0_0_50px_rgba(239,68,68,0.2)] text-center">
-                <LockIcon className="w-12 h-12 text-cyber-red mx-auto mb-4 animate-pulse" />
-                <h3 className="text-lg font-display font-bold text-cyber-red uppercase tracking-widest mb-2">EVIDENCE ENCRYPTED</h3>
-                <p className="text-sm font-mono text-gray-400 mb-6">{encryptAction.metadata?.message || 'The Adversary has encrypted this intel.'}</p>
-                <button
-                  type="button"
-                  onClick={handleDeIce}
-                  disabled={resolving}
-                  className={`cyber-button w-full h-12 bg-cyber-red/20 text-cyber-red border border-cyber-red hover:bg-cyber-red hover:text-black transition-all flex items-center justify-center gap-2 ${resolving ? 'opacity-50 cursor-wait' : ''}`}
-                >
-                  {resolving ? <Cpu className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
-                  <span className="font-display uppercase tracking-widest font-bold">DE-ICE NODE (-{encryptAction.metadata?.cost_to_resolve || 25} XP)</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="absolute top-0 right-0 w-32 h-32 opacity-5 pointer-events-none p-4">
-            <ShieldAlert className="w-full h-full text-cyber-blue" />
-          </div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="leading-relaxed"
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => { playSound('click'); navigate(-1); }}
+            className="flex items-center gap-2 px-3 py-1.5 transition-all hover:bg-white/5 rounded group"
           >
-            <LineNumberedContent content={evidence.content} type={evidence.type} isEncrypted={!!encryptAction} />
-          </motion.div>
+            <ChevronLeft className="w-5 h-5 text-[#f0d070] group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-black uppercase tracking-wider text-[#f0d070]">Return</span>
+          </button>
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-black uppercase tracking-widest text-[#f0d070]" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
+              TECH DETECTIVE
+            </span>
+            <span className="text-xs font-mono tracking-widest ml-1.5 self-center text-[#c8a050]/60">
+              OBJECTIVE_FILE
+            </span>
+          </div>
         </div>
 
-        <div className="bg-black/80 p-6 border-t border-cyber-line flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
-              <span className="text-[9px] font-display text-cyber-green uppercase tracking-[0.3em]">Integrity_Check: Pass</span>
-            </div>
-            <div className="w-[1px] h-3 bg-cyber-line" />
-            <div className="text-[9px] font-display text-gray-500 uppercase tracking-widest">View_Window: SSL_ENCRYPTED</div>
+        <div className="flex items-center gap-5">
+          <div className="text-right leading-none">
+            <div className="text-[10px] font-mono uppercase tracking-widest mb-0.5 text-[#c8a050]/60">{rankTitle}</div>
+            <div className="text-sm font-black text-[#f0d070]">{team?.name || 'Agent'}</div>
           </div>
-          <span className="text-[9px] font-mono text-gray-700 uppercase tracking-widest tabular-nums font-bold">
-            0x{Math.random().toString(16).slice(2, 10).toUpperCase()} // HEX_DUMP_TAIL
-          </span>
-        </div>
-      </div>
-
-      {/* Analysis Tools Sidebar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="cyber-panel p-6 space-y-4 border-cyber-blue/20 corner-brackets">
-          <div className="flex items-center gap-2 mb-2">
-            <Cpu className="w-4 h-4 text-cyber-blue" />
-            <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-[0.2em]">Matrix Analysis</h4>
-          </div>
-          <div className="space-y-3">
-            <div className="h-1 bg-cyber-line overflow-hidden">
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[9px] font-mono uppercase tracking-widest text-[#c8a050]/60">XP {xp}</span>
+            <div className="w-28 h-3 bg-[#1a0e04] border border-[#5a4010] rounded-sm overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: '92%' }}
-                transition={{ duration: 1.5 }}
-                className="h-full bg-gradient-to-r from-cyber-blue to-cyber-violet"
+                animate={{ width: `${xpPct}%` }}
+                className="h-full rounded-sm bg-gradient-to-right from-[#a07020] to-[#f0d070]"
+                style={{ background: 'linear-gradient(to right, #a07020, #f0d070)' }}
               />
             </div>
-            <p className="text-[9px] font-display text-gray-500 uppercase tracking-widest">Consistency: 92.4% Verified</p>
           </div>
-        </div>
-
-        <div className="cyber-panel p-6 space-y-4 border-cyber-green/20 corner-brackets">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="w-4 h-4 text-cyber-green" />
-            <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-[0.2em]">Pattern Recognition</h4>
-          </div>
-          <p className="text-[9px] font-display text-cyber-green uppercase tracking-widest animate-pulse">Running active anomaly sweep...</p>
-        </div>
-
-        <div className="cyber-panel p-6 space-y-4 border-cyber-amber/20 corner-brackets">
-          <div className="flex items-center gap-2 mb-2">
-            <Zap className="w-4 h-4 text-cyber-amber" />
-            <h4 className="text-[10px] font-display font-bold text-white uppercase tracking-[0.2em]">Investigator_Notes</h4>
-          </div>
-          <p className="text-[9px] font-display text-gray-500 italic uppercase tracking-widest leading-loose">
-            "Observe the frequency of host-to-host handshakes in section AAF4."
-          </p>
+          <button
+            onClick={handleLogout}
+            className="font-black uppercase text-xs px-4 py-2 transition-all hover:brightness-125 bg-gradient-to-bottom from-[#8B1A1A] to-[#6a0e0e] text-[#ffd0d0] border border-[#5a0808]"
+            style={{ letterSpacing: '0.15em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}
+          >
+            Disconnect
+          </button>
         </div>
       </div>
+
+      {/* ═══════════ MAIN CONTENT AREA ═══════════ */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-hidden" style={{ background: 'linear-gradient(160deg, #f0e0a0 0%, #e4d080 50%, #d8c060 100%)' }}>
+        
+        <div className="w-full max-w-5xl h-full flex flex-col overflow-hidden bg-[#e8d8a0] border-2 border-[#a07830] shadow-2xl relative">
+          
+          {/* Document Header */}
+          <div className="flex-shrink-0 px-8 py-5 border-b border-[#a07830]/30 flex items-center justify-between bg-black/5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#a07830]/10 border border-[#a07830]/40 flex items-center justify-center">
+                <Database className="w-6 h-6 text-[#1a0e04]/60" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-[#1a0e04]/40 uppercase tracking-widest">Bureau_Ref: {evidence.id}</span>
+                <h2 className="text-2xl font-black text-[#1a0e04] uppercase tracking-tight leading-none" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.4)' }}>
+                  {evidence.title.replace(/ /g, '_')}
+                </h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCopy}
+                className={`flex items-center gap-2 px-4 py-2 border-2 transition-all font-black text-[11px] uppercase tracking-widest active:scale-95 ${copied ? 'bg-green-100 border-green-800 text-green-800' : 'bg-[#1a0e04]/5 border-[#1a0e04]/10 text-[#1a0e04]/60 hover:bg-[#1a0e04]/10'}`}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied' : 'Copy_Data'}
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 border-2 bg-[#1a0e04]/5 border-[#1a0e04]/10 text-[#1a0e04]/60 hover:bg-[#1a0e04]/10 transition-all font-black text-[11px] uppercase tracking-widest active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                Download_Binary
+              </button>
+            </div>
+          </div>
+
+          {/* Metadata Bar */}
+          <div className="flex-shrink-0 px-8 py-3 flex items-center gap-10 bg-black/5 border-b border-[#a07830]/20">
+            <div className="flex items-center gap-3">
+              <Activity className="w-4 h-4 text-[#1a0e04]/40" />
+              <span className="text-[10px] font-black text-[#1a0e04]/50 uppercase tracking-widest">{evidence.type}_RECON_DATA</span>
+            </div>
+            <div className="w-[1.5px] h-4 bg-[#1a0e04]/10" />
+            <div className="flex items-center gap-6 overflow-hidden">
+               {Object.entries(metadata).map(([key, value]) => {
+                 if (['linkedPuzzles', 'linkedEvidence'].includes(key)) return null;
+                 return (
+                   <div key={key} className="flex flex-col">
+                     <span className="text-[8px] font-black text-[#1a0e04]/30 uppercase tracking-widest mb-0.5">{key}</span>
+                     <span className="text-[10px] font-mono text-[#1a0e04]/70 uppercase tracking-tighter truncate max-w-[120px]">{String(value)}</span>
+                   </div>
+                 );
+               })}
+            </div>
+          </div>
+
+          {/* Document Content Area */}
+          <div className="flex-1 overflow-y-auto p-1 px-0 relative custom-scrollbar bg-white/40">
+            
+            {/* Encryption Overlay */}
+            {encryptAction && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center p-8 backdrop-blur-[2px] bg-black/10">
+                <div className="w-full max-w-sm bg-[#e8d8a0] border-4 border-red-900 shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-10 text-center">
+                  <LockIcon className="w-16 h-16 text-red-900 mx-auto mb-6 animate-pulse" />
+                  <h3 className="text-xl font-black text-red-900 uppercase tracking-[0.2em] mb-4">CRITICAL: DATA_ENCRYPTED</h3>
+                  <p className="text-xs font-mono text-[#1a0e04]/70 mb-8 leading-relaxed">
+                    The adversary has deployed a crypter on this node. Field analysts must bypass the firewall to proceed.
+                  </p>
+                  <button
+                    onClick={handleDeIce}
+                    disabled={resolving}
+                    className="w-full py-4 bg-red-900 text-[#f5e6e6] font-black uppercase tracking-[0.25em] text-sm hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    {resolving ? <Cpu className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
+                    DE-ICE_NODE (-{encryptAction.metadata?.cost_to_resolve || 25}_XP)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="p-8">
+              <LineNumberedContent content={evidence.content} type={evidence.type} isEncrypted={!!encryptAction} />
+            </div>
+          </div>
+
+          {/* Document Footer */}
+          <div className="flex-shrink-0 px-8 py-4 bg-black/5 border-t border-[#a07830]/30 flex items-center justify-between">
+            <div className="flex items-center gap-6">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-green-800 animate-pulse" />
+                 <span className="text-[10px] font-black text-[#1a0e04]/40 uppercase tracking-widest">Link_Status: Secure</span>
+               </div>
+               <div className="w-1.5 h-1.5 rounded-full bg-[#1a0e04]/10" />
+               <span className="text-[10px] font-black text-[#1a0e04]/30 uppercase tracking-widest">Protocol: SSL_256_FIPS</span>
+            </div>
+            <div className="font-mono text-[10px] text-[#1a0e04]/20 uppercase tracking-widest font-bold">
+               Ref_Node_0x{evidence.case_id.toString(16).toUpperCase()} // Bureau_Data_Stream
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
   );
 }
