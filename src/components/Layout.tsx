@@ -158,12 +158,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </AnimatePresence>
       </main>
 
-      {/* Real-time Game HUD & Transitions */}
-      <DetectiveHUD />
       <StateTransition />
-
-      {team && <LiveTicker />}
-      {team && <GameAdvisor team={team} location={location.pathname} />}
     </div>
   );
 }

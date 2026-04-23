@@ -1,0 +1,17 @@
+{
+  "id": "mission-03",
+  "type": "coding",
+  "title": "The Zero-Day Syndicate",
+  "round": "ROUND_3",
+  "points": 500,
+  "metadata": {
+    "brief": "A major exploit is being coordinated from a hidden C2 server. You must breach their encrypted tunnel and retrieve the kill-switch. This is a level 5 security operation.",
+    "starter_code": "// ADVANCED TUNNELING PROTOCOL\nmove('SYNDICATE-CORE');\nconst tunnel = scan();\nconst payload = download(tunnel[0]);\nprint(`Retrieved Payload: ${payload}`);\n",
+    "available_functions": ["move(target: string)", "scan(): string[]", "download(id: string): string", "print(msg: string)"]
+  },
+  "check": {
+    "piston_language": "javascript",
+    "required_trace": ["move", "scan", "download"]
+  },
+  "is_hidden_initially": false
+}

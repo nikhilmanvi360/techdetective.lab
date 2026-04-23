@@ -195,29 +195,8 @@ export default function MissionWorkstation() {
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#140e06] text-[#f0e0a0]" style={{ fontFamily: "'Georgia', serif" }}>
-      
-      {/* ═══ NOIR HEADER ═══ */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 h-14 border-b-4 border-[#3a2810] bg-gradient-to-b from-[#2a1a0a] to-[#1a0e04] shadow-2xl z-50">
-        <div className="flex items-center gap-6">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-[#d4a017] uppercase text-xs font-black tracking-widest">
-            <ChevronLeft className="w-4 h-4" /> Board
-          </button>
-          <div className="flex flex-col leading-none">
-            <span className="text-lg font-black tracking-wide text-[#f0d070] uppercase">Case #{mission?.id}: {mission?.title}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-8">
-           <div className="text-right">
-              <div className="text-[10px] font-mono uppercase text-[#a07830] tracking-widest">{rankTitle}</div>
-              <div className="text-sm font-black text-[#f0d070]">{team?.name || 'Agent'}</div>
-           </div>
-           <div className="px-5 py-2 bg-[#f0e0a0]/5 border border-[#a07830]/30 text-center">
-              <div className="text-lg font-black text-[#d4a017]">{mission?.points_on_solve} XP</div>
-           </div>
-        </div>
-      </div>
-
+    <div className="h-full flex flex-col overflow-hidden bg-[#140e06] text-[#f0e0a0]" style={{ fontFamily: "'Georgia', serif" }}>
+      {/* ═══ WORKSTATION BODY ═══ */}
       <div className="flex-1 flex min-h-0 bg-[#0c0803]">
         
         {/* ── LEFT PANEL: Brief & Editor ── */}
