@@ -152,7 +152,7 @@ export default function Login({ onLogin }: LoginProps) {
  <div>
  <div className="flex items-center gap-1 mb-1">
  <User className="w-3 h-3 text-amber-900/70" />
- <label className="text-[10px] font-bold uppercase tracking-widest text-amber-900/80" style={{ fontFamily: 'monospace' }}>
+  <label htmlFor="login-id" className="text-[10px] font-bold uppercase tracking-widest text-amber-900/80" style={{ fontFamily: 'monospace' }}>
  Identification Number
  </label>
  </div>
@@ -161,7 +161,9 @@ export default function Login({ onLogin }: LoginProps) {
  required
  value={teamName}
  onChange={(e) => setTeamName(e.target.value)}
- placeholder="IDENTIFIER"
+   id="login-id"
+  name="login-id"
+  placeholder="IDENTIFIER"
  className="w-full px-4 py-3 text-sm font-bold uppercase tracking-wider outline-none"
  style={{
  background: 'linear-gradient(to bottom, #2a1a0a, #1a0f05)',
@@ -179,7 +181,7 @@ export default function Login({ onLogin }: LoginProps) {
  <div>
  <div className="flex items-center gap-1 mb-1">
  <span className="text-amber-900/70 text-xs">🔒</span>
- <label className="text-[10px] font-bold uppercase tracking-widest text-amber-900/80" style={{ fontFamily: 'monospace' }}>
+  <label htmlFor="login-password" className="text-[10px] font-bold uppercase tracking-widest text-amber-900/80" style={{ fontFamily: 'monospace' }}>
  Access Code
  </label>
  </div>
@@ -188,7 +190,9 @@ export default function Login({ onLogin }: LoginProps) {
  required
  value={password}
  onChange={(e) => setPassword(e.target.value)}
- placeholder="••••••••"
+   id="login-password"
+  name="login-password"
+  placeholder="••••••••"
  className="w-full px-4 py-3 text-sm font-bold outline-none"
  style={{
  background: 'linear-gradient(to bottom, #2a1a0a, #1a0f05)',

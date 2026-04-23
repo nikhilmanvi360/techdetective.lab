@@ -93,12 +93,12 @@ export default function AdminSystem() {
  playSound('success');
  (e.target as HTMLFormElement).reset();
  }}>
- <select name="actionType" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
+   <select id="action-type" name="actionType" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
  <option value="glitch">System Glitch (UI Effect)</option>
  <option value="fake_evidence">Fabricate Logs</option>
  <option value="taunt">Send Taunt</option>
  </select>
- <input required name="message" type="text" placeholder="Payload message..." className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="payload-message" required name="message" type="text" placeholder="Payload message..." className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  <button className="w-full bg-[#8B1A1A]/20 text-[#A52A2A] font-bold py-2 border border-[#8B1A1A] hover:bg-[#8B1A1A] hover:text-black transition-colors">EXECUTE PAYLOAD</button>
  </form>
  </div>
@@ -115,11 +115,11 @@ export default function AdminSystem() {
  <div className="grid grid-cols-2 gap-4">
  <div className="space-y-2">
  <label className="text-gray-500 uppercase">Multiplier Scale</label>
- <input required name="multiplier" type="number" step="0.1" placeholder="e.g. 1.5" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="multiplier-scale" required name="multiplier" type="number" step="0.1" placeholder="e.g. 1.5" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  </div>
  <div className="space-y-2">
  <label className="text-gray-500 uppercase">Duration (Mins)</label>
- <input required name="durationMinutes" type="number" placeholder="e.g. 15" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="duration-minutes" required name="durationMinutes" type="number" placeholder="e.g. 15" className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  </div>
  </div>
  <button className="w-full bg-[#c8a050]/20 text-[#c8a050] font-bold py-2 border border-[#c8a050] hover:bg-[#c8a050] hover:text-black transition-colors">ACTIVATE XP BOOST</button>

@@ -70,7 +70,9 @@ export default function AdminTeams() {
  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
  <input
  type="text"
- placeholder="SEARCH_UNITS..."
+   id="team-search"
+  name="team-search"
+  placeholder="SEARCH_UNITS..."
  value={filter}
  onChange={(e) => setFilter(e.target.value)}
  className="w-64 pl-9 py-2 bg-black border border-[rgba(139,105,20,0.4)] text-xs font-mono text-white focus:border-[#a07830]"
@@ -95,12 +97,12 @@ export default function AdminTeams() {
  <td className="p-4 text-gray-600">0x{t.id.toString(16).toUpperCase()}</td>
  <td className="p-4">
  {editingTeamId === t.id ? (
- <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="bg-black border border-[#a07830] px-2 py-1 text-white w-full" />
+   <input id={`team-name-edit-${t.id}`} name={`team-name-edit-${t.id}`} type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="bg-black border border-[#a07830] px-2 py-1 text-white w-full" />
  ) : <span className="text-white font-bold">{t.name}</span>}
  </td>
  <td className="p-4">
  {editingTeamId === t.id ? (
- <input type="number" value={editForm.score} onChange={e => setEditForm({ ...editForm, score: parseInt(e.target.value) || 0 })} className="bg-black border border-[#d4a017] px-2 py-1 text-[#d4a017] w-24" />
+   <input id={`team-score-edit-${t.id}`} name={`team-score-edit-${t.id}`} type="number" value={editForm.score} onChange={e => setEditForm({ ...editForm, score: parseInt(e.target.value) || 0 })} className="bg-black border border-[#d4a017] px-2 py-1 text-[#d4a017] w-24" />
  ) : <span className="text-[#d4a017] font-bold">{t.score.toLocaleString()} XP</span>}
  </td>
  <td className="p-4">

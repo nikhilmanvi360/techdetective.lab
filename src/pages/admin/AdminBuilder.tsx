@@ -58,15 +58,15 @@ export default function AdminBuilder() {
  <h2 className="font-display font-bold text-white uppercase">Initialize Target Node (Case)</h2>
  </div>
  <form onSubmit={handleCreateCase} className="space-y-4 font-mono text-xs">
- <input required type="text" placeholder="Title" value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
- <textarea required rows={3} placeholder="Mission Briefing..." value={newCase.description} onChange={e => setNewCase({...newCase, description: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="case-title" name="case-title" required type="text" placeholder="Title" value={newCase.title} onChange={e => setNewCase({...newCase, title: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <textarea id="case-description" name="case-description" required rows={3} placeholder="Mission Briefing..." value={newCase.description} onChange={e => setNewCase({...newCase, description: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  <div className="grid grid-cols-2 gap-4">
- <select value={newCase.difficulty} onChange={e => setNewCase({...newCase, difficulty: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
+   <select id="case-difficulty" name="case-difficulty" value={newCase.difficulty} onChange={e => setNewCase({...newCase, difficulty: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
  <option>Easy</option><option>Intermediate</option><option>Hard</option>
  </select>
- <input required type="number" placeholder="XP Reward" value={newCase.points_on_solve} onChange={e => setNewCase({...newCase, points_on_solve: +e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="case-xp" name="case-xp" required type="number" placeholder="XP Reward" value={newCase.points_on_solve} onChange={e => setNewCase({...newCase, points_on_solve: +e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  </div>
- <input required type="text" placeholder="Root Threat Actor (Answer)" value={newCase.correct_attacker} onChange={e => setNewCase({...newCase, correct_attacker: e.target.value})} className="w-full bg-black border border-purple-500 p-2 text-white" />
+   <input id="case-answer" name="case-answer" required type="text" placeholder="Root Threat Actor (Answer)" value={newCase.correct_attacker} onChange={e => setNewCase({...newCase, correct_attacker: e.target.value})} className="w-full bg-black border border-purple-500 p-2 text-white" />
  <button type="submit" className="w-full bg-purple-500/20 text-purple-400 font-bold uppercase tracking-widest py-3 border border-purple-500/50 hover:bg-purple-500 hover:text-black transition-colors">Deploy Scenario</button>
  </form>
  </div>
@@ -78,17 +78,17 @@ export default function AdminBuilder() {
  <h2 className="font-display font-bold text-white uppercase">Inject Telemetry (Evidence)</h2>
  </div>
  <form onSubmit={handleCreateEvidence} className="space-y-4 font-mono text-xs">
- <select required value={newEvidence.case_id} onChange={e => setNewEvidence({...newEvidence, case_id: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
+   <select id="evidence-case-id" name="evidence-case-id" required value={newEvidence.case_id} onChange={e => setNewEvidence({...newEvidence, case_id: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
  <option value="">Select Parent Incident...</option>
  {masterKey.map(k => <option key={k.id} value={k.id}>{k.title}</option>)}
  </select>
  <div className="grid grid-cols-2 gap-4">
- <select value={newEvidence.type} onChange={e => setNewEvidence({...newEvidence, type: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
+   <select id="evidence-type" name="evidence-type" value={newEvidence.type} onChange={e => setNewEvidence({...newEvidence, type: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
  <option value="log">Server Log</option><option value="chat">Comms Trace</option><option value="html">System Hex</option>
  </select>
- <input required type="text" placeholder="Title" value={newEvidence.title} onChange={e => setNewEvidence({...newEvidence, title: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="evidence-title" name="evidence-title" required type="text" placeholder="Title" value={newEvidence.title} onChange={e => setNewEvidence({...newEvidence, title: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  </div>
- <textarea required rows={5} placeholder="Raw Telemetry Data..." value={newEvidence.content} onChange={e => setNewEvidence({...newEvidence, content: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <textarea id="evidence-content" name="evidence-content" required rows={5} placeholder="Raw Telemetry Data..." value={newEvidence.content} onChange={e => setNewEvidence({...newEvidence, content: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  <button type="submit" className="w-full bg-[#a07830]/20 text-[#a07830] font-bold uppercase tracking-widest py-3 border border-[#a07830]/50 hover:bg-[#a07830] hover:text-black transition-colors">Inject Data</button>
  </form>
  </div>
@@ -101,17 +101,17 @@ export default function AdminBuilder() {
  </div>
  <form onSubmit={handleCreatePuzzle} className="grid grid-cols-1 md:grid-cols-2 gap-4">
  <div className="space-y-4">
- <select required value={newPuzzle.case_id} onChange={e => setNewPuzzle({...newPuzzle, case_id: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
+   <select id="puzzle-case-id" name="puzzle-case-id" required value={newPuzzle.case_id} onChange={e => setNewPuzzle({...newPuzzle, case_id: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white">
  <option value="">Select Parent Incident...</option>
  {masterKey.map(k => <option key={k.id} value={k.id}>{k.title}</option>)}
  </select>
- <input required type="text" placeholder="Question / Objective" value={newPuzzle.question} onChange={e => setNewPuzzle({...newPuzzle, question: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="puzzle-question" name="puzzle-question" required type="text" placeholder="Question / Objective" value={newPuzzle.question} onChange={e => setNewPuzzle({...newPuzzle, question: e.target.value})} className="w-full bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
  </div>
  <div className="space-y-4">
- <input required type="text" placeholder="Access Code (Answer)" value={newPuzzle.answer} onChange={e => setNewPuzzle({...newPuzzle, answer: e.target.value})} className="w-full bg-black border border-[#c8a050] p-2 text-white" />
+   <input id="puzzle-answer" name="puzzle-answer" required type="text" placeholder="Access Code (Answer)" value={newPuzzle.answer} onChange={e => setNewPuzzle({...newPuzzle, answer: e.target.value})} className="w-full bg-black border border-[#c8a050] p-2 text-white" />
  <div className="grid grid-cols-2 gap-4">
- <input required type="text" placeholder="Hint" value={newPuzzle.hint} onChange={e => setNewPuzzle({...newPuzzle, hint: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
- <input required type="number" placeholder="XP" value={newPuzzle.points} onChange={e => setNewPuzzle({...newPuzzle, points: +e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white tabular-nums" />
+   <input id="puzzle-hint" name="puzzle-hint" required type="text" placeholder="Hint" value={newPuzzle.hint} onChange={e => setNewPuzzle({...newPuzzle, hint: e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white" />
+   <input id="puzzle-xp" name="puzzle-xp" required type="number" placeholder="XP" value={newPuzzle.points} onChange={e => setNewPuzzle({...newPuzzle, points: +e.target.value})} className="bg-black border border-[rgba(139,105,20,0.4)] p-2 text-white tabular-nums" />
  </div>
  </div>
  <div className="col-span-full">

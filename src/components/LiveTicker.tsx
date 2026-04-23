@@ -11,64 +11,73 @@ interface LiveEvent {
 }
 
 export default function LiveTicker() {
- const [events, setEvents] = useState<LiveEvent[]>([]);
- const { playSound } = useSound();
+  const [events, setEvents] = useState<LiveEvent[]>([]);
+  const { playSound } = useSound();
 
- useEffect(() => {
- const socket = io();
+  useEffect(() => {
+    const socket = io();
 
- socket.on('live_event', (event: LiveEvent) => {
- playSound('ping');
- setEvents(prev => {
- const newEvents = [event, ...prev];
- return newEvents.slice(0, 5); // Keep last 5 events
- });
- });
+    socket.on('live_event', (event: LiveEvent) => {
+      playSound('ping');
+      const id = Date.now();
+      const eventWithId = { ...event, id };
+      setEvents(prev => [eventWithId, ...prev].slice(0, 3)); // Keep last 3
+      
+      // Auto-remove after 6 seconds
+      setTimeout(() => {
+        setEvents(prev => prev.filter(e => (e as any).id !== id));
+      }, 6000);
+    });
 
- return () => {
- socket.disconnect();
- };
- }, [playSound]);
+    return () => {
+      socket.disconnect();
+    };
+  }, [playSound]);
 
- if (events.length === 0) return null;
-
- return (
- <div className="fixed bottom-0 left-0 right-0 bg-[#0a0a0a]/95 border-t border-[rgba(200,160,80,0.2)] p-2 z-50 flex items-center gap-4 overflow-hidden backdrop-blur-md">
- <div className="flex items-center gap-2 text-[#d4a017] animate-pulse shrink-0 px-2 py-0.5 border border-[#d4a017]/20 rounded-sm">
- <Radio className="w-4 h-4" />
- <span className="text-[10px] font-display uppercase tracking-[0.2em] font-bold">Live_Comms</span>
- </div>
- 
- <div className="flex-1 relative h-6 overflow-hidden">
- <AnimatePresence mode="popLayout">
- {events.map((event, index) => (
- <motion.div
- key={event.timestamp + index}
- initial={{ y: 20, opacity: 0 }}
- animate={{ y: 0, opacity: 1 }}
- exit={{ y: -20, opacity: 0 }}
- transition={{ duration: 0.5 }}
- className="absolute inset-0 flex items-center gap-2 text-xs font-mono"
- style={{ zIndex: events.length - index }}
- >
- {event.type === 'solve' && <CheckCircle className="w-3 h-3 text-[#d4a017]" />}
- {event.type === 'badge' && <Award className="w-3 h-3 text-[#f0a030]" />}
- {event.type === 'case' && <ShieldAlert className="w-3 h-3 text-[rgba(200,70,70,0.8)]" />}
- 
- <span className={
- event.type === 'solve' ? 'text-[#d4a017]' :
- event.type === 'badge' ? 'text-[#f0a030]' : 'text-[rgba(200,70,70,0.8)]'
- }>
- {event.message}
- </span>
- <span className="text-[#8B6914] text-[9px] font-display uppercase tracking-widest ml-auto px-4">
- {new Date(event.timestamp).toLocaleTimeString()}
- </span>
- </motion.div>
- ))}
- </AnimatePresence>
- </div>
- </div>
- );
+  return (
+    <div className="fixed top-14 right-4 z-[100] flex flex-col gap-2 pointer-events-none w-72">
+      <AnimatePresence mode="popLayout">
+        {events.map((event, index) => (
+          <motion.div
+            key={(event as any).id}
+            initial={{ x: 50, opacity: 0, scale: 0.9 }}
+            animate={{ x: 0, opacity: 1, scale: 1 }}
+            exit={{ x: 20, opacity: 0, scale: 0.9 }}
+            className="bg-[#1a0e04]/90 border border-[#a07830] p-3 shadow-2xl backdrop-blur-sm relative overflow-hidden"
+            layout
+          >
+            {/* Scanner line effect */}
+            <motion.div 
+              initial={{ x: '-100%' }}
+              animate={{ x: '100%' }}
+              transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+              className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-[#a07830]/10 to-transparent pointer-events-none"
+            />
+            
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                {event.type === 'solve' && <CheckCircle className="w-4 h-4 text-[#d4a017]" />}
+                {event.type === 'badge' && <Award className="w-4 h-4 text-[#f0a030]" />}
+                {event.type === 'case' && <ShieldAlert className="w-4 h-4 text-red-600" />}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[8px] font-black text-[#d4a017] uppercase tracking-[0.2em]">
+                    Live_Comms // {event.type.toUpperCase()}
+                  </span>
+                  <span className="text-[7px] font-mono text-[#a07830]/60">
+                    {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+                <p className="text-[10px] font-mono leading-relaxed text-[#f0d070] break-words uppercase">
+                  {event.message}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
 }
-

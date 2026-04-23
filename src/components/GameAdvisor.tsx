@@ -5,10 +5,17 @@ import { Send, Cpu, X, Zap, Activity } from 'lucide-react';
 import { useSound } from '../hooks/useSound';
 import { Team } from '../types';
 
+// --- Puter Initialization ---
 let puter: any = null;
-import('@heyputer/puter.js').then(module => {
-  puter = module.default;
-}).catch(() => console.log('Puter.js not found. Fallback mode active.'));
+
+// Suppress the redundant Puter WebSocket errors from flooding the console
+if (typeof window !== 'undefined') {
+  const originalError = console.error;
+  console.error = (...args: any[]) => {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes('api.puter.com')) return;
+    originalError.apply(console, args);
+  };
+}
 
 interface GameAdvisorProps {
   team: Team;
@@ -49,7 +56,12 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
   }, []);
 
   useEffect(() => {
-    checkAuth();
+    if (!puter) {
+      import('@heyputer/puter.js').then(module => {
+        puter = module.default;
+        checkAuth();
+      }).catch(() => console.log('Puter.js not found.'));
+    }
   }, [checkAuth]);
 
   useEffect(() => {
@@ -156,59 +168,54 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
             initial={{ opacity: 0, y: 20, scale: 0.9, x: 20 }}
             animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="pointer-events-auto w-80 bg-[#e8d8a0] border-2 border-[#a07830] shadow-[0_8px_40px_rgba(0,0,0,0.6)] relative"
+            className="pointer-events-auto w-72 bg-[#e8d8a0]/95 backdrop-blur-md border-2 border-[#a07830] shadow-[0_8px_40px_rgba(0,0,0,0.6)] relative"
           >
             {/* Bureau Header */}
-            <div className="bg-black/5 px-4 py-2 border-b border-[#a07830]/30 flex items-center justify-between">
-              <span className="text-[10px] font-black text-[#1a0e04]/50 uppercase tracking-[0.3em]">
-                Consultant // Profile: P. Jane
+            <div className="bg-black/10 px-4 py-2 border-b border-[#a07830]/30 flex items-center justify-between">
+              <span className="text-[9px] font-black text-[#1a0e04]/60 uppercase tracking-[0.2em]">
+                Consultant // P. Jane
               </span>
               <button 
                 onClick={closeAdvisor} 
                 className="text-[#1a0e04]/40 hover:text-red-900 transition-colors"
-                title="Close Link"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
             
-            <div className="p-5 space-y-4">
-              <div className="font-mono text-xs leading-relaxed text-[#1a0e04] h-auto min-h-[3em] pr-2">
+            <div className="p-4 space-y-3">
+              <div className="font-mono text-[10px] leading-relaxed text-[#1a0e04] h-auto min-h-[3em] pr-2">
                 <span className="text-[#a07830] mr-2 font-black">▶</span>
-                {lastMessage || "How can I help you, detective? Or are you just here to admire my tea cup?"}
+                {lastMessage || "How can I help you, detective?"}
               </div>
 
               {!isSignedIn && (
                 <button
                   onClick={handleSignIn}
-                  className="w-full bg-[#1a0e04]/5 border-2 border-[#a07830]/40 text-[#1a0e04] text-[10px] font-black uppercase tracking-widest py-2.5 hover:bg-[#d4a017]/10 transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-[#1a0e04]/10 border border-[#a07830]/40 text-[#1a0e04] text-[9px] font-black uppercase tracking-widest py-2 hover:bg-[#d4a017]/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap className="w-3.5 h-3.5 text-[#a07830]" /> 
-                  Authenticate_Neural_Link
+                  <Zap className="w-3 h-3 text-[#a07830]" /> 
+                  Link Neural Net
                 </button>
               )}
 
-              <form onSubmit={handleConsult} className="relative pt-2 border-t border-[#a07830]/20">
+              <form onSubmit={handleConsult} className="relative pt-2 border-t border-[#a07830]/10">
                 <input
                   type="text"
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="CONSULT JANE..."
-                  className="w-full bg-black/5 border-2 border-[#a07830]/30 p-2.5 pr-10 text-[10px] font-black uppercase tracking-widest text-[#1a0e04] placeholder-[#1a0e04]/30 focus:outline-none focus:border-[#a07830] transition-all"
+                  placeholder="CONSULT..."
+                  className="w-full bg-black/5 border border-[#a07830]/30 p-2 pr-8 text-[9px] font-black uppercase tracking-widest text-[#1a0e04] placeholder-[#1a0e04]/30 focus:outline-none focus:border-[#a07830] transition-all"
                 />
                 <button 
                   type="submit" 
                   disabled={isThinking}
-                  className="absolute right-3 top-[calc(50%+4px)] -translate-y-1/2 text-[#a07830] hover:text-[#1a0e04] disabled:opacity-30"
+                  className="absolute right-2 top-[calc(50%+4px)] -translate-y-1/2 text-[#a07830] hover:text-[#1a0e04] disabled:opacity-30"
                 >
-                  {isThinking ? <Cpu className="w-4 h-4 animate-spin text-[#d4a017]" /> : <Send className="w-3.5 h-3.5" />}
+                  {isThinking ? <Cpu className="w-3.5 h-3.5 animate-spin text-[#d4a017]" /> : <Send className="w-3 h-3" />}
                 </button>
               </form>
             </div>
-            
-            {/* The "Anchor" triangle */}
-            <div className="absolute bottom-[-2px] right-8 translate-y-full w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-[#a07830]" />
-            <div className="absolute bottom-0 right-8 translate-y-full w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[9px] border-t-[#e8d8a0]" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -216,9 +223,13 @@ export default function GameAdvisor({ team, location }: GameAdvisorProps) {
       <div className="pointer-events-auto relative group">
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="relative w-24 h-24 rounded-full border-[3px] border-[#a07830] overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.6)] bg-[#140e06]"
+          animate={isOpen ? { y: 0 } : { y: [0, -8, 0] }}
+          transition={{ 
+            y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
+          }}
+          whileHover={{ scale: 1.1, y: 0 }}
+          whileTap={{ scale: 0.9 }}
+          className="relative w-16 h-16 rounded-full border-[3px] border-[#a07830] overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.6)] bg-[#140e06]"
         >
           <img 
             src="/images/jane.png" 

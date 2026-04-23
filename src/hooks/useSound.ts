@@ -5,13 +5,17 @@ let globalAudioCtx: AudioContext | null = null;
 
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
-  if (!globalAudioCtx) {
-    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (AudioContextClass) {
-      globalAudioCtx = new AudioContextClass();
+  try {
+    if (!globalAudioCtx) {
+      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        globalAudioCtx = new AudioContextClass();
+      }
     }
+    return globalAudioCtx;
+  } catch (e) {
+    return null;
   }
-  return globalAudioCtx;
 }
 
 /**
