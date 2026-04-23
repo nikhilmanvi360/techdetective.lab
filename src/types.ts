@@ -14,13 +14,16 @@ export interface Team {
 }
 
 export interface Case {
- id: number;
+ id: string;
  title: string;
  description: string;
- difficulty: string;
- status: string;
- correct_attacker?: string;
+ difficulty: 'Easy' | 'Intermediate' | 'Hard' | 'Expert';
+ status: 'active' | 'solved' | 'locked';
  points_on_solve: number;
+ points?: number;
+ round?: string;
+ correct_attacker?: string;
+ metadata?: any;
 }
 
 export interface Submission {

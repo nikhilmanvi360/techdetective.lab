@@ -155,7 +155,6 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0 relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
@@ -171,6 +170,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </AnimatePresence>
       </main>
 
+      {team && <GameAdvisor team={team} location={location.pathname} />}
       <StateTransition />
     </div>
   );

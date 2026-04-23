@@ -24,9 +24,10 @@ interface CaseCardProps {
   onClick: () => void;
 }
 
-function CaseCard({ c, i, onClick }: CaseCardProps) {
+function CaseCard({ c, i, activeRound, onClick }: CaseCardProps & { activeRound: string }) {
   const cfg = diffCfg(c.difficulty);
   const isSolved = c.status === 'solved';
+  const isLocked = c.round && activeRound && c.round > activeRound && !isSolved;
   const caseRef = `${i + 1}D:${(i * 997 + 6081).toString(16).toUpperCase().slice(0, 4)}`;
 
   // Random rotation for "scattered folder" look
@@ -36,18 +37,20 @@ function CaseCard({ c, i, onClick }: CaseCardProps) {
     <motion.div
       initial={{ opacity: 0, scale: 0.9, rotate: rotation - 5 }}
       animate={{ opacity: 1, scale: 1, rotate: rotation }}
-      whileHover={{ scale: 1.02, rotate: 0, zIndex: 50, transition: { duration: 0.2 } }}
-      onClick={onClick}
-      className="cursor-pointer flex flex-col relative overflow-hidden shadow-[0_25px_50px_rgba(0,0,0,0.6)] group"
+      whileHover={{ scale: isLocked ? 1 : 1.02, rotate: isLocked ? rotation : 0, zIndex: 50, transition: { duration: 0.2 } }}
+      onClick={isLocked ? undefined : onClick}
+      className={`flex flex-col relative overflow-hidden shadow-[0_25px_50px_rgba(0,0,0,0.6)] ${isLocked ? 'cursor-not-allowed grayscale-[0.6] brightness-75' : 'cursor-pointer group'}`}
       style={{
-        background: 'linear-gradient(165deg, #f5e8b0 0%, #e8d488 40%, #d8c070 100%)',
-        border: '1px solid #a07830',
+        background: isLocked 
+          ? 'linear-gradient(165deg, #c0b080 0%, #a09060 40%, #807040 100%)'
+          : 'linear-gradient(165deg, #f5e8b0 0%, #e8d488 40%, #d8c070 100%)',
+        border: isLocked ? '2px solid #5a4a20' : '1px solid #a07830',
         width: '280px',
         height: '360px',
       }}
     >
       {/* Folder Tab Effect */}
-      <div className="absolute top-0 right-0 w-24 h-8 bg-[#c8b060] -mr-4 -mt-1 rotate-3 border-b border-l border-[#a07830]/30 shadow-sm" />
+      <div className={`absolute top-0 right-0 w-24 h-8 ${isLocked ? 'bg-[#807040]' : 'bg-[#c8b060]'} -mr-4 -mt-1 rotate-3 border-b border-l border-[#a07830]/30 shadow-sm`} />
       
       {/* Top stripe with case ref & badge */}
       <div
@@ -58,33 +61,33 @@ function CaseCard({ c, i, onClick }: CaseCardProps) {
         <div
           className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider"
           style={{
-            background: cfg.bg,
+            background: isLocked ? '#2a2a2a' : cfg.bg,
             color: '#f0e0c0',
-            border: `1.5px solid ${cfg.color}`,
+            border: `1.5px solid ${isLocked ? '#444' : cfg.color}`,
           }}
         >
-          {cfg.label}
+          {isLocked ? 'SEALED' : cfg.label}
         </div>
       </div>
 
       {/* Title with "stamped" feel */}
       <div className="flex-1 px-6 pt-8 text-center flex flex-col items-center">
-        <div className="w-12 h-1 bg-[#8B2020]/20 mb-6" />
+        <div className={`w-12 h-1 ${isLocked ? 'bg-black/20' : 'bg-[#8B2020]/20'} mb-6`} />
         <h3
-          className="font-black uppercase text-[#1a0e04]/90 leading-tight text-xl mb-4 italic"
+          className={`font-black uppercase leading-tight text-xl mb-4 italic ${isLocked ? 'text-[#1a0e04]/40' : 'text-[#1a0e04]/90'}`}
           style={{ fontFamily: "'Georgia', serif", letterSpacing: '0.05em' }}
         >
           {c.title}
         </h3>
         <p className="text-[9px] font-mono text-[#1a0e04]/40 uppercase tracking-[0.2em] leading-relaxed max-w-[180px]">
-          Classified Investigation — Bureau Protocol {c.difficulty}
+          {isLocked ? 'Operational Clearance Required' : `Bureau Protocol: ${c.difficulty}`}
         </p>
       </div>
 
       {/* "Brass" Icon & Mystery */}
       <div className="px-6 pb-10 flex flex-col items-center gap-2">
          <div className="w-16 h-16 rounded-full border-4 border-dashed border-[#a07830]/20 flex items-center justify-center opacity-30">
-            <Folder className="w-8 h-8" />
+            {isLocked ? <Lock className="w-8 h-8" /> : <Folder className="w-8 h-8" />}
          </div>
       </div>
 
@@ -94,10 +97,14 @@ function CaseCard({ c, i, onClick }: CaseCardProps) {
         style={{ borderTop: '1.5px solid rgba(100,70,20,0.1)' }}
       >
         <div className="flex flex-col">
-           <span className="text-[8px] font-black text-[#1a0e04]/40 uppercase tracking-widest leading-none mb-1">Bounty</span>
-           <span className="text-sm font-black text-[#8B2020] opacity-80">{c.points_on_solve} XP</span>
+           <span className="text-[8px] font-black text-[#1a0e04]/40 uppercase tracking-widest leading-none mb-1">Status</span>
+           <span className={`text-sm font-black ${isLocked ? 'text-[#a07830]' : 'text-[#8B2020]'} opacity-80`}>
+              {isLocked ? `WAIT FOR ${c.round?.replace('_',' ')}` : `${c.points} XP`}
+           </span>
         </div>
-        <span className="text-[10px] font-black text-[#1a0e04] opacity-40">OPEN DOSSIER &rarr;</span>
+        <span className="text-[10px] font-black text-[#1a0e04] opacity-40">
+           {isLocked ? 'LOCKED' : 'OPEN DOSSIER \u2192'}
+        </span>
       </div>
 
       {/* CLEARED stamp overlay */}
@@ -109,6 +116,15 @@ function CaseCard({ c, i, onClick }: CaseCardProps) {
             RESOLVED
           </div>
         </div>
+      )}
+
+      {/* SEALED WAX STAMP overlay for locked cards */}
+      {isLocked && (
+         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+            <div className="w-32 h-32 border-8 border-[#8B2020] rounded-full rotate-12 flex items-center justify-center">
+               <span className="text-xl font-black text-[#8B2020] uppercase tracking-tighter">SEALED</span>
+            </div>
+         </div>
       )}
     </motion.div>
   );
@@ -136,6 +152,8 @@ export default function InvestigationBoard() {
       <Activity className="w-10 h-10 text-[#d4a017] animate-pulse" />
     </div>
   );
+
+  const activeRound = localStorage.getItem('active_round') || 'ROUND_1'; // Default to start if in room, or use highest if solo
 
   return (
     <div
@@ -181,17 +199,18 @@ export default function InvestigationBoard() {
           <h1 className="text-5xl font-black text-[#f0e0a0] uppercase tracking-tighter" style={{ fontFamily: "'Georgia', serif" }}>
             The Active Dossiers
           </h1>
-          <p className="text-[#a07830] font-serif italic mt-2 opacity-60">"Every file is a life. Every trace is a lead. Choose your case carefully."</p>
+          <p className="text-[#a07830] font-serif italic mt-2 opacity-60">"Every file is a life. Every trace is a lead. Current Phase: {activeRound?.replace('_', ' ')}"</p>
       </div>
 
       {/* Scattered Case Folders */}
       <div className="flex-1 relative z-10 overflow-y-auto custom-scrollbar px-12 py-10">
          <div className="flex flex-wrap gap-16 justify-center max-w-7xl mx-auto pb-40">
-            {cases.map((c, i) => (
+            {cases.map((c, idx) => (
               <CaseCard
                 key={c.id}
                 c={c}
-                i={i}
+                i={idx}
+                activeRound={activeRound}
                 onClick={() => { playSound('ping'); navigate(`/mission/${c.id}`); }}
               />
             ))}

@@ -1,7 +1,7 @@
 # Project Memory: Detective Noir v1.0 (Dossier)
 
 **File Reference**: #MEM-2026-04-22  
-**Status**: ACTIVE // ARCHIVED  
+**Status**: ACTIVE  
 **Integrity**: VERIFIED  
 
 ---

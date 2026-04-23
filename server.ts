@@ -398,22 +398,45 @@ async function startServer() {
 
   // --- Cases ---
   protectedRouter.get('/cases', async (req: any, res: any) => {
-    const { data: cases, error: casesError } = await supabase.from('cases').select('*').order('id', { ascending: true });
-    if (casesError) return res.status(500).json({ error: 'Failed to fetch cases' });
+    try {
+      // 1. Load DB cases
+      const { data: dbCases, error: casesError } = await supabase.from('cases').select('*').order('id', { ascending: true });
+      if (casesError) return res.status(500).json({ error: 'Failed to fetch cases' });
 
-    const { data: solvedSubmissions } = await supabase.from('submissions')
-      .select('case_id')
-      .eq('team_id', req.user.id)
-      .eq('status', 'correct');
+      // 2. Load JSON missions
+      const jsonCases = await CaseLoader.listAllCases();
 
-    const solvedIds = new Set(solvedSubmissions?.map(s => s.case_id) || []);
+      // 3. Check solve status
+      const { data: solvedSubmissions } = await supabase.from('submissions')
+        .select('case_id')
+        .eq('team_id', req.user.id)
+        .eq('status', 'correct');
+      const solvedIds = new Set(solvedSubmissions?.map(s => s.case_id) || []);
 
-    const casesWithStatus = cases?.map(c => ({
-      ...c,
-      status: solvedIds.has(c.id) ? 'solved' : c.status || 'active'
-    }));
+      // 4. Merge
+      const allCases = [
+        ...(dbCases || []).map(c => ({
+          ...c,
+          points: c.points_on_solve,
+          round: c.round || 'ROUND_1',
+          source: 'db',
+          status: solvedIds.has(c.id) ? 'solved' : c.status || 'active'
+        })),
+        ...jsonCases.map(c => ({
+          id: c.id,
+          title: c.title,
+          difficulty: 'Dynamic',
+          points: c.points,
+          round: c.round,
+          source: 'json',
+          status: solvedIds.has(c.id) ? 'solved' : 'active'
+        }))
+      ];
 
-    res.json(casesWithStatus);
+      res.json(allCases);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to load investigations' });
+    }
   });
 
   protectedRouter.get('/cases/:id/state', async (req: any, res: any) => {
