@@ -401,7 +401,7 @@ export default function InvestigationBoard() {
                     key={c.id}
                     c={c}
                     i={i}
-                    onClick={() => { playSound('ping'); navigate(`/case/${c.id}`); }}
+                    onClick={() => { playSound('ping'); navigate(`/mission/${c.id}`); }}
                   />
                 ))}
               </div>

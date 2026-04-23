@@ -5,6 +5,7 @@ import LandingPage from './pages/LandingPage';
 import InvestigationBoard from './pages/InvestigationBoard';
 import CaseDetail from './pages/CaseDetail';
 import EvidenceViewer from './pages/EvidenceViewer';
+import MissionWorkstation from './pages/MissionWorkstation';
 import Scoreboard from './pages/Scoreboard';
 import Profile from './pages/Profile';
 import BlackMarket from './pages/BlackMarket';
@@ -74,6 +75,7 @@ export default function App() {
                 )}>
                     <Route index element={<InvestigationBoard />} />
                     <Route path="case/:id" element={<CaseDetail />} />
+                    <Route path="mission/:id" element={<MissionWorkstation />} />
                     <Route path="evidence/:id" element={<EvidenceViewer />} />
                     <Route path="scoreboard" element={<Scoreboard />} />
                     <Route path="profile" element={<Profile />} />

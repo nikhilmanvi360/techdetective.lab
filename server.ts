@@ -204,6 +204,12 @@ async function startServer() {
       .from('cases').select('*').eq('id', req.params.id).single();
     if (caseError || !caseData) return res.status(404).json({ error: 'Case not found' });
 
+    try {
+      caseData.metadata = JSON.parse(caseData.description) || {};
+    } catch(e) {
+      caseData.metadata = {};
+    }
+
     const { data: completion } = await supabase.from('submissions').select('1')
       .eq('team_id', req.user.id).eq('case_id', req.params.id).eq('status', 'correct').single();
     const isCompleted = !!completion;
@@ -520,6 +526,89 @@ async function startServer() {
     if (!result.success) return res.status(400).json(result);
     res.json(result);
   });
+
+  // --- Coding Sandbox (Mission Workstation) ---
+  protectedRouter.post('/missions/:id/run', submissionLimiter, async (req: any, res: any) => {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string') return res.status(400).json({ error: 'code is required' });
+    if (code.length > 5000) return res.status(400).json({ error: 'Code too long (max 5000 chars)' });
+
+    const { data: mission, error } = await supabase
+      .from('cases').select('id, title, description').eq('id', req.params.id).single();
+    if (error || !mission) return res.status(404).json({ error: 'Mission not found' });
+
+    let missionData = {};
+    try {
+      missionData = JSON.parse(mission.description)?.evidence || {};
+    } catch(e) {}
+
+    const { runCode } = await import('./src/engine/sandboxEngine');
+    const result = runCode(code, missionData);
+
+    res.json({
+      output: result.output,
+      error: result.error,
+      timed_out: result.timed_out,
+    });
+  });
+
+  protectedRouter.post('/missions/:id/submit', submissionLimiter, async (req: any, res: any) => {
+    const { code, output } = req.body;
+    if (!output) return res.status(400).json({ error: 'output is required' });
+
+    const { data: mission, error } = await supabase
+      .from('cases').select('*').eq('id', req.params.id).single();
+    if (error || !mission) return res.status(404).json({ error: 'Mission not found' });
+
+    // Check already solved
+    const { data: previousCorrect } = await supabase.from('submissions').select('1')
+      .eq('team_id', req.user.id).eq('case_id', req.params.id).eq('status', 'correct').single();
+    if (previousCorrect) return res.status(400).json({ error: 'Mission already cleared' });
+
+    const { validateOutput } = await import('./src/engine/sandboxEngine');
+    
+    let expectedOutput = '';
+    try {
+      expectedOutput = JSON.parse(mission.description)?.expected_output || '';
+    } catch(e) {}
+    
+    const isCorrect = validateOutput(output, expectedOutput);
+
+    await supabase.from('submissions').insert([{
+      team_id: req.user.id, case_id: req.params.id,
+      attacker_name: output.slice(0, 200),
+      attack_method: 'detective_script',
+      prevention_measures: code ? code.slice(0, 500) : '',
+      status: isCorrect ? 'correct' : 'incorrect',
+    }]);
+
+    let pointsAwarded = 0;
+    const badgesEarned: string[] = [];
+
+    if (isCorrect) {
+      const solveResult = await eventStore.appendEvent({
+        teamId: req.user.id, eventType: 'case_solve',
+        basePoints: mission.points_on_solve,
+        metadata: { case_id: req.params.id }
+      });
+      pointsAwarded = solveResult.finalPoints;
+
+      emitLiveEvent(`${req.user.name} cracked Mission #${req.params.id}: ${mission.title}!`, 'case');
+      adversary.evaluateAdversary(io).catch(e => console.error('Adversary eval error:', e));
+    }
+
+    res.json({
+      success: true,
+      isCorrect,
+      pointsAwarded,
+      message: isCorrect
+        ? `MISSION CLEARED — ${pointsAwarded} XP awarded.`
+        : 'OUTPUT MISMATCH — Refine your logic and try again.',
+      badgesEarned,
+    });
+  });
+
+
 
   // --- Investigation Board ---
   protectedRouter.get('/board/:caseId', async (req: any, res: any) => {
