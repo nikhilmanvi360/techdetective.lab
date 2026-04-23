@@ -82,122 +82,71 @@ export default function Profile() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden select-none" style={{ fontFamily: "'Georgia', serif", background: '#140e06' }}>
+    <div className="flex-1 flex flex-col min-h-0 bg-[#1d1208] relative overflow-hidden" 
+         style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }}>
       
-      {/* ═══════════ TOP CHROME (HUD) ═══════════ */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-6 h-14 z-50"
-        style={{
-          background: 'linear-gradient(to bottom, #4a3820, #3a2a12)',
-          borderBottom: '3px solid #6a5020',
-          boxShadow: '0 3px 16px rgba(0,0,0,0.8)',
-        }}
-      >
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => { playSound('click'); navigate(-1); }}
-            className="flex items-center gap-2 px-3 py-1.5 transition-all hover:bg-white/5 rounded group"
-          >
-            <ChevronLeft className="w-5 h-5 text-[#f0d070] group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-wider text-[#f0d070]">Return</span>
-          </button>
+      {/* Tactical UI Edge */}
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-[#d4a017] shadow-[0_0_15px_#d4a017] z-20" />
+      <div className="absolute inset-0 opacity-10 pointer-events-none z-0" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-black uppercase tracking-widest text-[#f0d070]" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
-              TECH DETECTIVE
-            </span>
-            <span className="text-xs font-mono tracking-widest ml-1.5 self-center text-[#c8a050]/60">
-              OPERATIVE_DOSSIER
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5">
-          <div className="text-right leading-none">
-            <div className="text-[10px] font-mono uppercase tracking-widest mb-0.5 text-[#c8a050]/60">{rankTitle}</div>
-            <div className="text-sm font-black text-[#f0d070]">{team.name}</div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-[#c8a050]/60">XP {xp}</span>
-            <div className="w-28 h-3 bg-[#1a0e04] border border-[#5a4010] rounded-sm overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${xpPct}%` }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-                className="h-full rounded-sm"
-                style={{ background: 'linear-gradient(to right, #a07020, #f0d070)' }}
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="font-black uppercase text-xs px-4 py-2 transition-all hover:brightness-125 bg-gradient-to-bottom from-[#8B1A1A] to-[#6a0e0e] text-[#ffd0d0] border border-[#5a0808]"
-            style={{ letterSpacing: '0.15em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}
-          >
-            Disconnect
-          </button>
-        </div>
-      </div>
-
-      {/* ═══════════ MAIN DOSSIER AREA ═══════════ */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-8 lg:p-12" style={{ background: 'linear-gradient(160deg, #f0e0a0 0%, #e4d080 50%, #d8c060 100%)' }}>
+      {/* 🪪 MAIN DOSSIER AREA 🪪 */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-12 relative z-10">
         
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl mx-auto space-y-12 pb-40">
           
-          {/* Operative Header Card */}
+          {/* Header Section */}
+          <div className="flex items-center gap-4 mb-6">
+             <div className="w-12 h-[2px] bg-[#d4a017]" />
+             <span className="text-[#d4a017] font-black uppercase tracking-[0.4em] text-[10px]">Personnel File</span>
+          </div>
+
+          {/* Operative Identity Card (Stamped Folder style) */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col md:flex-row items-center gap-10 p-10 bg-[#e8d8a0] border-2 border-[#a07830] shadow-2xl relative overflow-hidden"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col md:flex-row items-center gap-12 p-12 bg-[#f5e8b0] border-[#a07830] border-2 shadow-2xl relative overflow-hidden transform rotate-[-0.5deg]"
           >
+            {/* Folder Shadow Depth */}
+            <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+            
             {/* Bureau Overlay */}
-            <div className="absolute top-4 right-6 text-[10px] font-mono text-[#1a0e04]/20 uppercase tracking-[0.4em] pointer-events-none">
-              BUREAU_ID_GEN_0x{team.id.toString(16).toUpperCase()}
+            <div className="absolute top-6 right-8 text-[12px] font-black text-[#8B2020]/20 uppercase tracking-[0.4em] pointer-events-none rotate-2 border-2 border-[#8B2020]/20 px-4 py-1">
+               CLASSIFIED_CREDENTIALS
             </div>
 
-            {/* Avatar / Portrait */}
+            {/* Avatar / Stamped Initial */}
             <div
-              className="w-32 h-32 flex items-center justify-center flex-shrink-0 border-2 text-5xl font-black bg-black/5"
-              style={{ borderColor: '#a07830', color: '#1a0e04', textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}
+              className="w-40 h-40 flex items-center justify-center flex-shrink-0 border-4 border-dashed border-[#a07830]/40 text-7xl font-black bg-black/5"
+              style={{ color: '#1a0e04', fontFamily: "'Georgia', serif" }}
             >
-              {team.name.charAt(0).toUpperCase()}
+              {team.name.charAt(0)}
             </div>
 
             {/* Operative Info */}
-            <div className="flex-1 text-center md:text-left space-y-4">
-              <div className="space-y-1">
-                <div className="text-[11px] font-black text-[#1a0e04]/40 uppercase tracking-[0.3em]">Operative Profile</div>
-                <h1 className="text-4xl font-black text-[#1a0e04] uppercase tracking-tight leading-none" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.4)' }}>
+            <div className="flex-1 text-center md:text-left space-y-6">
+              <div className="space-y-2">
+                <div className="text-[10px] font-black text-[#8B2020] uppercase tracking-[0.5em] mb-1">ID: OPS_BUREAU_{team.id.toString().slice(-4)}</div>
+                <h1 className="text-6xl font-black text-[#1a0e04] uppercase tracking-tighter italic leading-none" style={{ fontFamily: "'Georgia', serif" }}>
                   {team.name}
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 justify-center md:justify-start">
-                <div
-                  className="px-4 py-1.5 text-[11px] font-black uppercase tracking-widest flex items-center gap-2"
-                  style={{ background: '#3a2a12', color: '#f0d070', border: '1.5px solid #6a5020' }}
-                >
-                  <ShieldAlert className="w-4 h-4" />
-                  {rankTitle}
+              <div className="flex flex-wrap items-center gap-6 justify-center md:justify-start">
+                <div className="bg-[#2a1a0a] px-4 py-2 border-2 border-[#d4a017] text-[#f0d070] text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
+                   <ShieldAlert className="w-4 h-4" />
+                   {rankTitle}
                 </div>
-                {team.created_at && (
-                  <div className="flex items-center gap-1.5 text-xs font-mono text-[#1a0e04]/50">
-                    <Clock className="w-3.5 h-3.5" />
-                    Inducted {new Date(team.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}
-                  </div>
-                )}
+                <div className="text-xs font-serif italic text-[#1a0e04]/40 border-l-2 border-[#a07830]/20 pl-6">
+                   Active Service Since {new Date(team.created_at?.replace(' ', 'T') + 'Z').toLocaleDateString()}
+                </div>
               </div>
             </div>
 
-            {/* Achievement Badge Summary */}
-            <div className="flex items-center gap-4 border-l-2 border-[#a07830]/20 pl-10 hidden lg:flex">
-              <div className="text-center">
-                 <div className="text-[10px] font-black text-[#1a0e04]/30 uppercase tracking-widest mb-1">Clearance</div>
-                 <div className="text-5xl font-black text-[#1a0e04] tabular-nums leading-none">
-                    {team.score.toLocaleString()}
-                 </div>
-                 <div className="text-[10px] font-black text-[#1a0e04]/40 uppercase tracking-widest mt-2">Points Earned</div>
-              </div>
+            {/* Brass Experience Seal */}
+            <div className="hidden lg:flex flex-col items-center justify-center w-40 h-40 border-[8px] border-[#a07830]/20 rounded-full bg-[#e8d488]/30">
+               <div className="text-[10px] font-black text-[#1a0e04]/30 uppercase tracking-widest leading-none mb-2">Total Score</div>
+               <div className="text-4xl font-black text-[#1a0e04] tracking-tighter tabular-nums">{team.score.toLocaleString()}</div>
+               <div className="text-[10px] font-black text-[#d4a017] uppercase tracking-widest mt-1">CLEARED XP</div>
             </div>
           </motion.div>
 

@@ -7,7 +7,7 @@ import { io } from 'socket.io-client';
 import { getRankTitle } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 
-// ── Animated number counter ───────────────────────────────────────────────────
+/* ─── Animated number counter ─────────────────────────────────────────────────── */
 function AnimatedScore({ value, className }: { value: number; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
@@ -43,9 +43,6 @@ export default function Scoreboard() {
   const navigate = useNavigate();
 
   const team = (() => { try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } })();
-  const rankTitle = getRankTitle(team?.score || 0);
-  const xp = team?.score || 0;
-  const xpPct = Math.min(100, Math.round((xp / 500) * 100));
 
   const fetchAll = () => {
     fetch('/api/scoreboard')
@@ -65,166 +62,112 @@ export default function Scoreboard() {
     return () => { socket.disconnect(); };
   }, [playSound]);
 
-  const handleLogout = () => {
-    playSound('click');
-    localStorage.clear();
-    window.location.href = '/';
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const filtered = scores.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#1a120a]">
+    <div className="fixed inset-0 flex items-center justify-center bg-[#140e06]">
       <Activity className="w-10 h-10 text-[#d4a017] animate-pulse" />
     </div>
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden select-none" style={{ fontFamily: "'Georgia', serif", background: '#140e06' }}>
+    <div className="flex-1 flex flex-col min-h-0 bg-[#1d1208] relative overflow-hidden" 
+         style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }}>
       
-      {/* ═══════════ TOP CHROME (HUD) ═══════════ */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-6 h-14 z-50"
-        style={{
-          background: 'linear-gradient(to bottom, #4a3820, #3a2a12)',
-          borderBottom: '3px solid #6a5020',
-          boxShadow: '0 3px 16px rgba(0,0,0,0.8)',
-        }}
-      >
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => { playSound('click'); navigate(-1); }}
-            className="flex items-center gap-2 px-3 py-1.5 transition-all hover:bg-white/5 rounded group"
-          >
-            <ChevronLeft className="w-5 h-5 text-[#f0d070] group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-wider text-[#f0d070]">Return</span>
-          </button>
+      {/* Tactical Overlay */}
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-[#d4a017] shadow-[0_0_15px_#d4a017] z-20" />
+      <div className="absolute inset-0 opacity-10 pointer-events-none z-0" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
 
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-black uppercase tracking-widest text-[#f0d070]" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
-              TECH DETECTIVE
-            </span>
-            <span className="text-xs font-mono tracking-widest ml-1.5 self-center text-[#c8a050]/60">
-              OFFICIAL_RANKINGS
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-5">
-          <div className="text-right leading-none">
-            <div className="text-[10px] font-mono uppercase tracking-widest mb-0.5 text-[#c8a050]/60">{rankTitle}</div>
-            <div className="text-sm font-black text-[#f0d070]">{team?.name || 'Agent'}</div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-[#c8a050]/60">XP {xp}</span>
-            <div className="w-28 h-3 bg-[#1a0e04] border border-[#5a4010] rounded-sm overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${xpPct}%` }}
-                className="h-full rounded-sm bg-gradient-to-right from-[#a07020] to-[#f0d070]"
-                style={{ background: 'linear-gradient(to right, #a07020, #f0d070)' }}
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="font-black uppercase text-xs px-4 py-2 transition-all hover:brightness-125 bg-gradient-to-bottom from-[#8B1A1A] to-[#6a0e0e] text-[#ffd0d0] border border-[#5a0808]"
-            style={{ letterSpacing: '0.15em', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}
-          >
-            Disconnect
-          </button>
-        </div>
-      </div>
-
-      {/* ═══════════ MAIN CONTENT AREA ═══════════ */}
-      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-8 lg:p-12 items-center" style={{ background: 'linear-gradient(160deg, #f0e0a0 0%, #e4d080 50%, #d8c060 100%)' }}>
+      {/* 📜 REGISTRY CONTENT AREA 📜 */}
+      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-12 relative z-10 items-center">
         
-        <div className="w-full max-w-5xl flex flex-col space-y-10">
+        <div className="w-full max-w-6xl flex flex-col space-y-12 pb-40">
           
-          {/* Header */}
-          <div className="flex items-center justify-between pb-6 border-b-2 border-[#1a0e04]/20">
-            <div>
-              <h1 className="text-4xl font-black text-[#1a0e04] uppercase tracking-wide" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.4)' }}>
-                Field Operative Rankings
-              </h1>
-              <div className="flex items-center gap-3 mt-2 text-[11px] font-black uppercase tracking-widest text-[#1a0e04]/50">
-                <div className="w-2 h-2 rounded-full bg-[#1a0e04]/50 animate-pulse" />
-                Live Sync — {scores.length} Active Records
-              </div>
-            </div>
-            
-            <div className="text-right">
-              <div className="px-5 py-2 inline-flex items-center gap-3 bg-[#e8d8a0] border-2 border-[#a07830] shadow-md">
-                 <Search className="w-4 h-4 text-[#1a0e04]/60" />
-                 <input
-                   type="text" value={search} onChange={e => setSearch(e.target.value)}
-                   placeholder="SEARCH OPERATIVE..."
-                   className="bg-transparent outline-none text-xs font-black uppercase tracking-widest text-[#1a0e04] placeholder-[#1a0e04]/40 w-48"
-                 />
-              </div>
-            </div>
+          {/* Header Section */}
+          <div className="relative group">
+             <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-[2px] bg-[#d4a017]" />
+                <span className="text-[#d4a017] font-black uppercase tracking-[0.4em] text-[10px]">Division Registry</span>
+             </div>
+             <h1 className="text-5xl font-black text-[#f0e0a0] uppercase tracking-tighter" style={{ fontFamily: "'Georgia', serif" }}>
+               The Field Archives
+             </h1>
+             <p className="text-[#a07830] font-serif italic mt-3 opacity-60 max-w-2xl">
+               "Performance records for all active CCU operatives. Every point is a trace recovered from the syndicate's shadows."
+             </p>
+             
+             {/* Search Note */}
+             <div className="absolute top-0 right-0 transform rotate-1">
+                <div className="bg-[#f0e0a0] p-4 shadow-xl border-2 border-[#a07830] flex items-center gap-3">
+                   <Search className="w-4 h-4 text-[#8B2020]" />
+                   <input
+                     type="text" value={search} onChange={e => setSearch(e.target.value)}
+                     placeholder="Filter Records..."
+                     className="bg-transparent outline-none text-[10px] font-black uppercase tracking-[0.2em] text-[#2a1a0a] placeholder-[#2a1a0a]/30 w-48"
+                   />
+                </div>
+             </div>
           </div>
 
-          {/* Active Multiplier Banner */}
           <AnimatePresence>
             {activeMultipliers.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-[#1a0e04] p-4 border-2 border-[#d4a017] shadow-[0_0_20px_rgba(212,160,23,0.2)] flex items-center gap-6"
               >
-                <div className="flex items-center gap-4 p-4 bg-[#1a0e04] border-l-4 border-[#d4a017] shadow-xl text-[#f0d070]">
-                  <Zap className="w-8 h-8 flex-shrink-0 animate-pulse" />
-                  <div>
-                    <div className="text-sm font-black uppercase tracking-wide">
-                      {activeMultipliers[0].multiplier}× Score Multiplier Active
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-[#f0d070]/60 uppercase tracking-widest mt-1">
-                      <Timer className="w-3.5 h-3.5" />
-                      Expires: {new Date(activeMultipliers[0].ends_at).toLocaleTimeString()}
-                    </div>
-                  </div>
+                <Zap className="w-10 h-10 text-[#d4a017] animate-pulse" />
+                <div className="flex-1">
+                   <div className="text-xs font-black text-[#f0d070] uppercase tracking-widest">Bureau Multiplier Active</div>
+                   <div className="text-[10px] text-[#f0d070]/60 uppercase tracking-[0.3em] font-mono mt-1">
+                      Priority signal boost: {activeMultipliers[0].multiplier}x Efficiency
+                   </div>
+                </div>
+                <div className="text-right">
+                   <div className="text-[10px] font-black text-[#f0d070] uppercase opacity-40 mb-1">Status</div>
+                   <div className="text-sm font-black text-white font-mono uppercase tracking-widest">Active Signal</div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Podium (Top 3) */}
+          {/* Podium - Refined as Dossier Previews */}
           {filtered.length >= 3 && search === '' && (
-            <div className="grid grid-cols-3 gap-6 pt-6">
+            <div className="grid grid-cols-3 gap-10 pt-4">
               {[
                 { entry: filtered[1], pos: 1 },
                 { entry: filtered[0], pos: 0 },
                 { entry: filtered[2], pos: 2 },
               ].map(({ entry, pos }) => {
                 const ps = podiumStyle[pos];
-                const height = pos === 0 ? 'h-56' : pos === 1 ? 'h-48' : 'h-40';
                 return (
                   <motion.div
                     key={pos}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: pos * 0.1 }}
-                    className={`flex flex-col items-center justify-end ${height} border-2 relative overflow-hidden`}
-                    style={{
-                      background: `linear-gradient(to top, ${ps.color}20, #e8d8a0)`,
-                      borderColor: ps.color,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
-                    }}
+                    className="relative p-6 flex flex-col items-center justify-center min-h-[220px] bg-[#f5e8b0] border-[#a07830] border-2 shadow-2xl"
+                    style={{ transform: `rotate(${pos === 0 ? '-1deg' : pos === 1 ? '1deg' : '-0.5deg'})` }}
                   >
-                    <div className="absolute top-0 left-0 w-full p-3 flex justify-center bg-black/5 border-b border-black/10 text-[#1a0e04]">
-                      {ps.icon}
+                    <div className="absolute top-4 left-4 opacity-20">
+                       {ps.icon}
                     </div>
-                    <div className="text-center p-6 space-y-2">
-                       <div className="text-sm font-black uppercase tracking-widest text-[#1a0e04]">
-                         {entry?.name || '—'}
-                       </div>
-                       <AnimatedScore
-                         value={entry?.score ?? 0}
-                         className="block text-4xl font-black tabular-nums text-[#1a0e04]"
-                       />
-                       <div className="text-[10px] font-black uppercase tracking-widest text-[#1a0e04]/40">Total XP</div>
+                    <div className="text-[10px] font-black text-[#8B2020] uppercase tracking-widest mb-4 border-b border-[#8B2020]/20 pb-1">
+                       {ps.label}
+                    </div>
+                    <div className="text-2xl font-black text-[#1a0e04] uppercase tracking-tighter mb-1 font-serif">
+                       {entry?.name || '---'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <span className="text-4xl font-black text-[#1a0e04] tabular-nums tracking-tighter"><AnimatedScore value={entry?.score ?? 0} /></span>
+                       <span className="text-[10px] font-black text-[#1a0e04]/40 uppercase tracking-widest self-end pb-2">XP</span>
                     </div>
                   </motion.div>
                 );
@@ -232,100 +175,72 @@ export default function Scoreboard() {
             </div>
           )}
 
-          {/* Rankings Table */}
-          <div className="bg-[#e8d8a0] border-2 border-[#a07830] shadow-xl overflow-hidden">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 px-8 py-4 bg-black/10 border-b-2 border-[#a07830]/30 text-[10px] font-black uppercase tracking-widest text-[#1a0e04]/60">
-              <div className="col-span-1">#</div>
-              <div className="col-span-6">Operative</div>
-              <div className="col-span-3">Assigned Rank</div>
-              <div className="col-span-2 text-right">Cleared XP</div>
-            </div>
+          {/* Table - Styled as a physical Ledger */}
+          <div className="bg-[#f0e0a0] border-[8px] border-[#3a2a12] shadow-2xl overflow-hidden relative">
+             <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+             
+             <div className="relative z-10">
+                <div className="grid grid-cols-12 px-10 py-5 bg-[#3a2a12] text-[10px] font-black uppercase tracking-[0.4em] text-[#d4a017]">
+                  <div className="col-span-1">Ref</div>
+                  <div className="col-span-5">Operative Designation</div>
+                  <div className="col-span-4">Clearance Level</div>
+                  <div className="col-span-2 text-right">Cleared XP</div>
+                </div>
 
-            <div className="overflow-hidden bg-white/30">
-               <AnimatePresence mode="popLayout">
-                 {filtered.map((entry, i) => {
-                   const isGold = i === 0;
-                   const medal = i < 3 ? podiumStyle[i] : null;
-                   return (
-                     <motion.div
-                       key={entry.name}
-                       layout
-                       initial={{ opacity: 0, x: -10 }}
-                       animate={{ opacity: 1, x: 0 }}
-                       exit={{ opacity: 0 }}
-                       transition={{ delay: i * 0.03 }}
-                       className="grid grid-cols-12 items-center px-8 py-5 border-b border-[#a07830]/20 hover:bg-black/5 transition-colors"
-                     >
-                       {/* Rank Number */}
-                       <div className="col-span-1 text-lg font-black tabular-nums text-[#1a0e04]/40">
-                         {String(i + 1).padStart(2, '0')}
-                       </div>
-
-                       {/* Operative Info */}
-                       <div className="col-span-6 flex items-center gap-4">
-                         {medal && (
-                           <span style={{ color: medal.color }} className="drop-shadow-md">{medal.icon}</span>
-                         )}
-                         {!medal && <div className="w-5" />}
-                         <div
-                           className="w-10 h-10 flex items-center justify-center text-sm font-black border-2 flex-shrink-0 bg-[#e8d8a0]"
-                           style={{
-                             borderColor: medal ? medal.color : '#a07830',
-                             color: '#1a0e04',
-                           }}
+                <div className="divide-y divide-[#a07830]/20">
+                   <AnimatePresence mode="popLayout">
+                     {filtered.map((entry, i) => {
+                       return (
+                         <motion.div
+                           key={entry.name}
+                           layout
+                           initial={{ opacity: 0, x: -10 }}
+                           animate={{ opacity: 1, x: 0 }}
+                           exit={{ opacity: 0 }}
+                           className={`grid grid-cols-12 items-center px-10 py-6 transition-all ${team?.name === entry.name ? 'bg-[#d4a017]/10' : 'hover:bg-black/5'}`}
                          >
-                           {entry.name.charAt(0).toUpperCase()}
-                         </div>
-                         <span className="font-black uppercase tracking-widest text-sm text-[#1a0e04]">
-                           {entry.name}
-                         </span>
-                       </div>
+                           <div className="col-span-1 text-sm font-black italic text-[#1a0e04]/30">#{i + 1}</div>
+                           <div className="col-span-5 flex items-center gap-4">
+                              <div className="w-10 h-10 border-2 border-[#1a0e04]/10 bg-white/30 flex items-center justify-center font-black text-[#1a0e04]">
+                                 {entry.name.charAt(0)}
+                              </div>
+                              <span className="font-black uppercase tracking-[0.2em] text-sm text-[#1a0e04]">{entry.name}</span>
+                              {team?.name === entry.name && <span className="text-[8px] bg-[#8B2020] text-white px-2 py-0.5 font-black uppercase tracking-widest ml-2">You</span>}
+                           </div>
+                           <div className="col-span-4">
+                              <span className="text-[9px] font-black uppercase tracking-[0.3em] inline-block px-3 py-1 border border-[#a07830]">
+                                 {getRankTitle(entry.score)}
+                              </span>
+                           </div>
+                           <div className="col-span-2 text-right">
+                              <span className="text-xl font-black text-[#1a0e04] tabular-nums"><AnimatedScore value={entry.score} /></span>
+                           </div>
+                         </motion.div>
+                       );
+                     })}
+                   </AnimatePresence>
 
-                       {/* Rank Title */}
-                       <div className="col-span-3">
-                         <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 border"
-                           style={{
-                             color: '#1a0e04',
-                             borderColor: '#a07830',
-                             background: 'rgba(160,120,48,0.1)',
-                           }}>
-                           {getRankTitle(entry.score)}
-                         </span>
-                       </div>
-
-                       {/* Score */}
-                       <div className="col-span-2 text-right">
-                         <AnimatedScore
-                           value={entry.score}
-                           className="text-xl font-black tabular-nums text-[#1a0e04]"
-                         />
-                       </div>
-                     </motion.div>
-                   );
-                 })}
-               </AnimatePresence>
-
-               {filtered.length === 0 && (
-                 <div className="py-24 text-center">
-                   <Users className="w-12 h-12 mx-auto mb-4 text-[#1a0e04]/20" />
-                   <p className="font-black uppercase tracking-widest text-sm text-[#1a0e04]/40">
-                     No operatives match query.
-                   </p>
-                 </div>
-               )}
-            </div>
+                   {filtered.length === 0 && (
+                     <div className="py-24 text-center opacity-30 italic font-serif">
+                        No operative records match the current inquiry.
+                     </div>
+                   )}
+                </div>
+             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-3 opacity-40 pb-6">
-            <Clock className="w-4 h-4 text-[#1a0e04]" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#1a0e04]">
-              Data synced via constant tactical uplink
-            </span>
+          <div className="py-20 flex flex-col items-center gap-3">
+             <div className="w-20 h-[3px] bg-[#a07830]/20" />
+             <p className="text-[9px] font-black uppercase tracking-[0.5em] text-[#a07830]">Bureau Archive Session Active</p>
           </div>
-
         </div>
       </div>
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3a2a12; border: 2px solid #140e06; }
+      `}</style>
     </div>
   );
 }
