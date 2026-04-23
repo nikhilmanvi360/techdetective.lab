@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileSearch, User, BarChart2, ShoppingBag, Activity,
-  ChevronRight, Folder, Plus, Map as MapIcon, Users
+  ChevronRight, Folder, Plus, Map as MapIcon, Users,
+  Lock, Terminal, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Case } from '../types';
