@@ -11,12 +11,23 @@ import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { isFuzzyMatch } from './src/utils/fuzzyMatch';
 
+// Handle global crashes
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Engine imports
 import * as eventStore from './src/engine/eventStore';
 import * as caseEngine from './src/engine/caseEngine';
 import * as adversary from './src/engine/adversary';
 import * as shopEngine from './src/engine/shopEngine';
 import * as boardEngine from './src/engine/boardEngine';
+import { codeExecutionQueue } from './src/lib/queue';
+import { GameStateManager, GameState } from './src/engine/gameStateManager';
+import { CaseLoader } from './src/engine/caseLoader';
 
 const ROOT_DIR = process.cwd();
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
@@ -28,7 +39,8 @@ const isTest = process.env.NODE_ENV === 'test';
 const loginLimiter = rateLimit({
   windowMs: 5 * 1000,
   max: isTest ? 100 : 10,
-  message: { error: 'Security lockout active. Please wait 5 seconds before retrying.' }
+  message: { error: 'Security lockout active. Please wait 5 seconds before retrying.' },
+  validate: { xForwardedForHeader: false }
 });
 
 const submissionLimiter = rateLimit({
@@ -45,6 +57,8 @@ const submissionLimiter = rateLimit({
 // Global Memory State for Admin Overrides
 // =========================================================
 export const teamTokenVersions = new Map<number, number>();
+// In-memory fallback for investigation rooms if DB table is missing
+const memoryRooms = new Map<string, any>();
 
 // =========================================================
 // App & Socket.IO setup
@@ -55,6 +69,13 @@ export const io = new SocketIOServer(server, {
   cors: { origin: '*' },
   transports: ['websocket', 'polling'], // polling fallback for Render
 });
+
+// Global Error Handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('[EXPRESS ERROR]', err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // =========================================================
@@ -108,9 +129,28 @@ async function startServer() {
   }
 
   // -------------------------------------------------------
-  // SOCKET.IO
+  // SOCKET.IO: Multi-Room Management
   // -------------------------------------------------------
   io.on('connection', (socket) => {
+    // Join a specific investigation room
+    socket.on('join_investigation', ({ roomCode, teamName }) => {
+      socket.join(roomCode);
+      console.log(`[SOCKET] ${teamName} joined room: ${roomCode}`);
+      
+      // Notify other detectives in this room
+      socket.to(roomCode).emit('detective_joined', { teamName, timestamp: new Date() });
+    });
+
+    // Start a synchronized mission
+    socket.on('launch_investigation', async ({ roomCode }) => {
+      try {
+        await GameStateManager.transition(roomCode, 'ROUND_1');
+        io.to(roomCode).emit('mission_started', { startTime: new Date() });
+      } catch (err: any) {
+        socket.emit('error', { message: err.message });
+      }
+    });
+
     socket.on('node_dragging', (data) => {
       socket.broadcast.emit('board_update', {
         teamId: data.teamId, type: 'node_moved',
@@ -141,6 +181,53 @@ async function startServer() {
       res.json(active);
     } catch (e) {
       res.json([]);
+    }
+  });
+
+  publicRouter.get('/cases', async (req, res) => {
+    try {
+      const { data: dbCases } = await supabase.from('cases').select('*').eq('status', 'active');
+      const jsonCases = await CaseLoader.listAllCases();
+      const allCases = [
+        ...(dbCases || []).map(c => ({ 
+          id: c.id, 
+          title: c.title, 
+          difficulty: c.difficulty, 
+          points: c.points_on_solve, 
+          round: c.round || 'ROUND_1',
+          source: 'db' 
+        })),
+        ...jsonCases.map(c => ({ 
+          id: c.id, 
+          title: c.title, 
+          difficulty: 'Dynamic', 
+          points: c.points, 
+          round: c.round,
+          source: 'json' 
+        }))
+      ];
+      res.json(allCases);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to load investigations.' });
+    }
+  });
+
+  publicRouter.get('/cases/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      // 1. Try JSON Case Loader
+      if (id.startsWith('mission-')) {
+        const jsonCase = await CaseLoader.getCaseById(id);
+        if (jsonCase) return res.json(jsonCase);
+      }
+
+      // 2. Fallback to Supabase
+      const { data: dbCase, error } = await supabase.from('cases').select('*').eq('id', id).single();
+      if (error || !dbCase) return res.status(404).json({ error: 'Investigation dossier not found.' });
+      
+      res.json(dbCase);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to retrieve mission dossier.' });
     }
   });
 
@@ -198,31 +285,57 @@ async function startServer() {
     console.log(`[SANDBOX] Run requested for mission ${id}`);
     
     try {
-      const { data: mission, error } = await supabase
-        .from('cases').select('id, title, description').eq('id', id).single();
-      
-      if (error || !mission) {
-        console.error(`[SANDBOX] Mission ${id} not found in DB`);
-        return res.status(404).json({ error: 'Mission not found' });
+      let missionData: any = null;
+
+      // Handle Dynamic JSON Cases
+      if (id.startsWith('mission-')) {
+        missionData = await CaseLoader.getCaseById(id);
+      } else {
+        const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
+        if (!error) missionData = data;
       }
+      
+      if (!missionData) return res.status(404).json({ error: 'Mission dossier not found.' });
 
-      let missionData: any = {};
-      try {
-        missionData = JSON.parse(mission.description)?.network_topology || {};
-      } catch(e) {}
-
-      const { runCode } = await import('./src/engine/sandboxEngine');
-      const result = runCode(code || '', missionData);
-
-      res.json({
-        output: result.output,
-        trace: result.trace,
-        error: result.error,
-        timed_out: result.timed_out,
+      // 1. ADD JOB TO BULLMQ QUEUE
+      const job = await codeExecutionQueue.add(`run-${id}-${req.user.id}`, {
+        code: code || '',
+        missionId: id,
+        teamId: req.user.id,
+        language: missionData.check?.piston_language || 'javascript', 
       });
+
+      console.log(`[QUEUE] Enqueued Job #${job.id} for Mission ${id}`);
+
+      // 2. Return 202 Accepted with Job ID
+      res.status(202).json({
+        message: 'Analysis enqueued',
+        jobId: job.id,
+      });
+
+      // 3. LISTEN FOR COMPLETION (In a real high-scale app, we'd use a separate listener or Redis Pub/Sub)
+      // For this implementation, we monitor the job and emit via Socket.io when done.
+      const waitForResult = async () => {
+        try {
+          const result = await job.waitUntilFinished(undefined, 30000); // 30s timeout
+          io.emit('execution_complete', {
+            teamId: req.user.id,
+            jobId: job.id,
+            result,
+          });
+        } catch (err: any) {
+          io.emit('execution_failed', {
+            teamId: req.user.id,
+            jobId: job.id,
+            error: err.message,
+          });
+        }
+      };
+
+      waitForResult().catch(e => console.error('[QUEUE] Async Wait Error:', e.message));
     } catch (err: any) {
-      console.error(`[SANDBOX] Execution error:`, err.message);
-      res.status(500).json({ error: 'Sandbox execution failed' });
+      console.error(`[SANDBOX] Queue error:`, err.message);
+      res.status(500).json({ error: 'Failed to enqueue analysis.' });
     }
   });
 
@@ -243,7 +356,10 @@ async function startServer() {
       
       let expectedOutput = '';
       try {
-        expectedOutput = JSON.parse(mission.description)?.expected_output || '';
+        const desc = typeof mission.description === 'string' 
+          ? JSON.parse(mission.description) 
+          : mission.description;
+        expectedOutput = desc?.expected_output || '';
       } catch(e) {}
       
       const isCorrect = validateOutput(output || '', expectedOutput);
@@ -788,6 +904,85 @@ async function startServer() {
     await supabase.from('teams').update({ token_version: newVersion }).eq('id', teamId);
     teamTokenVersions.set(teamId, newVersion);
     res.json({ success: true, newVersion });
+  });
+
+  // --- MULTIPLAYER ROOMS (SUPABASE BACKED WITH MEMORY FALLBACK) ---
+  protectedRouter.post('/rooms/create', async (req: any, res: any) => {
+    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newRoom = { 
+      room_code: roomCode, 
+      host_id: req.user.id, 
+      status: 'waiting',
+      host: { name: req.user.name }
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .insert([{ room_code: roomCode, host_id: req.user.id, status: 'waiting' }])
+        .select().single();
+      
+      if (error) throw error;
+      res.json(data);
+    } catch (err: any) {
+      // Fallback to memory store
+      memoryRooms.set(roomCode, newRoom);
+      res.json(newRoom);
+    }
+  });
+
+  protectedRouter.post('/rooms/join', async (req: any, res: any) => {
+    const { roomCode } = req.body;
+    
+    // Check memory first
+    if (memoryRooms.has(roomCode)) {
+      return res.json(memoryRooms.get(roomCode));
+    }
+
+    try {
+      const { data: room, error } = await supabase
+        .from('game_rooms')
+        .select('*')
+        .eq('room_code', roomCode)
+        .single();
+      
+      if (error || !room) return res.status(404).json({ error: 'Investigation room not found.' });
+      res.json(room);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to join investigation.' });
+    }
+  });
+
+  protectedRouter.get('/rooms/active', async (req: any, res: any) => {
+    try {
+      const { data: rooms, error } = await supabase
+        .from('game_rooms')
+        .select('*, host:teams(name)')
+        .eq('status', 'waiting');
+      
+      if (error) throw error;
+      res.json(rooms || []);
+    } catch (err: any) {
+      // Return memory rooms as fallback
+      res.json(Array.from(memoryRooms.values()).filter(r => r.status === 'waiting'));
+    }
+  });
+
+  protectedRouter.post('/rooms/:code/transition', async (req: any, res: any) => {
+    const { code } = req.params;
+    const { nextState } = req.body;
+    try {
+      await GameStateManager.transition(code, nextState as GameState);
+      res.json({ success: true, state: nextState });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  protectedRouter.get('/rooms/:code/state', async (req: any, res: any) => {
+    const { code } = req.params;
+    const state = await GameStateManager.getRoomState(code);
+    res.json(state);
   });
 
   // Recompute & Snapshots (#4, #5)

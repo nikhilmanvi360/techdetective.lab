@@ -1,0 +1,17 @@
+{
+  "id": "mission-01",
+  "type": "coding",
+  "title": "Digital Recon: Node 1A",
+  "round": "ROUND_1",
+  "points": 150,
+  "metadata": {
+    "brief": "We need to identify the primary gateway of the syndicate. Reposition to the network boundary and execute a deep scan.",
+    "starter_code": "// Transcribe your reconnaissance script below\nmove('BOUNDARY-01');\nconst nodes = scan();\nprint(`Detected Nodes: ${nodes.join(', ')}`);\n",
+    "available_functions": ["move(target: string)", "scan(): string[]", "print(msg: string)"]
+  },
+  "check": {
+    "piston_language": "javascript",
+    "required_trace": ["move", "scan"]
+  },
+  "is_hidden_initially": false
+}

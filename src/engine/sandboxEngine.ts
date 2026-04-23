@@ -42,11 +42,25 @@ export function runCode(code: string, missionData: MissionData): SandboxResult {
   const trace: ActionTrace[] = [];
   const outputLines: string[] = [];
 
-  let currentNodeId = missionData.start_node || '192.168.1.1';
-  const nodeMap = new Map<string, NodeData>(missionData.network?.map(n => [n.id, n]) || []);
+  // Robust initialization
+  const networkNodes = missionData.network || [];
+  const nodeMap = new Map<string, NodeData>(networkNodes.map(n => [n.id, n]));
   
-  if (nodeMap.size > 0 && !nodeMap.has(currentNodeId)) {
-    currentNodeId = missionData.network[0].id;
+  let currentNodeId = missionData.start_node || (networkNodes.length > 0 ? networkNodes[0].id : '');
+  
+  // Ensure the current node exists in the map
+  if (currentNodeId && !nodeMap.has(currentNodeId) && networkNodes.length > 0) {
+    currentNodeId = networkNodes[0].id;
+  }
+
+  // Pre-flight check
+  if (nodeMap.size === 0) {
+    return {
+      output: "",
+      trace: [],
+      error: "ENGINE ERROR: No network infrastructure detected in mission data.",
+      timed_out: false
+    };
   }
 
   trace.push({ type: 'start', target: currentNodeId });
@@ -72,10 +86,10 @@ export function runCode(code: string, missionData: MissionData): SandboxResult {
     
     scan_target: () => {
       const node = nodeMap.get(currentNodeId);
-      if (!node) throw new Error("Invalid Node State");
+      if (!node) throw new Error(`PROTOCOL ERROR: Drone has lost sync with the network grid at node [${currentNodeId}].`);
       const data = { type: node.type, ports: [...node.ports], files: Object.keys(node.files || {}) };
       trace.push({ type: 'scan', target: currentNodeId, data });
-      return data; // returns object to JS
+      return data;
     },
     
     download_file: (filename: string) => {

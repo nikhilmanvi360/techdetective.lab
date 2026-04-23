@@ -1,0 +1,19 @@
+{
+  "id": "mission-02",
+  "type": "puzzle",
+  "title": "The Decoy Cipher",
+  "round": "ROUND_2",
+  "points": 200,
+  "brief": {
+    "summary": "Decrypt the intercepted telegram.",
+    "description": "Detective, the telegram suggests the code is hidden in plain sight. Combine the birth dates of the three suspects mentioned in Case Folder #04.",
+    "hints": [
+      "Check the suspect dossiers in the Evidence Viewer",
+      "The format is YYYYMMDD"
+    ]
+  },
+  "check": {
+    "expected_output": "19881024"
+  },
+  "is_hidden_initially": true
+}

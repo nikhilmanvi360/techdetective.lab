@@ -2,12 +2,15 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Team } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import LiveTicker from './LiveTicker';
 import GameAdvisor from './GameAdvisor';
 import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 import { useAdversary } from '../hooks/useAdversary';
-import { ShieldAlert, X, Zap } from 'lucide-react';
+import { ShieldAlert, X, Zap, Map as MapIcon, Trophy, Users, User, LogOut } from 'lucide-react';
+import DetectiveHUD from './DetectiveHUD';
+import StateTransition from './StateTransition';
 
 interface LayoutProps {
   team: Team | null;
@@ -95,8 +98,52 @@ export default function Layout({ team, onLogout }: LayoutProps) {
 
 
 
+      {/* NOIR NAVIGATION BAR */}
+      <nav className="relative z-[50] h-16 bg-[#1a1005] border-b-4 border-[#3a2810] shadow-2xl flex items-center px-6 gap-8 overflow-hidden">
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+        
+        <div className="flex items-center gap-2">
+           <div className="w-8 h-8 border-2 border-[#d4a017] flex items-center justify-center font-black text-[#d4a017] text-xs">TD</div>
+           <span className="text-[#f0d070] uppercase font-black tracking-widest text-sm hidden md:block">Investigation Suite</span>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center gap-1 md:gap-4">
+           {[
+             { path: '/', label: 'Board', icon: MapIcon },
+             { path: '/lobby', label: 'Investigations', icon: Users },
+             { path: '/scoreboard', label: 'Archives', icon: Trophy },
+             { path: '/profile', label: 'Dossier', icon: User },
+           ].map((nav) => {
+             const active = location.pathname === nav.path;
+             return (
+               <Link
+                 key={nav.path}
+                 to={nav.path}
+                 onClick={() => playSound('click')}
+                 className={`flex items-center gap-2 px-4 py-2 uppercase text-[10px] font-black tracking-widest transition-all ${
+                   active 
+                     ? 'bg-[#d4a017] text-[#140e06] shadow-[0_0_15px_rgba(212,160,23,0.3)]' 
+                     : 'text-[#a07830] hover:text-[#f0d070] hover:bg-white/5'
+                 }`}
+               >
+                 <nav.icon className="w-3.5 h-3.5" />
+                 <span className="hidden sm:inline">{nav.label}</span>
+               </Link>
+             );
+           })}
+        </div>
+
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-4 py-2 border border-[#a07830]/30 text-[#a07830] uppercase text-[10px] font-black tracking-widest hover:bg-[#8B2020] hover:text-[#f0e0a0] transition-all"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden md:inline">Sign Out</span>
+        </button>
+      </nav>
+
       {/* Main Content */}
-      <main className="flex-1 relative z-10">
+      <main className="flex-1 relative z-10 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -110,6 +157,10 @@ export default function Layout({ team, onLogout }: LayoutProps) {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Real-time Game HUD & Transitions */}
+      <DetectiveHUD />
+      <StateTransition />
 
       {team && <LiveTicker />}
       {team && <GameAdvisor team={team} location={location.pathname} />}

@@ -11,6 +11,8 @@ import Profile from './pages/Profile';
 import BlackMarket from './pages/BlackMarket';
 import Layout from './components/Layout';
 import { Team } from './types';
+import InvestigationLobby from './pages/InvestigationLobby';
+import InvestigationRoom from './pages/InvestigationRoom';
 
 // Admin sub-pages
 import AdminOverview from './pages/admin/AdminOverview';
@@ -80,6 +82,8 @@ export default function App() {
                     <Route path="scoreboard" element={<Scoreboard />} />
                     <Route path="profile" element={<Profile />} />
                     <Route path="black-market" element={<BlackMarket />} />
+                    <Route path="lobby" element={<InvestigationLobby />} />
+                    <Route path="room/:code" element={<InvestigationRoom />} />
                 </Route>
 
                 {/* ── Admin Routes (use their own layout) ── */}
