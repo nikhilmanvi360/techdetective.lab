@@ -45,8 +45,16 @@ export class CaseLoader {
     }
   }
 
-  static async getCaseById(id: string): Promise<DynamicCase | null> {
+  static async getCaseById(id: string): Promise<any | null> {
     const all = await this.listAllCases();
-    return all.find(c => c.id === id) || null;
+    const caseObj = all.find(c => c.id === id);
+    if (!caseObj) return null;
+    return {
+      ...caseObj,
+      metadata: {
+        brief: caseObj.brief,
+        check: caseObj.check
+      }
+    };
   }
 }

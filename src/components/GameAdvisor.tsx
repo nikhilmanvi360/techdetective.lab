@@ -8,15 +8,6 @@ import { Team } from '../types';
 // --- Puter Initialization ---
 let puter: any = null;
 
-// Suppress the redundant Puter WebSocket errors from flooding the console
-if (typeof window !== 'undefined') {
-  const originalError = console.error;
-  console.error = (...args: any[]) => {
-    if (args[0] && typeof args[0] === 'string' && args[0].includes('api.puter.com')) return;
-    originalError.apply(console, args);
-  };
-}
-
 interface GameAdvisorProps {
   team: Team;
   location: string;

@@ -75,7 +75,7 @@ export class GameStateManager {
       if (state.timer > 0) {
         state.timer -= 1;
         await redis.set(`room:${roomCode}:state`, JSON.stringify(state));
-        io.to(roomCode).emit('game_timer_tick', { timer: state.timer });
+        io.to(roomCode).emit('game_timer_update', { secondsRemaining: state.timer });
       } else {
         // Auto-transition or stop
         this.stopTimer(roomCode);

@@ -31,6 +31,10 @@ import { CaseLoader } from './src/engine/caseLoader';
 
 const ROOT_DIR = process.cwd();
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'tech-detective-secret-key') {
+  console.error('[FATAL] JWT_SECRET must be set in production!');
+  process.exit(1);
+}
 const isTest = process.env.NODE_ENV === 'test';
 
 // =========================================================
@@ -234,7 +238,10 @@ async function startServer() {
   publicRouter.post('/auth/login', loginLimiter, async (req: any, res: any) => {
     const { teamName, password } = req.body;
     if (!teamName || !password) return res.status(400).json({ error: 'Team name and password are required' });
-    const assignedRole = teamName === 'CCU_ADMIN' ? 'admin' : 'hacker';
+    let assignedRole = 'detective';
+    if (teamName === 'CCU_ADMIN') assignedRole = 'admin';
+    else if (teamName.toUpperCase().endsWith('_ANALYST')) assignedRole = 'analyst';
+    else if (teamName.toUpperCase().endsWith('_HACKER')) assignedRole = 'hacker';
 
     try {
       const { data: team, error: fetchError } = await supabase
@@ -344,43 +351,67 @@ async function startServer() {
     const { id } = req.params;
     
     try {
-      const { data: mission, error } = await supabase
-        .from('cases').select('*').eq('id', id).single();
-      if (error || !mission) return res.status(404).json({ error: 'Mission not found' });
+      let isDb = false;
+      let missionData: any = null;
 
-      const { data: previousCorrect } = await supabase.from('submissions').select('1')
-        .eq('team_id', req.user.id).eq('case_id', id).eq('status', 'correct').single();
+      if (id.startsWith('mission-')) {
+         missionData = await CaseLoader.getCaseById(id);
+      } else {
+         const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
+         if (!error && data) {
+           missionData = data;
+           isDb = true;
+         }
+      }
+
+      if (!missionData) return res.status(404).json({ error: 'Mission not found' });
+
+      // Check if already cleared
+      let previousCorrect = null;
+      if (isDb) {
+         const { data } = await supabase.from('submissions').select('1')
+           .eq('team_id', req.user.id).eq('case_id', id).eq('status', 'correct').single();
+         previousCorrect = data;
+      } else {
+         const { data } = await supabase.from('score_events').select('1')
+           .eq('team_id', req.user.id).eq('event_type', 'case_solve').filter('metadata->>case_id', 'eq', id).single();
+         previousCorrect = data;
+      }
       if (previousCorrect) return res.status(400).json({ error: 'Mission already cleared' });
 
       const { validateOutput } = await import('./src/engine/sandboxEngine');
       
       let expectedOutput = '';
-      try {
-        const desc = typeof mission.description === 'string' 
-          ? JSON.parse(mission.description) 
-          : mission.description;
-        expectedOutput = desc?.expected_output || '';
-      } catch(e) {}
+      if (isDb) {
+         try {
+           const desc = typeof missionData.description === 'string' ? JSON.parse(missionData.description) : missionData.description;
+           expectedOutput = desc?.expected_output || '';
+         } catch(e) {}
+      } else {
+         expectedOutput = missionData.check?.expected_output || '';
+      }
       
       const isCorrect = validateOutput(output || '', expectedOutput);
 
-      await supabase.from('submissions').insert([{
-        team_id: req.user.id, case_id: id,
-        attacker_name: (output || '').slice(0, 200),
-        attack_method: 'detective_script',
-        prevention_measures: code ? code.slice(0, 500) : '',
-        status: isCorrect ? 'correct' : 'incorrect',
-      }]);
+      if (isDb) {
+         await supabase.from('submissions').insert([{
+           team_id: req.user.id, case_id: parseInt(id),
+           attacker_name: (output || '').slice(0, 200),
+           attack_method: 'detective_script',
+           prevention_measures: code ? code.slice(0, 500) : '',
+           status: isCorrect ? 'correct' : 'incorrect',
+         }]);
+      }
 
       let pointsAwarded = 0;
       if (isCorrect) {
         const solveResult = await eventStore.appendEvent({
           teamId: req.user.id, eventType: 'case_solve',
-          basePoints: mission.points_on_solve,
+          basePoints: isDb ? missionData.points_on_solve : missionData.points,
           metadata: { case_id: id }
         });
         pointsAwarded = solveResult.finalPoints;
-        emitLiveEvent(`${req.user.name} cracked Mission #${id}: ${mission.title}!`, 'case');
+        emitLiveEvent(`${req.user.name} cracked Mission #${id}: ${missionData.title}!`, 'case');
       }
 
       res.json({
@@ -392,6 +423,7 @@ async function startServer() {
           : 'OUTPUT MISMATCH — Refine your logic and try again.',
       });
     } catch (err: any) {
+      console.error(err);
       res.status(500).json({ error: 'Submission failed' });
     }
   });
@@ -411,7 +443,16 @@ async function startServer() {
         .select('case_id')
         .eq('team_id', req.user.id)
         .eq('status', 'correct');
-      const solvedIds = new Set(solvedSubmissions?.map(s => s.case_id) || []);
+      const solvedIds = new Set(solvedSubmissions?.map(s => s.case_id.toString()) || []);
+
+      // Also check score_events for JSON missions
+      const { data: solvedEvents } = await supabase.from('score_events')
+        .select('metadata')
+        .eq('team_id', req.user.id)
+        .eq('event_type', 'case_solve');
+      solvedEvents?.forEach(e => {
+        if (e.metadata && e.metadata.case_id) solvedIds.add(e.metadata.case_id.toString());
+      });
 
       // 4. Merge
       const allCases = [
@@ -420,7 +461,7 @@ async function startServer() {
           points: c.points_on_solve,
           round: c.round || 'ROUND_1',
           source: 'db',
-          status: solvedIds.has(c.id) ? 'solved' : c.status || 'active'
+          status: solvedIds.has(c.id.toString()) ? 'solved' : c.status || 'active'
         })),
         ...jsonCases.map(c => ({
           id: c.id,
@@ -429,7 +470,7 @@ async function startServer() {
           points: c.points,
           round: c.round,
           source: 'json',
-          status: solvedIds.has(c.id) ? 'solved' : 'active'
+          status: solvedIds.has(c.id.toString()) ? 'solved' : 'active'
         }))
       ];
 

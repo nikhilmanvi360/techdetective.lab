@@ -16,16 +16,6 @@ services:
     networks:
       - detective-net
 
-  frontend:
-    build: ./v2-frontend
-    image: tech-detective-frontend
-    container_name: detective-frontend
-    ports:
-      - "8080:80"
-    networks:
-      - detective-net
-    depends_on:
-       - backend
 
   worker:
     build: ./worker
