@@ -195,7 +195,7 @@ export default function MissionWorkstation() {
   );
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-[#140e06] text-[#f0e0a0]" style={{ fontFamily: "'Georgia', serif" }}>
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#140e06] text-[#f0e0a0]" style={{ fontFamily: "'Georgia', serif" }}>
       {/* ═══ WORKSTATION BODY ═══ */}
       <div className="flex-1 flex min-h-0 bg-[#0c0803]">
         

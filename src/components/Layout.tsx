@@ -155,8 +155,8 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="flex-1 relative z-10 overflow-hidden">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-h-0 relative z-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -164,7 +164,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="h-full"
+            className="flex-1 flex flex-col min-h-0"
           >
             <Outlet />
           </motion.div>
