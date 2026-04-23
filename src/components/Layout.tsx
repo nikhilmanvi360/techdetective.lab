@@ -13,90 +13,28 @@ import DetectiveHUD from './DetectiveHUD';
 import StateTransition from './StateTransition';
 
 interface LayoutProps {
-  team: Team | null;
+  team: Team;
   onLogout: () => void;
 }
 
 export default function Layout({ team, onLogout }: LayoutProps) {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const { playSound } = useSound();
-  const { isGlitching, glitchMessage, guidanceHint, dismissGuidance } = useAdversary();
+  const { notifications, removeNotification } = useAdversary();
+  const rankTitle = getRankTitle(team?.score || 0);
 
-  useEffect(() => {
-    if (isGlitching) playSound('error');
-  }, [isGlitching, playSound]);
-
-  useEffect(() => {
-    if (guidanceHint) playSound('ping');
-  }, [guidanceHint, playSound]);
-
-  const handleLogout = () => {
-    playSound('error');
-    onLogout();
-    navigate('/login');
-  };
-
-  const rankTitle = team ? getRankTitle(team.score) : '';
+  const menuItems = [
+    { label: 'Bureau Command', path: '/', icon: MapIcon },
+    { label: 'Field Dispatch', path: '/lobby', icon: Users },
+    { label: 'Evidence Registry', path: '/scoreboard', icon: Trophy },
+    { label: 'Field Badge', path: '/profile', icon: User },
+  ];
 
   return (
-    <div className={`min-h-screen flex flex-col relative transition-all duration-300 ${isGlitching ? 'grayscale sepia contrast-125' : ''}`}>
-      {/* Adversary Intercept Overlay */}
-      <AnimatePresence>
-        {isGlitching && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] pointer-events-none"
-          >
-            <div className="absolute inset-0 bg-[#3a1a1a]/30 mix-blend-overlay" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="parchment-panel p-8"
-              >
-                <div className="flex items-center gap-3 mb-2 pb-2 border-b border-[#8B6914]/30">
-                  <Zap className="w-5 h-5 text-[#8B6914] animate-pulse" />
-                  <span className="text-xs font-display text-[#1a0e04] uppercase tracking-[0.4em] font-bold">Classified_Intercept</span>
-                </div>
-                <p className="text-sm font-mono text-[#2a1c0a] mt-4 font-bold">{glitchMessage}</p>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Guidance hint banner */}
-      <AnimatePresence>
-        {guidanceHint && (
-          <motion.div
-            initial={{ y: -80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -80, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20 }}
-            className="fixed top-0 left-0 right-0 z-[55] bg-[#e2c07c] border-b border-[#a07830] shadow-md"
-          >
-            <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-2 border border-[#8B6914] animate-pulse">
-                  <ShieldAlert className="w-5 h-5 text-[#8B6914]" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-display text-[#1a0e04] uppercase tracking-[0.3em] font-bold mb-1">Adversary_Guidance</div>
-                  <p className="text-sm font-mono text-[#2a1c0a]">{guidanceHint}</p>
-                </div>
-              </div>
-              <button onClick={dismissGuidance} className="p-2 text-[#8B6914] hover:text-[#1a0e04] transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
+    <div className="flex flex-col h-screen overflow-hidden bg-[#140e06] text-[#f0e0a0] selection:bg-[#d4a017] selection:text-[#140e06]">
+      <DetectiveHUD team={team} />
+      <StateTransition />
 
       {/* 🕵️ NOIR BUREAU NAVIGATION */}
       <nav className="relative z-[50] h-18 bg-[#1a1005] border-b-[6px] border-[#3a2810] shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex items-center px-8 gap-10 overflow-hidden">
@@ -115,11 +53,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </div>
 
         <div className="flex-1 flex items-center justify-center gap-1 md:gap-2">
-           {[
-             { path: '/', label: 'Bureau Command', icon: MapIcon },
-             { path: '/scoreboard', label: 'Evidence Registry', icon: Trophy },
-             { path: '/profile', label: 'Field Badge', icon: User },
-           ].map((nav) => {
+           {menuItems.map((nav) => {
              const active = location.pathname === nav.path;
              return (
                <Link
@@ -146,32 +80,66 @@ export default function Layout({ team, onLogout }: LayoutProps) {
               <span className={`text-[10px] font-black uppercase tracking-widest ${getRankColor(team?.score || 0)}`}>{rankTitle}</span>
            </div>
            <button 
-             onClick={handleLogout}
-             className="flex items-center gap-2 h-10 px-4 border-2 border-[#8B2020]/40 text-[#8B2020] uppercase text-[9px] font-black tracking-widest hover:bg-[#8B2020] hover:text-[#f0e0a0] transition-all"
+             onClick={() => { playSound('click'); onLogout(); }}
+             className="w-10 h-10 border-2 border-[#8B2020] bg-[#1a0e04] flex items-center justify-center text-[#8B2020] hover:bg-[#8B2020] hover:text-white transition-all shadow-xl"
            >
-             <LogOut className="w-3.5 h-3.5" />
-             <span className="hidden md:inline">Abort Session</span>
+              <LogOut className="w-5 h-5" />
            </button>
         </div>
       </nav>
 
-      <main className="flex-1 flex flex-col min-h-0 relative z-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+      {/* ══════════ MAIN CONTENT ══════════ */}
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#140e06]">
+        <Outlet />
+        
+        {/* Global Notifications Overlay */}
+        <div className="absolute bottom-20 right-8 flex flex-col items-end gap-3 z-[100] pointer-events-none">
+           <AnimatePresence>
+              {notifications.map((notif) => (
+                <motion.div
+                   key={notif.id}
+                   initial={{ opacity: 0, x: 100, scale: 0.9 }}
+                   animate={{ opacity: 1, x: 0, scale: 1 }}
+                   exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                   className="pointer-events-auto bg-[#1a1005] border-l-4 border-[#d4a017] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.8)] min-w-[300px] relative overflow-hidden"
+                >
+                   <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
+                   <div className="flex items-start gap-4">
+                      <div className="p-2 bg-[#d4a017]/10 border border-[#d4a017]/30">
+                         {notif.type === 'adversary' ? <ShieldAlert className="w-5 h-5 text-[#8B2020]" /> : <Zap className="w-5 h-5 text-[#d4a017]" />}
+                      </div>
+                      <div className="flex-1">
+                         <div className="text-[9px] font-black text-[#d4a017] uppercase tracking-[0.2em] mb-1">Bureau Alert</div>
+                         <div className="text-xs font-bold text-[#f0e0a0] leading-snug">{notif.message}</div>
+                      </div>
+                      <button onClick={() => removeNotification(notif.id)} className="text-[#a07830] hover:text-[#f0e0a0]">
+                         <X className="w-4 h-4" />
+                      </button>
+                   </div>
+                   <motion.div 
+                      initial={{ width: '100%' }}
+                      animate={{ width: 0 }}
+                      transition={{ duration: 5, ease: 'linear' }}
+                      className="absolute bottom-0 left-0 h-[2px] bg-[#d4a017]"
+                   />
+                </motion.div>
+              ))}
+           </AnimatePresence>
+        </div>
       </main>
 
-      {team && <GameAdvisor team={team} location={location.pathname} />}
-      <StateTransition />
+      <LiveTicker />
+      <GameAdvisor />
+      
+      <style>{`
+        @keyframes scanline {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100%); }
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #140e06; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3a2810; border: 2px solid #140e06; }
+      `}</style>
     </div>
   );
 }

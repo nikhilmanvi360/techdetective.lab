@@ -68,58 +68,99 @@ export default function InvestigationLobby() {
              </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             {loading ? (
-                <div className="col-span-full py-20 flex flex-col items-center gap-4 text-[#a07830]">
-                   <div className="w-8 h-8 border-2 border-t-transparent border-[#d4a017] rounded-full animate-spin" />
-                   <span className="uppercase text-[10px] tracking-[0.3em] font-black">Checking Archives...</span>
-                </div>
-             ) : rooms.length === 0 ? (
-                <div className="col-span-full py-20 bg-[#1a0e04]/50 border-4 border-dashed border-[#3a2810] flex flex-col items-center justify-center text-[#a07830]">
-                   <FileText className="w-16 h-16 mb-4 opacity-20" />
-                   <p className="font-serif italic text-lg opacity-40">"The station is quiet tonight... no active reports."</p>
-                </div>
-             ) : (
-                rooms.map((room) => (
-                   <motion.div
-                      key={room.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="group cursor-pointer bg-[#f0e0a0] p-6 border-[8px] border-[#a07830] shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative"
-                   >
-                      <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
-                      
-                      <div className="flex justify-between items-start mb-6 border-b-2 border-dashed border-[#a07830]/30 pb-4">
-                         <div>
-                            <span className="text-[10px] font-mono text-[#a07830] uppercase">Authorized By</span>
-                            <h3 className="text-xl font-black text-[#2a1a0a] uppercase">{room.host?.name}</h3>
-                         </div>
-                         <div className="bg-[#2a1a0a] px-3 py-1 border border-[#d4a017] text-[#f0d070] font-mono text-sm font-black">
-                            {room.room_code}
-                         </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8">
+             {/* Left Column: Register & Join */}
+             <div className="lg:col-span-4 space-y-8">
+                <div className="bg-[#e8d8a0] p-8 border-2 border-[#a07830] shadow-xl relative overflow-hidden group">
+                   <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+                   <h2 className="text-xl font-black text-[#2a1a0a] uppercase tracking-wider mb-6 flex items-center gap-3">
+                      <Search className="w-5 h-5 text-[#8B2020]" /> Join Specific Case
+                   </h2>
+                   
+                   <div className="space-y-4 relative z-10">
+                      <div className="space-y-1">
+                         <label className="text-[10px] font-black text-[#a07830] uppercase tracking-widest">Archive ID / Code</label>
+                         <input 
+                           type="text" 
+                           maxLength={6}
+                           placeholder="EX: XJ3K9P"
+                           className="w-full bg-[#140e06]/5 border-2 border-[#a07830]/40 p-4 font-mono text-xl font-black text-[#2a1a0a] uppercase tracking-[0.4em] placeholder-[#2a1a0a]/20 outline-none focus:border-[#d4a017] transition-all"
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') {
+                               const code = (e.currentTarget.value || '').toUpperCase();
+                               if (code.length === 6) navigate(`/room/${code}`);
+                             }
+                           }}
+                         />
                       </div>
+                      <p className="text-[10px] font-serif italic text-[#a07830]/60">"Enter the 6-digit authorization string provided by your squad lead."</p>
+                   </div>
+                </div>
 
-                      <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2 text-[#a07830]">
-                            <Users className="w-4 h-4" />
-                            <span className="text-xs font-black tracking-widest font-mono uppercase">1 Detective Ready</span>
-                         </div>
-                         
-                         <button
+                <div className="bg-[#1a0e04] p-8 border-2 border-[#d4a017] shadow-xl text-[#f0d070]">
+                   <Users className="w-8 h-8 mb-4 opacity-50" />
+                   <h3 className="text-sm font-black uppercase tracking-[0.2em] mb-2">Field Status</h3>
+                   <div className="text-[11px] font-serif italic opacity-60 leading-relaxed mb-6">
+                      "Operatives are advised to remain in high-readiness. The syndicate does not sleep, and neither does the bureau."
+                   </div>
+                   <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-[#d4a017]">
+                      <div className="w-2 h-2 rounded-full bg-[#d4a017] animate-pulse" />
+                      Dispatch Server Active
+                   </div>
+                </div>
+             </div>
+
+             {/* Right Column: Room List */}
+             <div className="lg:col-span-8 space-y-6">
+                <div className="flex items-center justify-between mb-4 px-2">
+                   <div className="text-[10px] font-black text-[#a07830] uppercase tracking-[0.3em]">Operational Archives</div>
+                   <button onClick={fetchRooms} className="text-[8px] font-black text-[#d4a017] uppercase tracking-widest hover:underline transition-all">Refresh Registry</button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {loading ? (
+                      <div className="col-span-full py-20 flex flex-col items-center gap-4 text-[#a07830]">
+                         <div className="w-8 h-8 border-2 border-t-transparent border-[#d4a017] rounded-full animate-spin" />
+                         <span className="uppercase text-[10px] tracking-[0.3em] font-black">Scanning Frequency...</span>
+                      </div>
+                   ) : rooms.length === 0 ? (
+                      <div className="col-span-full py-24 bg-[#1a0e04]/20 border-4 border-dashed border-[#3a2810] flex flex-col items-center justify-center text-[#a07830]/40">
+                         <FileText className="w-12 h-12 mb-4 opacity-10" />
+                         <p className="font-serif italic text-sm">"No squads currently in briefing."</p>
+                      </div>
+                   ) : (
+                      rooms.map((room) => (
+                         <motion.div
+                            key={room.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="group cursor-pointer bg-[#f0e0a0] p-6 border-[8px] border-[#a07830] shadow-xl relative hover:brightness-105 transition-all"
                             onClick={() => { playSound('click'); navigate(`/room/${room.room_code}`); }}
-                            className="bg-[#2a1a0a] text-[#f0e0a0] p-3 border-2 border-[#a07830] hover:bg-[#3d2610] transition-all"
                          >
-                            <ChevronRight className="w-5 h-5" />
-                         </button>
-                      </div>
-                      
-                      {/* Stamp Detail */}
-                      <div className="absolute -bottom-4 -right-4 w-16 h-16 border-4 border-[#8B2020]/20 rounded-full flex items-center justify-center text-[#8B2020]/20 font-black text-xs uppercase -rotate-12 select-none">
-                         OPEN
-                      </div>
-                   </motion.div>
-                ))
-             )}
+                            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+                            
+                            <div className="flex justify-between items-start mb-4 border-b border-[#a07830]/30 pb-3">
+                               <div>
+                                  <div className="text-[9px] font-black text-[#a07830] uppercase mb-1">Squad Lead</div>
+                                  <div className="text-lg font-black text-[#2a1a0a] uppercase tracking-tight">{room.host?.name || '---'}</div>
+                               </div>
+                               <div className="bg-[#2a1a0a] text-[#f0d070] px-3 py-1 font-mono text-xs font-black">
+                                  {room.room_code}
+                               </div>
+                            </div>
+ 
+                            <div className="flex items-center justify-between text-[#a07830]">
+                               <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Operatives Active</span>
+                               </div>
+                               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                         </motion.div>
+                      ))
+                   )}
+                </div>
+             </div>
           </div>
        </div>
 
