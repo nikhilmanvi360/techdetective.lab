@@ -98,21 +98,27 @@ export default function Layout({ team, onLogout }: LayoutProps) {
 
 
 
-      {/* NOIR NAVIGATION BAR */}
-      <nav className="relative z-[50] h-16 bg-[#1a1005] border-b-4 border-[#3a2810] shadow-2xl flex items-center px-6 gap-8 overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+      {/* 🕵️ NOIR BUREAU NAVIGATION */}
+      <nav className="relative z-[50] h-18 bg-[#1a1005] border-b-[6px] border-[#3a2810] shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex items-center px-8 gap-10 overflow-hidden">
+        {/* Wood grain & Shadow depth */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
+        <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#d4a017]/20 shadow-[0_0_10px_#d4a017]" />
         
-        <div className="flex items-center gap-2">
-           <div className="w-8 h-8 border-2 border-[#d4a017] flex items-center justify-center font-black text-[#d4a017] text-xs">TD</div>
-           <span className="text-[#f0d070] uppercase font-black tracking-widest text-sm hidden md:block">Investigation Suite</span>
+        <div className="flex items-center gap-4">
+           <div className="w-10 h-10 border-2 border-[#d4a017] shadow-[inset_0_0_10px_rgba(212,160,23,0.3)] flex items-center justify-center font-black text-[#d4a017] text-sm rotate-3">
+              CCU
+           </div>
+           <div className="flex flex-col leading-none">
+              <span className="text-[#f0d070] uppercase font-black tracking-[0.2em] text-xs">Bureau Network</span>
+              <span className="text-[#a07830] uppercase font-bold tracking-[0.4em] text-[7px] mt-1">Classified Intelligence</span>
+           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center gap-1 md:gap-4">
+        <div className="flex-1 flex items-center justify-center gap-1 md:gap-2">
            {[
-             { path: '/', label: 'Board', icon: MapIcon },
-             { path: '/lobby', label: 'Investigations', icon: Users },
-             { path: '/scoreboard', label: 'Archives', icon: Trophy },
-             { path: '/profile', label: 'Dossier', icon: User },
+             { path: '/', label: 'Bureau Command', icon: MapIcon },
+             { path: '/scoreboard', label: 'Evidence Registry', icon: Trophy },
+             { path: '/profile', label: 'Field Badge', icon: User },
            ].map((nav) => {
              const active = location.pathname === nav.path;
              return (
@@ -120,26 +126,33 @@ export default function Layout({ team, onLogout }: LayoutProps) {
                  key={nav.path}
                  to={nav.path}
                  onClick={() => playSound('click')}
-                 className={`flex items-center gap-2 px-4 py-2 uppercase text-[10px] font-black tracking-widest transition-all ${
+                 className={`group flex items-center gap-3 px-6 py-2 uppercase text-[9px] font-black tracking-[0.3em] transition-all relative ${
                    active 
-                     ? 'bg-[#d4a017] text-[#140e06] shadow-[0_0_15px_rgba(212,160,23,0.3)]' 
-                     : 'text-[#a07830] hover:text-[#f0d070] hover:bg-white/5'
+                     ? 'text-[#140e06] bg-[#d4a017] shadow-[0_0_20px_rgba(212,160,23,0.4)]' 
+                     : 'text-[#a07830] hover:text-[#f0d070]'
                  }`}
                >
+                 {active && <div className="absolute -top-1 -inset-x-0 h-1 bg-[#f0d070]" />}
                  <nav.icon className="w-3.5 h-3.5" />
-                 <span className="hidden sm:inline">{nav.label}</span>
+                 <span className="hidden lg:inline">{nav.label}</span>
                </Link>
              );
            })}
         </div>
 
-        <button 
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 border border-[#a07830]/30 text-[#a07830] uppercase text-[10px] font-black tracking-widest hover:bg-[#8B2020] hover:text-[#f0e0a0] transition-all"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Sign Out</span>
-        </button>
+        <div className="flex items-center gap-6">
+           <div className="hidden xl:flex flex-col items-end leading-none border-r border-[#a07830]/30 pr-6 mr-2">
+              <span className="text-[7px] font-black text-[#a07830] uppercase tracking-widest mb-1">Operative Rank</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${getRankColor(team?.score || 0)}`}>{rankTitle}</span>
+           </div>
+           <button 
+             onClick={handleLogout}
+             className="flex items-center gap-2 h-10 px-4 border-2 border-[#8B2020]/40 text-[#8B2020] uppercase text-[9px] font-black tracking-widest hover:bg-[#8B2020] hover:text-[#f0e0a0] transition-all"
+           >
+             <LogOut className="w-3.5 h-3.5" />
+             <span className="hidden md:inline">Abort Session</span>
+           </button>
+        </div>
       </nav>
 
       {/* Main Content */}

@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileSearch, User, BarChart2, ShoppingBag, Activity,
-  LogOut, ChevronRight, FileText, Lock, CheckCircle2, FolderOpen, Folder
+  ChevronRight, Folder, Plus, Map as MapIcon, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Case } from '../types';
 import { useSound } from '../hooks/useSound';
-import { getRankTitle } from '../utils/ranks';
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 function diffCfg(d: string) {
@@ -18,39 +17,8 @@ function diffCfg(d: string) {
   return                         { label: 'Crypt M&E',  color: '#1a6a8a', bg: '#0a2a4a' };
 }
 
-/* ─── Sidebar nav item ──────────────────────────────────────── */
-function NavItem({ label, icon: Icon, to, active = false }: any) {
-  const navigate = useNavigate();
-  const { playSound } = useSound();
-  return (
-    <motion.button
-      whileHover={{ x: 3 }}
-      onClick={() => { playSound('click'); navigate(to); }}
-      className="w-full flex items-center justify-between px-5 py-3.5 group transition-all"
-      style={{
-        background: active
-          ? 'linear-gradient(to right, rgba(212,160,23,0.15), rgba(212,160,23,0.05))'
-          : 'transparent',
-        borderLeft: active ? '3px solid #d4a017' : '3px solid transparent',
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <Icon className={`w-5 h-5 ${active ? 'text-[#d4a017]' : 'text-[#c8a050]/50 group-hover:text-[#c8a050]/80'} transition-colors`} />
-        <span
-          className="text-sm font-black uppercase tracking-wider"
-          style={{ color: active ? '#f0d070' : 'rgba(240,208,112,0.55)', fontFamily: "'Georgia', serif" }}
-        >
-          {label}
-        </span>
-      </div>
-      <ChevronRight className={`w-4 h-4 ${active ? 'text-[#d4a017]' : 'text-[#c8a050]/30'}`} />
-    </motion.button>
-  );
-}
-
 /* ─── Case Card ─────────────────────────────────────────────── */
 interface CaseCardProps {
-  key?: string | number;
   c: Case;
   i: number;
   onClick: () => void;
@@ -59,31 +27,36 @@ interface CaseCardProps {
 function CaseCard({ c, i, onClick }: CaseCardProps) {
   const cfg = diffCfg(c.difficulty);
   const isSolved = c.status === 'solved';
-  const caseRef = `${i + 1}D:${(c.id * 997 + 6081).toString(16).toUpperCase().slice(0, 4)}`;
+  const caseRef = `${i + 1}D:${(i * 997 + 6081).toString(16).toUpperCase().slice(0, 4)}`;
+
+  // Random rotation for "scattered folder" look
+  const rotation = (i % 3 === 0) ? -1 : (i % 3 === 1) ? 1.5 : -0.5;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.08 * i, type: 'spring', stiffness: 80 }}
-      whileHover={{ y: -5, transition: { duration: 0.15 } }}
+      initial={{ opacity: 0, scale: 0.9, rotate: rotation - 5 }}
+      animate={{ opacity: 1, scale: 1, rotate: rotation }}
+      whileHover={{ scale: 1.02, rotate: 0, zIndex: 50, transition: { duration: 0.2 } }}
       onClick={onClick}
-      className="cursor-pointer flex flex-col relative overflow-hidden group"
+      className="cursor-pointer flex flex-col relative overflow-hidden shadow-[0_25px_50px_rgba(0,0,0,0.6)] group"
       style={{
         background: 'linear-gradient(165deg, #f5e8b0 0%, #e8d488 40%, #d8c070 100%)',
-        border: '2px solid #a07830',
-        boxShadow: '0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.5)',
-        minHeight: '260px',
+        border: '1px solid #a07830',
+        width: '280px',
+        height: '360px',
       }}
     >
+      {/* Folder Tab Effect */}
+      <div className="absolute top-0 right-0 w-24 h-8 bg-[#c8b060] -mr-4 -mt-1 rotate-3 border-b border-l border-[#a07830]/30 shadow-sm" />
+      
       {/* Top stripe with case ref & badge */}
       <div
-        className="flex items-center justify-between px-5 py-3"
-        style={{ borderBottom: '1.5px solid rgba(100,70,20,0.2)', background: 'rgba(0,0,0,0.04)' }}
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: '1.5px solid rgba(100,70,20,0.1)' }}
       >
-        <span className="text-[10px] font-mono font-bold text-[#1a0e04]/40 tracking-widest">{caseRef}</span>
+        <span className="text-[10px] font-mono font-bold text-[#1a0e04]/50 tracking-widest uppercase">REF: {caseRef}</span>
         <div
-          className="px-3 py-1 text-[10px] font-black uppercase tracking-wider"
+          className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider"
           style={{
             background: cfg.bg,
             color: '#f0e0c0',
@@ -94,62 +67,47 @@ function CaseCard({ c, i, onClick }: CaseCardProps) {
         </div>
       </div>
 
-      {/* Title */}
-      <div className="flex-1 px-5 pt-4 pb-3">
+      {/* Title with "stamped" feel */}
+      <div className="flex-1 px-6 pt-8 text-center flex flex-col items-center">
+        <div className="w-12 h-1 bg-[#8B2020]/20 mb-6" />
         <h3
-          className="font-black uppercase text-[#1a0e04] leading-tight text-lg group-hover:text-[#5a1010] transition-colors"
-          style={{ fontFamily: "'Georgia', serif", letterSpacing: '-0.01em' }}
+          className="font-black uppercase text-[#1a0e04]/90 leading-tight text-xl mb-4 italic"
+          style={{ fontFamily: "'Georgia', serif", letterSpacing: '0.05em' }}
         >
           {c.title}
         </h3>
+        <p className="text-[9px] font-mono text-[#1a0e04]/40 uppercase tracking-[0.2em] leading-relaxed max-w-[180px]">
+          Classified Investigation — Bureau Protocol {c.difficulty}
+        </p>
       </div>
 
-      {/* Evidence icon */}
-      <div className="px-5 pb-4 flex items-center gap-2">
-        <div
-          className="w-11 h-11 flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.08)', border: '1px solid rgba(100,70,20,0.2)' }}
-        >
-          <FileText className="w-5 h-5 text-[#8B6914]/70" />
-        </div>
-        <span className="text-[10px] font-mono text-[#1a0e04]/40 uppercase tracking-widest">Field Evidence</span>
+      {/* "Brass" Icon & Mystery */}
+      <div className="px-6 pb-10 flex flex-col items-center gap-2">
+         <div className="w-16 h-16 rounded-full border-4 border-dashed border-[#a07830]/20 flex items-center justify-center opacity-30">
+            <Folder className="w-8 h-8" />
+         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer / Stamped XP */}
       <div
-        className="flex items-center justify-between px-5 py-3"
-        style={{ borderTop: '1.5px solid rgba(100,70,20,0.2)', background: 'rgba(0,0,0,0.08)' }}
+        className="flex items-center justify-between px-6 py-4 bg-black/5"
+        style={{ borderTop: '1.5px solid rgba(100,70,20,0.1)' }}
       >
         <div className="flex flex-col">
-          <span className="text-[9px] font-black text-[#1a0e04]/40 uppercase tracking-widest">Payout</span>
-          <span className="text-sm font-black text-[#1a0e04]">{c.points_on_solve} XP</span>
+           <span className="text-[8px] font-black text-[#1a0e04]/40 uppercase tracking-widest leading-none mb-1">Bounty</span>
+           <span className="text-sm font-black text-[#8B2020] opacity-80">{c.points_on_solve} XP</span>
         </div>
-        <div className="flex items-center gap-2 text-[#1a0e04]/50">
-          <span className="text-[9px] uppercase tracking-widest font-black">{c.difficulty}</span>
-          <span className="text-2xl font-black text-[#1a0e04]">▶</span>
-        </div>
+        <span className="text-[10px] font-black text-[#1a0e04] opacity-40">OPEN DOSSIER &rarr;</span>
       </div>
 
-      {/* Solved stamp */}
+      {/* CLEARED stamp overlay */}
       {isSolved && (
-        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none rotate-[-15deg]">
           <div
-            className="flex items-center gap-2 px-5 py-2 font-black text-xl uppercase tracking-widest rotate-[-18deg] select-none"
-            style={{
-              border: '5px solid rgba(22,101,52,0.7)',
-              color: 'rgba(22,101,52,0.7)',
-            }}
+            className="flex items-center gap-2 px-6 py-2 border-[6px] border-[#166534]/70 text-[#166534]/70 font-black text-2xl uppercase tracking-[0.2em]"
           >
-            <CheckCircle2 className="w-6 h-6" />
-            CLEARED
+            RESOLVED
           </div>
-        </div>
-      )}
-
-      {/* Locked darken */}
-      {c.status === 'locked' && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-          <Lock className="w-10 h-10 text-[#c8a050]/50" />
         </div>
       )}
     </motion.div>
@@ -179,80 +137,86 @@ export default function InvestigationBoard() {
     </div>
   );
 
-  const activeCases = cases.filter(c => c.status !== 'locked');
-
   return (
     <div
-      className="h-full flex flex-col overflow-hidden select-none"
-      style={{ fontFamily: "'Georgia', 'Times New Roman', serif", background: '#140e06' }}
+      className="h-full relative overflow-hidden flex flex-col select-none"
+      style={{ 
+        background: '#1d1208',
+        backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")'
+      }}
     >
-      {/* ── MAIN PARCHMENT AREA ── */}
-      <motion.div
-        layout
-        className="flex-1 flex flex-col min-w-0 overflow-hidden"
-        style={{ background: 'linear-gradient(160deg, #f0e0a0 0%, #e4d080 50%, #d8c060 100%)' }}
-      >
-        {/* Header */}
-        <div
-          className="flex-shrink-0 flex items-center justify-between px-8 py-6"
-          style={{ borderBottom: '2px solid rgba(100,70,20,0.25)' }}
-        >
-          <div>
-            <h1
-              className="text-3xl font-black uppercase tracking-widest text-[#1a0e04]"
-              style={{ textShadow: '0 1px 0 rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}
-            >
-              Central Command
-            </h1>
-            <p className="text-[11px] font-mono text-[#1a0e04]/60 uppercase tracking-widest mt-1">
-              {activeCases.length} Active Investigation{activeCases.length !== 1 ? 's' : ''} — CCU Bureau Field Network
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-             <div
-               className="px-4 py-2 text-[10px] font-black uppercase tracking-widest bg-black/5 border border-black/10 text-black/40"
-             >
-               Clearance: Level 4
-             </div>
-             <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-black/40 uppercase tracking-widest">Total XP</span>
-                <span className="text-xl font-black text-[#8B2020]">{xp}</span>
-             </div>
-          </div>
-        </div>
+      {/* Tactical Desktop Surface Overlay */}
+      <div 
+        className="absolute inset-0 z-0 opacity-20 pointer-events-none"
+        style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }}
+      />
 
-        {/* Case Grid — scrollable */}
-        <div className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar">
-          {cases.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 opacity-30">
-              <FileSearch className="w-16 h-16 text-[#1a0e04]" />
-              <p className="font-black text-[#1a0e04] uppercase tracking-widest text-lg">No Active Cases</p>
+      {/* Side Dispatch / Multiplayer Note */}
+      <div className="absolute top-10 right-10 z-30 transform rotate-2">
+         <motion.div 
+           whileHover={{ scale: 1.05, rotate: 0 }}
+           onClick={() => { playSound('click'); navigate('/lobby'); }}
+           className="bg-[#f0e0a0] p-6 w-64 shadow-2xl border-2 border-[#a07830] cursor-pointer"
+         >
+            <div className="text-[10px] text-[#8B2020] font-black uppercase tracking-widest mb-2 border-b-2 border-dashed border-[#8B2020]/20 pb-1 flex items-center gap-2">
+               <Activity className="w-3 h-3" /> Incoming Dispatch
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
-              {cases.map((c, i) => (
-                <CaseCard
-                  key={c.id}
-                  c={c}
-                  i={i}
-                  onClick={() => { playSound('ping'); navigate(`/mission/${c.id}`); }}
-                />
-              ))}
+            <p className="text-sm font-serif italic text-[#2a1a0a] mb-4">"Detectives are convening at the station. Join the squad for field operation."</p>
+            <div className="flex justify-between items-center bg-black/5 p-2">
+               <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-[#a07830]" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Active Squads</span>
+               </div>
+               <span className="text-xs font-black text-[#d4a017]">Join &rarr;</span>
             </div>
-          )}
-        </div>
-      </motion.div>
+         </motion.div>
+      </div>
+
+      {/* Desk Header */}
+      <div className="relative z-10 px-12 pt-12 pb-6">
+          <div className="flex items-center gap-4 mb-2">
+             <div className="w-12 h-[2px] bg-[#d4a017]" />
+             <span className="text-[#d4a017] font-black uppercase tracking-[0.3em] text-xs">Bureau Tactical Desk</span>
+          </div>
+          <h1 className="text-5xl font-black text-[#f0e0a0] uppercase tracking-tighter" style={{ fontFamily: "'Georgia', serif" }}>
+            The Active Dossiers
+          </h1>
+          <p className="text-[#a07830] font-serif italic mt-2 opacity-60">"Every file is a life. Every trace is a lead. Choose your case carefully."</p>
+      </div>
+
+      {/* Scattered Case Folders */}
+      <div className="flex-1 relative z-10 overflow-y-auto custom-scrollbar px-12 py-10">
+         <div className="flex flex-wrap gap-16 justify-center max-w-7xl mx-auto pb-40">
+            {cases.map((c, i) => (
+              <CaseCard
+                key={c.id}
+                c={c}
+                i={i}
+                onClick={() => { playSound('ping'); navigate(`/mission/${c.id}`); }}
+              />
+            ))}
+            
+            {/* "New Case" Ghost folder if admin */}
+            {(team.role === 'admin' || team.name === 'CCU_ADMIN') && (
+              <motion.div 
+                whileHover={{ scale: 1.05 }}
+                onClick={() => navigate('/admin/builder')}
+                className="w-[280px] h-[360px] border-4 border-dashed border-white/5 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-all text-white/10 uppercase font-black tracking-widest"
+              >
+                 <Plus className="w-12 h-12 mb-4" />
+                 Draft Folder
+              </motion.div>
+            )}
+         </div>
+      </div>
+
+      {/* Bottom Desk Edge */}
+      <div className="absolute bottom-0 inset-x-0 h-4 bg-gradient-to-t from-black/40 to-transparent z-20 pointer-events-none" />
+
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0,0,0,0.05);
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #a07830;
-          border-radius: 10px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3a2a12; border: 2px solid #140e06; border-radius: 0; }
       `}</style>
     </div>
   );
