@@ -21,7 +21,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { playSound } = useSound();
-  const { notifications, removeNotification } = useAdversary();
+  const { activeActions, resolveAction } = useAdversary();
   const rankTitle = getRankTitle(team?.score || 0);
 
   const menuItems = [
@@ -53,7 +53,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         </div>
 
         <div className="flex-1 flex items-center justify-center gap-1 md:gap-2">
-           {menuItems.map((nav) => {
+           {(menuItems || []).map((nav) => {
              const active = location.pathname === nav.path;
              return (
                <Link
@@ -95,7 +95,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
         {/* Global Notifications Overlay */}
         <div className="absolute bottom-20 right-8 flex flex-col items-end gap-3 z-[100] pointer-events-none">
            <AnimatePresence>
-              {notifications.map((notif) => (
+              {(activeActions || []).map((notif: any) => (
                 <motion.div
                    key={notif.id}
                    initial={{ opacity: 0, x: 100, scale: 0.9 }}
@@ -106,22 +106,18 @@ export default function Layout({ team, onLogout }: LayoutProps) {
                    <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
                    <div className="flex items-start gap-4">
                       <div className="p-2 bg-[#d4a017]/10 border border-[#d4a017]/30">
-                         {notif.type === 'adversary' ? <ShieldAlert className="w-5 h-5 text-[#8B2020]" /> : <Zap className="w-5 h-5 text-[#d4a017]" />}
+                         {notif.action_type === 'signal_interference' ? <ShieldAlert className="w-5 h-5 text-[#8B2020]" /> : <Zap className="w-5 h-5 text-[#d4a017]" />}
                       </div>
                       <div className="flex-1">
                          <div className="text-[9px] font-black text-[#d4a017] uppercase tracking-[0.2em] mb-1">Bureau Alert</div>
-                         <div className="text-xs font-bold text-[#f0e0a0] leading-snug">{notif.message}</div>
+                         <div className="text-xs font-bold text-[#f0e0a0] leading-snug">
+                            {notif.metadata?.message || 'Unauthorized signal trace detected.'}
+                         </div>
                       </div>
-                      <button onClick={() => removeNotification(notif.id)} className="text-[#a07830] hover:text-[#f0e0a0]">
+                      <button onClick={() => resolveAction(notif.id)} className="text-[#a07830] hover:text-[#f0e0a0]">
                          <X className="w-4 h-4" />
                       </button>
                    </div>
-                   <motion.div 
-                      initial={{ width: '100%' }}
-                      animate={{ width: 0 }}
-                      transition={{ duration: 5, ease: 'linear' }}
-                      className="absolute bottom-0 left-0 h-[2px] bg-[#d4a017]"
-                   />
                 </motion.div>
               ))}
            </AnimatePresence>
