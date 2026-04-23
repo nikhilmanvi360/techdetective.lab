@@ -32,7 +32,10 @@ export default function InvestigationRoom() {
 
     s.on('game_state_update', (newState) => {
       setGameState(newState);
-      if (newState.state !== 'LOBBY') {
+      if (newState.currentState) {
+        localStorage.setItem('active_round', newState.currentState);
+      }
+      if (newState.state !== 'LOBBY' && newState.currentState !== 'LOBBY') {
         playSound('success');
       }
     });

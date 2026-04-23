@@ -19,6 +19,7 @@ function diffCfg(d: string) {
 
 /* ─── Case Card ─────────────────────────────────────────────── */
 interface CaseCardProps {
+  key?: string | number;
   c: Case;
   i: number;
   onClick: () => void;
