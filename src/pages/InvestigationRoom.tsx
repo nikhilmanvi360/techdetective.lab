@@ -85,10 +85,10 @@ export default function InvestigationRoom() {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  if (loading) return <div className="min-h-screen bg-[#140e06] flex items-center justify-center text-[#d4a017] uppercase tracking-widest">Opening Dossier...</div>;
+  if (loading) return <div className="flex-1 bg-[#140e06] flex items-center justify-center text-[#d4a017] uppercase tracking-widest">Opening Dossier...</div>;
 
   return (
-    <div className="min-h-screen bg-[#140e06] flex items-center justify-center p-4">
+    <div className="flex-1 bg-[#140e06] flex items-center justify-center p-4 overflow-auto">
        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
        
        <motion.div 
@@ -190,12 +190,12 @@ export default function InvestigationRoom() {
                  {gameState.state !== 'LOBBY' && (
                     <div className="space-y-4">
                        <button
-                          onClick={() => navigate(`/mission/mission-02`)}
+                          onClick={() => { playSound('click'); navigate('/'); }}
                           className="w-full flex items-center justify-center gap-2 py-4 bg-[#2a1a0a] text-[#f0e0a0] font-black uppercase tracking-widest text-xs border-2 border-[#a07830] hover:brightness-110"
                        >
-                          Engage Analysis Terminal
+                          Go to Bureau Command
                        </button>
-                       <p className="text-[9px] text-[#a07830] text-center uppercase font-black tracking-widest opacity-60">Phase duration is locking...</p>
+                       <p className="text-[9px] text-[#a07830] text-center uppercase font-black tracking-widest opacity-60">Select your mission from the dossier board.</p>
                     </div>
                  )}
               </div>

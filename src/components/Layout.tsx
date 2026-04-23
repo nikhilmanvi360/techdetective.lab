@@ -125,7 +125,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
       </main>
 
       <LiveTicker />
-      <GameAdvisor />
+      <GameAdvisor team={team} location={location.pathname} />
       
       <style>{`
         @keyframes scanline {
