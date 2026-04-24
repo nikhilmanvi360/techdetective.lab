@@ -32,8 +32,33 @@ function CampaignMapInner() {
   const [lockedMsg, setLockedMsg] = useState<string | null>(null);
   const [canInteract, setCanInteract] = useState(false);
   const [droneTick, setDroneTick] = useState(0);
+  const [securityTimer, setSecurityTimer] = useState<number | null>(null);
 
   const currentZoneConfig = CAMPAIGN_ZONES.find(z => z.id === state.currentZone)!;
+
+  // Security Timer (Zone 4)
+  useEffect(() => {
+    if (state.currentZone === 'admin_core') {
+      if (securityTimer === null) setSecurityTimer(300); // 5 minutes
+      const interval = setInterval(() => {
+        setSecurityTimer(t => (t !== null && t > 0) ? t - 1 : t);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setSecurityTimer(null);
+    }
+  }, [state.currentZone, securityTimer]);
+
+  useEffect(() => {
+    if (securityTimer === 0) {
+      setLockedMsg('SECURITY LOCKDOWN! Time expired. Resetting core...');
+      setTimeout(() => {
+        dispatch({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+        setSecurityTimer(300);
+        setLockedMsg(null);
+      }, 2000);
+    }
+  }, [securityTimer, currentZoneConfig.playerStart, dispatch]);
 
   // Drone logic
   useEffect(() => {
@@ -232,7 +257,19 @@ function CampaignMapInner() {
         </motion.div>
       </div>
 
-      {/* ── Controls hint ── */}
+      {/* ── Security Timer Overlay ── */}
+      {securityTimer !== null && (
+        <div className="absolute top-20 right-6 z-20 flex flex-col items-end">
+          <div className="bg-red-900/80 border-2 border-red-500 px-4 py-2 rounded shadow-lg animate-pulse">
+            <span className="text-[10px] font-black text-red-200 uppercase tracking-widest block">Security Lockdown In:</span>
+            <span className="text-2xl font-mono text-white">
+              {Math.floor(securityTimer / 60)}:{String(securityTimer % 60).padStart(2, '0')}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Interaction Indicator ── */}
       <div className="absolute bottom-4 right-4 flex gap-3 z-20 pointer-events-none">
         {(['W','A','S','D'] as const).map(k => (
           <div key={k} className="w-7 h-7 border border-[#d4a017]/40 flex items-center justify-center bg-[#1d1208]/80">

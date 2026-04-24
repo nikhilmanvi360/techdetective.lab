@@ -85,6 +85,7 @@ libraryGrid[2][2] = N; // Librarian
 libraryGrid[5][15] = T; // Redacted Terminal
 libraryGrid[15][18] = I; // Python Snippet
 libraryGrid[18][2] = I; // Bookcase 3
+libraryGrid[5][5] = I; // Decoy Note
 libraryGrid[8][6] = N; // Student
 libraryGrid[18][18] = E; // Exit
 
@@ -192,6 +193,12 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         speaker: 'Dropped Note', 
         lines: ['A scribbled Python script:', '"for i in range(1, 5):"', '"  if i == 3: break"'], 
         clue: 'Python snippet stops at index 3.' 
+      },
+      '5,5': { 
+        type: 'clue', 
+        speaker: 'Old Memo', 
+        lines: ['Memo to Staff: "Beware of the malicious VBA macros in the accounting spreadsheets."', 'It seems like a general warning from 2022.'], 
+        clue: 'Decoy: 2022 warning about VBA macros.' 
       },
       '18,2': { 
         type: 'item', 
