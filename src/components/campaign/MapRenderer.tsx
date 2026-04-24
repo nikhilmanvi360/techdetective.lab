@@ -89,20 +89,22 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                   `}
                 >
                   <div
-                    className="absolute inset-0 opacity-[0.08]"
+                    className="absolute inset-0 opacity-[0.06]"
                     style={{
                       backgroundImage: 'linear-gradient(135deg, rgba(42,26,10,0.15) 25%, transparent 25%, transparent 50%, rgba(42,26,10,0.15) 50%, rgba(42,26,10,0.15) 75%, transparent 75%, transparent)',
                       backgroundSize: '8px 8px',
                     }}
                   />
                   {!isPlayer && !isP2 && !isDrone && Icon && tile !== 'walkable' && tile !== 'wall' && (
-                    <div className="absolute top-0.5 left-0.5 rounded-full bg-[#f8edd7]/90 border border-[#b58a53] p-0.5 shadow-sm">
-                      <Icon className={`w-2.5 h-2.5 ${meta.accent}`} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="rounded-full bg-[#f8edd7]/90 border border-[#b58a53] p-0.5 shadow-sm">
+                        <Icon className={`w-2.5 h-2.5 ${meta.accent}`} />
+                      </div>
                     </div>
                   )}
                   {!isPlayer && !isP2 && !isDrone && tile === 'wall' && (
-                    <div className="absolute inset-0 flex items-center justify-center text-[9px] text-[#f8edd7]/70">
-                      <ShieldAlert className="w-3 h-3" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ShieldAlert className="w-3 h-3 text-[#f8edd7]/55" />
                     </div>
                   )}
                   {showDualMarker ? (
@@ -141,8 +143,10 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                       <ShieldAlert className="w-3.5 h-3.5 text-[#f8edd7]" />
                       <span className="text-[7px] font-black text-[#f8edd7] uppercase">Watch</span>
                     </div>
+                  ) : tile === 'walkable' ? (
+                    <span className="opacity-0">.</span>
                   ) : (
-                    <span className="opacity-70 text-[#6e5739]" />
+                    <span className="opacity-0">.</span>
                   )}
                 </div>
               );
