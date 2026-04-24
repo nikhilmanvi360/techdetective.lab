@@ -96,7 +96,7 @@ function reducer(state: CampaignState, action: CampaignAction): CampaignState {
     case 'ADD_OBJECTIVE':
       return { ...state, objectiveLog: [...state.objectiveLog, action.text] };
     case 'INITIALIZE_STATE':
-      return { ...action.state };
+      return { ...state, ...action.state };
     case 'UPDATE_SCORE':
       return { ...state, score: Math.max(0, state.score + action.delta) };
     case 'RECORD_HINT':
@@ -151,8 +151,8 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     })
       .then(res => res.json())
       .then(data => {
-        if (data && data.inventory) { // basic validation
-          dispatch({ type: 'INITIALIZE_STATE', state: { ...initialState, ...data } });
+        if (data && typeof data === 'object') {
+          dispatch({ type: 'INITIALIZE_STATE', state: data });
         }
         setIsLoaded(true);
       })

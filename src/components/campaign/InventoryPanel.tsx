@@ -4,12 +4,13 @@ import { ITEMS } from '../../data/campaignData';
 export default function InventoryPanel() {
   const { state } = useCampaign();
 
-  if (state.inventory.length === 0) return null;
+  const inventory = state?.inventory || [];
+  if (inventory.length === 0) return null;
 
   return (
     <div className="absolute bottom-6 left-4 flex flex-col gap-1 z-20 pointer-events-none">
       <div className="text-[8px] text-[#a07830] uppercase tracking-widest font-black mb-1">Inventory</div>
-      {state.inventory.map((itemId) => {
+      {inventory.map((itemId) => {
         const item = ITEMS[itemId];
         return (
           <div key={itemId}

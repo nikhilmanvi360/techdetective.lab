@@ -41,7 +41,10 @@ function CampaignMapInner() {
   // Wrap dispatch to broadcast actions
   const dispatchSync = useCallback((action: CampaignAction) => {
     dispatch(action);
-    broadcastAction(action);
+    // Movement is handled via Presence tracking for performance, don't broadcast SET_POS
+    if (action.type !== 'SET_POS') {
+      broadcastAction(action);
+    }
   }, [dispatch, broadcastAction]);
 
   const [activeInteraction, setActiveInteraction] = useState<TileInteraction | null>(null);
@@ -54,7 +57,7 @@ function CampaignMapInner() {
   const [droneTick, setDroneTick] = useState(0);
   const [securityTimer, setSecurityTimer] = useState<number | null>(null);
 
-  const currentZoneConfig = CAMPAIGN_ZONES.find(z => z.id === state.currentZone)!;
+  const currentZoneConfig = CAMPAIGN_ZONES.find(z => z.id === state.currentZone);
 
   // Security Timer (Zone 4)
   useEffect(() => {
@@ -70,7 +73,7 @@ function CampaignMapInner() {
   }, [state.currentZone, securityTimer]);
 
   useEffect(() => {
-    if (securityTimer === 0) {
+    if (securityTimer === 0 && currentZoneConfig) {
       setLockedMsg('SECURITY LOCKDOWN! Time expired. Resetting core...');
       setTimeout(() => {
         dispatchSync({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
@@ -78,11 +81,11 @@ function CampaignMapInner() {
         setLockedMsg(null);
       }, 2000);
     }
-  }, [securityTimer, currentZoneConfig.playerStart, dispatch]);
+  }, [securityTimer, currentZoneConfig?.playerStart, dispatchSync]);
 
   // Drone logic
   useEffect(() => {
-    if (!currentZoneConfig.drones || currentZoneConfig.drones.length === 0) return;
+    if (!currentZoneConfig || !currentZoneConfig.drones || currentZoneConfig.drones.length === 0) return;
     if (activeInteraction || transitionZone) return;
 
     const interval = setInterval(() => {
@@ -91,7 +94,7 @@ function CampaignMapInner() {
     return () => clearInterval(interval);
   }, [currentZoneConfig, activeInteraction, transitionZone]);
 
-  const activeDrones = (currentZoneConfig.drones || []).map(d => {
+  const activeDrones = (currentZoneConfig?.drones || []).map(d => {
     const totalSteps = d.path.length;
     const currentStep = d.path[droneTick % totalSteps];
     return { id: d.id, pos: currentStep };
@@ -106,16 +109,19 @@ function CampaignMapInner() {
       if (Math.abs(dr - pr) <= 1 && Math.abs(dc - pc) <= 1) {
         setLockedMsg('CAUGHT BY SECURITY DRONE! Resetting...');
         setTimeout(() => {
-          dispatchSync({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+          if (currentZoneConfig) {
+            dispatchSync({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+          }
           setLockedMsg(null);
         }, 1500);
         break;
       }
     }
-  }, [droneTick, state.playerPos, currentZoneConfig.playerStart, dispatchSync, activeDrones]);
+  }, [droneTick, state.playerPos, currentZoneConfig?.playerStart, dispatchSync, activeDrones]);
 
   // Check if adjacent tile is interactable
   useEffect(() => {
+    if (!currentZoneConfig) return;
     const grid = currentZoneConfig.grid;
     const [r, c] = state.playerPos;
     const neighbors: [number, number][] = [
@@ -131,7 +137,7 @@ function CampaignMapInner() {
   }, [state.playerPos, currentZoneConfig]);
 
   const triggerInteraction = useCallback(() => {
-    if (activeInteraction) return; // already open
+    if (activeInteraction || !currentZoneConfig) return; // already open
     const interaction = getInteraction(state.playerPos, currentZoneConfig);
     if (!interaction) {
       // Check neighbors
@@ -243,7 +249,7 @@ function CampaignMapInner() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'e' || e.key === 'E') { triggerInteraction(); return; }
       const dir = KEY_DIR[e.key];
-      if (!dir) return;
+      if (!dir || !currentZoneConfig) return;
       e.preventDefault();
       const next = getNextPos(state.playerPos, dir, currentZoneConfig.grid);
       if (next) dispatchSync({ type: 'SET_POS', pos: next });
@@ -251,7 +257,7 @@ function CampaignMapInner() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, state.teamRoles, triggerInteraction, dispatch]);
+  }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, state.teamRoles, triggerInteraction, dispatchSync]);
 
   if (!isLoaded) {
     return (
@@ -290,7 +296,7 @@ function CampaignMapInner() {
           onClick={() => setNotebookOpen(o => !o)}
           className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors pointer-events-auto"
         >
-          <BookOpen className="w-3 h-3" /> Notebook ({state.clues.length})
+          <BookOpen className="w-3 h-3" /> Notebook ({(state.clues || []).length})
         </button>
       </div>
 
@@ -302,13 +308,15 @@ function CampaignMapInner() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
         >
-          <MapRenderer
-            grid={currentZoneConfig.grid}
-            playerPos={state.playerPos}
-            p2Pos={state.p2Pos || undefined}
-            zoneId={state.currentZone}
-            drones={activeDrones.map(d => d.pos)}
-          />
+          {currentZoneConfig && (
+            <MapRenderer
+              grid={currentZoneConfig.grid}
+              playerPos={state.playerPos}
+              p2Pos={state.p2Pos || undefined}
+              zoneId={state.currentZone}
+              drones={activeDrones.map(d => d.pos)}
+            />
+          )}
         </motion.div>
       </div>
 

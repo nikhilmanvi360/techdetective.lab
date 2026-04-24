@@ -36,7 +36,7 @@ export function useSession(
 
   // Handle incoming state sync from host (for late joiners)
   const handleStateSync = useCallback((payload: any) => {
-    if (!isHost) {
+    if (!isHost && payload?.state) {
       console.log('Received full state sync from host');
       dispatchLocal({ type: 'INITIALIZE_STATE', state: payload.state });
     }
@@ -53,15 +53,27 @@ export function useSession(
       }
     });
 
+    // ALL listeners MUST be defined BEFORE .subscribe()
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const hostPresent = state['host']?.length > 0;
         const clientPresent = state['client']?.length > 0;
         setPartnerConnected(host ? clientPresent : hostPresent);
+        
+        // Sync P2 position from presence
+        const partnerKey = host ? 'client' : 'host';
+        if (state[partnerKey] && state[partnerKey][0]) {
+          const p2Data = state[partnerKey][0] as any;
+          if (p2Data.pos) {
+            dispatchLocal({ type: 'SET_P2_POS', pos: p2Data.pos });
+          }
+        } else {
+          dispatchLocal({ type: 'SET_P2_POS', pos: null });
+        }
       })
       .on('presence', { event: 'join' }, ({ key }) => {
-        if (host && key === 'client') {
+        if (host && key === 'client' && localState) {
           // Send full state to the new client
           channel.send({
             type: 'broadcast',
@@ -72,7 +84,6 @@ export function useSession(
       })
       .on('broadcast', { event: 'ACTION' }, (payload) => {
         const action = payload.payload as CampaignAction;
-        // Don't re-broadcast what we just received
         dispatchLocal(action);
       })
       .on('broadcast', { event: 'SYNC_STATE' }, handleStateSync)
@@ -101,14 +112,15 @@ export function useSession(
   }, [setupChannel]);
 
   const broadcastAction = useCallback((action: CampaignAction) => {
-    if (channelRef.current && sessionCode) {
+    if (channelRef.current && sessionCode && partnerConnected) {
+      // Use broadcast only if channel is ready, otherwise Supabase warns
       channelRef.current.send({
         type: 'broadcast',
         event: 'ACTION',
         payload: action
       });
     }
-  }, [sessionCode]);
+  }, [sessionCode, partnerConnected]);
 
   // Sync our position to presence when we move
   useEffect(() => {
@@ -116,29 +128,6 @@ export function useSession(
       channelRef.current.track({ pos: localState.playerPos });
     }
   }, [localState.playerPos, partnerConnected]);
-
-  // Listen to partner presence changes to update P2 position
-  useEffect(() => {
-    if (!channelRef.current) return;
-    const channel = channelRef.current;
-    
-    const presenceHandler = channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState();
-      const partnerKey = isHost ? 'client' : 'host';
-      if (state[partnerKey] && state[partnerKey][0]) {
-        const p2Data = state[partnerKey][0] as any;
-        if (p2Data.pos) {
-          dispatchLocal({ type: 'SET_P2_POS', pos: p2Data.pos });
-        }
-      } else {
-        dispatchLocal({ type: 'SET_P2_POS', pos: null });
-      }
-    });
-
-    return () => {
-      // presenceHandler.unsubscribe(); // already handled by global channel cleanup
-    };
-  }, [isHost, dispatchLocal, partnerConnected]);
 
   return {
     sessionCode,

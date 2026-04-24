@@ -44,7 +44,7 @@ const loginLimiter = rateLimit({
   windowMs: 5 * 1000,
   max: isTest ? 100 : 10,
   message: { error: 'Security lockout active. Please wait 5 seconds before retrying.' },
-  validate: { xForwardedForHeader: false }
+  validate: false
 });
 
 const submissionLimiter = rateLimit({
@@ -55,7 +55,7 @@ const submissionLimiter = rateLimit({
     return req.user?.id ? `user_${req.user.id}` : req.ip;
   },
   message: { error: 'Submission rate limit exceeded. Slow down, detective.' },
-  validate: { xForwardedForHeader: false }
+  validate: false
 });
 
 // =========================================================

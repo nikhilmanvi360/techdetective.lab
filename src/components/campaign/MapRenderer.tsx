@@ -38,7 +38,7 @@ const ZONE_BORDER: Record<ZoneId, string> = {
 export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [] }: MapRendererProps) {
   return (
     <div className={`inline-block border-2 ${ZONE_BORDER[zoneId]} shadow-2xl`}>
-      {grid.map((row, r) => (
+      {(grid || []).map((row, r) => (
         <div key={r} className="flex">
           {row.map((tile, c) => {
             const isPlayer = playerPos[0] === r && playerPos[1] === c;

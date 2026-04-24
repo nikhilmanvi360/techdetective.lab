@@ -38,7 +38,7 @@ export default function ClueNotebook({ open, onClose }: ClueNotebookProps) {
 
     if (match) {
       const result = interpolate(match.resultClue);
-      if (state.clues.includes(result)) {
+      if ((state?.clues || []).includes(result)) {
         setSynthMsg({ text: 'Already synthesized.', isError: true });
       } else {
         if (match.isRedHerring) {
@@ -80,10 +80,10 @@ export default function ClueNotebook({ open, onClose }: ClueNotebookProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {state.clues.length === 0 ? (
+            {(state?.clues || []).length === 0 ? (
               <p className="text-[#a07830] font-serif italic text-sm">No clues collected yet.</p>
             ) : (
-              state.clues.map((clue, i) => {
+              (state?.clues || []).map((clue, i) => {
                 const isSynthesis = clue.startsWith('SYNTHESIS:');
                 const isSelected = selectedClues.includes(clue);
                 return (
@@ -122,7 +122,7 @@ export default function ClueNotebook({ open, onClose }: ClueNotebookProps) {
               </div>
             ) : (
               <div className="text-[8px] text-[#a07830] font-black uppercase tracking-widest">
-                {state.clues.length} Clues Logged
+                {(state?.clues || []).length} Clues Logged
               </div>
             )}
           </div>

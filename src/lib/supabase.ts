@@ -1,20 +1,35 @@
+/// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
 
-dotenv.config();
+// Isomorphic environment variable retrieval
+const getEnv = (key: string) => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env[key];
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key];
+  }
+  return undefined;
+};
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
+// Use Anon Key for client, Service Role Key for server (if available)
+const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
 
-if (!supabaseUrl || !supabaseServiceKey) {
- if (process.env.NODE_ENV === 'production') {
- console.error('CRITICAL: Missing Supabase credentials in Production. App will crash on DB access.');
- } else {
- console.warn('Missing Supabase credentials. Database operations will fail.');
- }
+if (!supabaseUrl || !supabaseKey) {
+  const isProd = (typeof import.meta !== 'undefined' && import.meta.env?.PROD) || (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production');
+  
+  if (isProd) {
+    console.error('CRITICAL: Missing Supabase credentials in Production. App will crash on DB access.');
+  } else {
+    // Only warn if we are in a browser context or if we specifically expect these vars
+    if (typeof window !== 'undefined') {
+      console.warn('Missing Supabase credentials in browser. Database operations will fail.');
+    }
+  }
 }
 
 export const supabase = createClient(
- supabaseUrl || 'https://placeholder.supabase.co',
- supabaseServiceKey || 'placeholder-key'
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseKey || 'placeholder-key'
 );
