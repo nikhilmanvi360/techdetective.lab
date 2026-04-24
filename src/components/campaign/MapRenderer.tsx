@@ -1,4 +1,5 @@
 import { TileType, ZoneId } from '../../data/campaignData';
+import { motion } from 'motion/react';
 import {
   DoorOpen,
   FileText,
@@ -52,6 +53,40 @@ const TILE_TEXTURE: Record<Exclude<TileType, 'walkable'>, string> = {
 
 function getTileTexture(tile: TileType, zoneId: ZoneId): string {
   return tile === 'walkable' ? ZONE_FLOOR[zoneId] : TILE_TEXTURE[tile];
+}
+
+function AnimatedSprite({
+  src,
+  alt,
+  className = '',
+  imageClassName = '',
+  delay = 0,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  imageClassName?: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      animate={{ y: [0, -1.5, 0], rotate: [0, 0.35, 0] }}
+      transition={{
+        duration: 1.8,
+        repeat: Infinity,
+        ease: 'easeInOut',
+        delay,
+      }}
+      className={className}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className={imageClassName}
+        style={{ imageRendering: 'pixelated' }}
+      />
+    </motion.div>
+  );
 }
 
 export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [] }: MapRendererProps) {
@@ -145,32 +180,35 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                     <div className="relative w-full h-full">
                       <span className="absolute left-0.5 top-0.5 text-[9px] text-[#8c5f22] font-black leading-none z-20">1</span>
                       <span className="absolute right-0.5 bottom-0.5 text-[9px] text-[#55724a] font-black leading-none z-20">2</span>
-                      <img
+                      <AnimatedSprite
                         src="/assets/noir_sprite_mc.png"
                         alt="Player one"
-                        className="absolute inset-0 w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
-                        style={{ imageRendering: 'pixelated' }}
+                        delay={0}
+                        className="absolute inset-0 w-full h-full"
+                        imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
                       />
-                      <img
+                      <AnimatedSprite
                         src="/assets/noir_sprite_partner.png"
                         alt="Player two"
-                        className="absolute inset-0 w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-90 mix-blend-normal"
-                        style={{ imageRendering: 'pixelated' }}
+                        delay={0.15}
+                        className="absolute inset-0 w-full h-full"
+                        imageClassName="w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-90 mix-blend-normal"
                       />
                     </div>
                   ) : isPlayer ? (
-                    <img
+                    <AnimatedSprite
                       src="/assets/noir_sprite_mc.png"
                       alt="Player"
-                      className="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
-                      style={{ imageRendering: 'pixelated' }}
+                      className="w-full h-full"
+                      imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
                     />
                   ) : isP2 ? (
-                    <img
+                    <AnimatedSprite
                       src="/assets/noir_sprite_partner.png"
                       alt="Teammate"
-                      className="w-full h-full object-contain p-0.5 opacity-95"
-                      style={{ imageRendering: 'pixelated' }}
+                      delay={0.15}
+                      className="w-full h-full"
+                      imageClassName="w-full h-full object-contain p-0.5 opacity-95"
                     />
                   ) : isDrone ? (
                     <div className="flex flex-col items-center justify-center leading-none rounded-sm bg-[#7d2d25]/70 border border-[#f1c7aa]/40 p-0.5 shadow-[0_0_0_1px_rgba(42,26,10,0.12)]">
