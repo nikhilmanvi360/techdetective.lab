@@ -268,8 +268,17 @@ function CampaignMapInner() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#1d1208] relative overflow-hidden"
-      style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }}>
+    <div
+      className="h-full flex flex-col bg-[#ded0b1] relative overflow-hidden"
+      style={{
+        backgroundImage: [
+          'radial-gradient(circle at top, rgba(255,255,255,0.35), transparent 38%)',
+          'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0))',
+          'url("https://www.transparenttextures.com/patterns/old-paper.png")'
+        ].join(', ')
+      }}
+    >
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(42,26,10,0.08),transparent_58%)]" />
       
       {/* ── HUD ── */}
       <CampaignHUD partnerConnected={partnerConnected} />
@@ -288,13 +297,13 @@ function CampaignMapInner() {
       <div className="absolute top-20 left-4 flex gap-2 z-20">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors pointer-events-auto"
+          className="flex items-center gap-1 rounded-full bg-[#f4e6c4]/95 border border-[#b58a53] px-3 py-1.5 text-[9px] font-black text-[#2a1a0a] uppercase tracking-widest hover:bg-[#f8edd7] transition-colors pointer-events-auto shadow-[0_8px_20px_rgba(42,26,10,0.12)]"
         >
           <ChevronLeft className="w-3 h-3" /> Bureau
         </button>
         <button
           onClick={() => setNotebookOpen(o => !o)}
-          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors pointer-events-auto"
+          className="flex items-center gap-1 rounded-full bg-[#f4e6c4]/95 border border-[#b58a53] px-3 py-1.5 text-[9px] font-black text-[#2a1a0a] uppercase tracking-widest hover:bg-[#f8edd7] transition-colors pointer-events-auto shadow-[0_8px_20px_rgba(42,26,10,0.12)]"
         >
           <BookOpen className="w-3 h-3" /> Notebook ({(state.clues || []).length})
         </button>
@@ -335,12 +344,12 @@ function CampaignMapInner() {
       {/* ── Interaction Indicator ── */}
       <div className="absolute bottom-4 right-4 flex gap-3 z-20 pointer-events-none">
         {(['W','A','S','D'] as const).map(k => (
-          <div key={k} className="w-7 h-7 border border-[#d4a017]/40 flex items-center justify-center bg-[#1d1208]/80">
-            <span className="text-[10px] font-black text-[#a07830]">{k}</span>
+          <div key={k} className="w-7 h-7 border border-[#b58a53] flex items-center justify-center bg-[#f4e6c4]/90 rounded-md shadow-[0_8px_18px_rgba(42,26,10,0.08)]">
+            <span className="text-[10px] font-black text-[#8a6b44]">{k}</span>
           </div>
         ))}
-        <div className="w-7 h-7 border border-[#d4a017]/60 flex items-center justify-center bg-[#d4a017]/10">
-          <span className="text-[10px] font-black text-[#d4a017]">E</span>
+        <div className="w-7 h-7 border border-[#b58a53] flex items-center justify-center bg-[#f8edd7] rounded-md shadow-[0_8px_18px_rgba(42,26,10,0.08)]">
+          <span className="text-[10px] font-black text-[#8c5f22]">E</span>
         </div>
       </div>
 
@@ -348,7 +357,7 @@ function CampaignMapInner() {
       {lockedMsg && (
         <motion.div
           initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-[#8B2020] border border-[#8B2020]/60 px-5 py-2 text-xs font-black text-white uppercase tracking-widest z-30 max-w-sm text-center"
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-[#6a4a31] border border-[#8a6b44] px-5 py-2 text-xs font-black text-[#f8edd7] uppercase tracking-widest z-30 max-w-sm text-center rounded-full shadow-[0_12px_30px_rgba(42,26,10,0.18)]"
         >
           🔒 {lockedMsg}
         </motion.div>
