@@ -324,6 +324,7 @@ function CampaignMapInner() {
               p2Pos={state.p2Pos || undefined}
               zoneId={state.currentZone}
               drones={activeDrones.map(d => d.pos)}
+              decorations={currentZoneConfig.decorations}
             />
           )}
         </motion.div>
