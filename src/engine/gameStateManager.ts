@@ -1,4 +1,3 @@
-import { io } from '../../server';
 import IORedis from 'ioredis';
 
 const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
@@ -21,7 +20,7 @@ const TRANSITIONS: Record<GameState, GameState[]> = {
 
 const DURATIONS: Record<GameState, number> = {
   LOBBY: 0,
-  ROUND_1: 600, // 10 minutes
+  ROUND_1: 3600, // 1 hour
   ROUND_2: 900, // 15 minutes
   FINAL: 300,   // 5 minutes
   COMPLETED: 0,
@@ -29,6 +28,11 @@ const DURATIONS: Record<GameState, number> = {
 
 export class GameStateManager {
   private static intervals = new Map<string, NodeJS.Timeout>();
+  private static io: any = null;
+
+  static setIo(io: any) {
+    this.io = io;
+  }
 
   static async getRoomState(roomCode: string): Promise<RoomState> {
     const data = await redis.get(`room:${roomCode}:state`);
@@ -58,7 +62,9 @@ export class GameStateManager {
     await redis.set(`room:${roomCode}:state`, JSON.stringify(newState));
     
     // Broadcast Update
-    io.to(roomCode).emit('game_state_update', newState);
+    if (this.io) {
+      this.io.to(roomCode).emit('game_state_update', newState);
+    }
     
     // Manage Timers
     this.stopTimer(roomCode);
@@ -75,11 +81,15 @@ export class GameStateManager {
       if (state.timer > 0) {
         state.timer -= 1;
         await redis.set(`room:${roomCode}:state`, JSON.stringify(state));
-        io.to(roomCode).emit('game_timer_update', { secondsRemaining: state.timer });
+        if (this.io) {
+          this.io.to(roomCode).emit('game_timer_update', { secondsRemaining: state.timer });
+        }
       } else {
         // Auto-transition or stop
         this.stopTimer(roomCode);
-        io.to(roomCode).emit('game_timer_expired', { state: state.currentState });
+        if (this.io) {
+          this.io.to(roomCode).emit('game_timer_expired', { state: state.currentState });
+        }
       }
     }, 1000);
 

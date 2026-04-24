@@ -2,7 +2,7 @@
   "id": "mission-02",
   "type": "puzzle",
   "title": "The Decoy Cipher",
-  "round": "ROUND_2",
+  "round": "ROUND_1",
   "points": 200,
   "brief": {
     "summary": "Decrypt the intercepted telegram.",

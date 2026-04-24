@@ -54,7 +54,8 @@ const submissionLimiter = rateLimit({
     // Custom key gen: use user ID if authenticated, else IP
     return req.user?.id ? `user_${req.user.id}` : req.ip;
   },
-  message: { error: 'Submission rate limit exceeded. Slow down, detective.' }
+  message: { error: 'Submission rate limit exceeded. Slow down, detective.' },
+  validate: { xForwardedForHeader: false }
 });
 
 // =========================================================
@@ -73,6 +74,7 @@ export const io = new SocketIOServer(server, {
   cors: { origin: '*' },
   transports: ['websocket', 'polling'], // polling fallback for Render
 });
+GameStateManager.setIo(io);
 
 // Global Error Handler
 app.use((err: any, req: any, res: any, next: any) => {
@@ -140,7 +142,7 @@ async function startServer() {
     socket.on('join_investigation', ({ roomCode, teamName }) => {
       socket.join(roomCode);
       console.log(`[SOCKET] ${teamName} joined room: ${roomCode}`);
-      
+
       // Notify other detectives in this room
       socket.to(roomCode).emit('detective_joined', { teamName, timestamp: new Date() });
     });
@@ -193,21 +195,21 @@ async function startServer() {
       const { data: dbCases } = await supabase.from('cases').select('*').eq('status', 'active');
       const jsonCases = await CaseLoader.listAllCases();
       const allCases = [
-        ...(dbCases || []).map(c => ({ 
-          id: c.id, 
-          title: c.title, 
-          difficulty: c.difficulty, 
-          points: c.points_on_solve, 
+        ...(dbCases || []).map(c => ({
+          id: c.id,
+          title: c.title,
+          difficulty: c.difficulty,
+          points: c.points_on_solve,
           round: c.round || 'ROUND_1',
-          source: 'db' 
+          source: 'db'
         })),
-        ...jsonCases.map(c => ({ 
-          id: c.id, 
-          title: c.title, 
-          difficulty: 'Dynamic', 
-          points: c.points, 
+        ...jsonCases.map(c => ({
+          id: c.id,
+          title: c.title,
+          difficulty: 'Dynamic',
+          points: c.points,
           round: c.round,
-          source: 'json' 
+          source: 'json'
         }))
       ];
       res.json(allCases);
@@ -228,7 +230,7 @@ async function startServer() {
       // 2. Fallback to Supabase
       const { data: dbCase, error } = await supabase.from('cases').select('*').eq('id', id).single();
       if (error || !dbCase) return res.status(404).json({ error: 'Investigation dossier not found.' });
-      
+
       res.json(dbCase);
     } catch (err) {
       res.status(500).json({ error: 'Failed to retrieve mission dossier.' });
@@ -290,7 +292,7 @@ async function startServer() {
     const { code } = req.body;
     const { id } = req.params;
     console.log(`[SANDBOX] Run requested for mission ${id}`);
-    
+
     try {
       let missionData: any = null;
 
@@ -301,7 +303,7 @@ async function startServer() {
         const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
         if (!error) missionData = data;
       }
-      
+
       if (!missionData) return res.status(404).json({ error: 'Mission dossier not found.' });
 
       // 1. ADD JOB TO BULLMQ QUEUE
@@ -309,7 +311,7 @@ async function startServer() {
         code: code || '',
         missionId: id,
         teamId: req.user.id,
-        language: missionData.check?.piston_language || 'javascript', 
+        language: missionData.check?.piston_language || 'javascript',
       });
 
       console.log(`[QUEUE] Enqueued Job #${job.id} for Mission ${id}`);
@@ -349,19 +351,19 @@ async function startServer() {
   protectedRouter.post('/missions/:id/submit', async (req: any, res: any) => {
     const { code, output } = req.body;
     const { id } = req.params;
-    
+
     try {
       let isDb = false;
       let missionData: any = null;
 
       if (id.startsWith('mission-')) {
-         missionData = await CaseLoader.getCaseById(id);
+        missionData = await CaseLoader.getCaseById(id);
       } else {
-         const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
-         if (!error && data) {
-           missionData = data;
-           isDb = true;
-         }
+        const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
+        if (!error && data) {
+          missionData = data;
+          isDb = true;
+        }
       }
 
       if (!missionData) return res.status(404).json({ error: 'Mission not found' });
@@ -369,38 +371,38 @@ async function startServer() {
       // Check if already cleared
       let previousCorrect = null;
       if (isDb) {
-         const { data } = await supabase.from('submissions').select('1')
-           .eq('team_id', req.user.id).eq('case_id', id).eq('status', 'correct').single();
-         previousCorrect = data;
+        const { data } = await supabase.from('submissions').select('1')
+          .eq('team_id', req.user.id).eq('case_id', id).eq('status', 'correct').single();
+        previousCorrect = data;
       } else {
-         const { data } = await supabase.from('score_events').select('1')
-           .eq('team_id', req.user.id).eq('event_type', 'case_solve').filter('metadata->>case_id', 'eq', id).single();
-         previousCorrect = data;
+        const { data } = await supabase.from('score_events').select('1')
+          .eq('team_id', req.user.id).eq('event_type', 'case_solve').filter('metadata->>case_id', 'eq', id).single();
+        previousCorrect = data;
       }
       if (previousCorrect) return res.status(400).json({ error: 'Mission already cleared' });
 
       const { validateOutput } = await import('./src/engine/sandboxEngine');
-      
+
       let expectedOutput = '';
       if (isDb) {
-         try {
-           const desc = typeof missionData.description === 'string' ? JSON.parse(missionData.description) : missionData.description;
-           expectedOutput = desc?.expected_output || '';
-         } catch(e) {}
+        try {
+          const desc = typeof missionData.description === 'string' ? JSON.parse(missionData.description) : missionData.description;
+          expectedOutput = desc?.expected_output || '';
+        } catch (e) { }
       } else {
-         expectedOutput = missionData.check?.expected_output || '';
+        expectedOutput = missionData.check?.expected_output || '';
       }
-      
+
       const isCorrect = validateOutput(output || '', expectedOutput);
 
       if (isDb) {
-         await supabase.from('submissions').insert([{
-           team_id: req.user.id, case_id: parseInt(id),
-           attacker_name: (output || '').slice(0, 200),
-           attack_method: 'detective_script',
-           prevention_measures: code ? code.slice(0, 500) : '',
-           status: isCorrect ? 'correct' : 'incorrect',
-         }]);
+        await supabase.from('submissions').insert([{
+          team_id: req.user.id, case_id: parseInt(id),
+          attacker_name: (output || '').slice(0, 200),
+          attack_method: 'detective_script',
+          prevention_measures: code ? code.slice(0, 500) : '',
+          status: isCorrect ? 'correct' : 'incorrect',
+        }]);
       }
 
       let pointsAwarded = 0;
@@ -492,7 +494,7 @@ async function startServer() {
 
     try {
       caseData.metadata = JSON.parse(caseData.description) || {};
-    } catch(e) {
+    } catch (e) {
       caseData.metadata = {};
     }
 
@@ -524,8 +526,8 @@ async function startServer() {
     const evidenceWithStatus = evidence?.map((e: any) => {
       let timeLocked = false;
       if (e.unlock_at) {
-         const unlockTime = new Date(e.unlock_at).getTime();
-         if (unlockTime > now) timeLocked = true;
+        const unlockTime = new Date(e.unlock_at).getTime();
+        if (unlockTime > now) timeLocked = true;
       }
       return {
         ...e,
@@ -567,14 +569,14 @@ async function startServer() {
     const { data: solvedPuzzles } = await supabase.from('solved_puzzles').select('puzzle_id').eq('team_id', req.user.id);
     if (caseEvidence && solvedPuzzles) {
       const solvedIds = new Set(solvedPuzzles.map(sp => sp.puzzle_id));
-      const hackerEv = caseEvidence.filter((e: any) => ['log','html','code'].includes(e.type));
-      const analystEv = caseEvidence.filter((e: any) => ['chat','email'].includes(e.type));
-      
+      const hackerEv = caseEvidence.filter((e: any) => ['log', 'html', 'code'].includes(e.type));
+      const analystEv = caseEvidence.filter((e: any) => ['chat', 'email'].includes(e.type));
+
       const hasHackerEvSolved = hackerEv.length === 0 || hackerEv.some((e: any) => solvedIds.has(e.required_puzzle_id));
       const hasAnalystEvSolved = analystEv.length === 0 || analystEv.some((e: any) => solvedIds.has(e.required_puzzle_id));
-      
+
       if (!hasHackerEvSolved || !hasAnalystEvSolved) {
-         return res.status(403).json({ error: 'Team Collaboration Required: Your team must investigate both the Technical (Hacker) and Communication (Analyst) evidence trails before submitting.' });
+        return res.status(403).json({ error: 'Team Collaboration Required: Your team must investigate both the Technical (Hacker) and Communication (Analyst) evidence trails before submitting.' });
       }
     }
 
@@ -673,9 +675,9 @@ async function startServer() {
     if (puzzleError || !puzzle) return res.status(404).json({ error: 'Puzzle not found' });
 
     if (puzzle.depends_on_puzzle_id) {
-       const { data: solve } = await supabase.from('solved_puzzles').select('1')
-         .eq('team_id', req.user.id).eq('puzzle_id', puzzle.depends_on_puzzle_id).single();
-       if (!solve) return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
+      const { data: solve } = await supabase.from('solved_puzzles').select('1')
+        .eq('team_id', req.user.id).eq('puzzle_id', puzzle.depends_on_puzzle_id).single();
+      if (!solve) return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
     }
 
     const caseState = await caseEngine.getCaseState(puzzle.case_id, req.user.id);
@@ -973,9 +975,9 @@ async function startServer() {
   // --- MULTIPLAYER ROOMS (SUPABASE BACKED WITH MEMORY FALLBACK) ---
   protectedRouter.post('/rooms/create', async (req: any, res: any) => {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newRoom = { 
-      room_code: roomCode, 
-      host_id: req.user.id, 
+    const newRoom = {
+      room_code: roomCode,
+      host_id: req.user.id,
       status: 'waiting',
       host: { name: req.user.name }
     };
@@ -985,7 +987,7 @@ async function startServer() {
         .from('game_rooms')
         .insert([{ room_code: roomCode, host_id: req.user.id, status: 'waiting' }])
         .select().single();
-      
+
       if (error) throw error;
       res.json(data);
     } catch (err: any) {
@@ -997,7 +999,7 @@ async function startServer() {
 
   protectedRouter.post('/rooms/join', async (req: any, res: any) => {
     const { roomCode } = req.body;
-    
+
     // Check memory first
     if (memoryRooms.has(roomCode)) {
       return res.json(memoryRooms.get(roomCode));
@@ -1009,7 +1011,7 @@ async function startServer() {
         .select('*')
         .eq('room_code', roomCode)
         .single();
-      
+
       if (error || !room) return res.status(404).json({ error: 'Investigation room not found.' });
       res.json(room);
     } catch (err: any) {
@@ -1023,7 +1025,7 @@ async function startServer() {
         .from('game_rooms')
         .select('*, host:teams(name)')
         .eq('status', 'waiting');
-      
+
       if (error) throw error;
       res.json(rooms || []);
     } catch (err: any) {
@@ -1052,10 +1054,10 @@ async function startServer() {
   // Recompute & Snapshots (#4, #5)
   adminRouter.post('/snapshots', async (req: any, res: any) => {
     try {
-       const snapshot = await eventStore.createGlobalSnapshot();
-       res.json(snapshot);
+      const snapshot = await eventStore.createGlobalSnapshot();
+      res.json(snapshot);
     } catch (e) {
-       res.status(500).json({ error: 'Failed to create snapshot' });
+      res.status(500).json({ error: 'Failed to create snapshot' });
     }
   });
 

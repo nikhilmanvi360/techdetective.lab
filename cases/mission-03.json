@@ -2,7 +2,7 @@
   "id": "mission-03",
   "type": "coding",
   "title": "The Zero-Day Syndicate",
-  "round": "ROUND_3",
+  "round": "ROUND_1",
   "points": 500,
   "metadata": {
     "brief": "A major exploit is being coordinated from a hidden C2 server. You must breach their encrypted tunnel and retrieve the kill-switch. This is a level 5 security operation.",

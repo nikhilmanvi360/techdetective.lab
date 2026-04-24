@@ -13,6 +13,7 @@ import Layout from './components/Layout';
 import { Team } from './types';
 import InvestigationLobby from './pages/InvestigationLobby';
 import InvestigationRoom from './pages/InvestigationRoom';
+import CampaignMap from './pages/CampaignMap';
 
 // Admin sub-pages
 import AdminOverview from './pages/admin/AdminOverview';
@@ -84,6 +85,7 @@ export default function App() {
                     <Route path="black-market" element={<BlackMarket />} />
                     <Route path="lobby" element={<InvestigationLobby />} />
                     <Route path="room/:code" element={<InvestigationRoom />} />
+                    <Route path="campaign" element={<CampaignMap />} />
                 </Route>
 
                 {/* ── Admin Routes (use their own layout) ── */}

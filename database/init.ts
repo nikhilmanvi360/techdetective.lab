@@ -25,120 +25,99 @@ async function seed() {
   const missions = [
     {
       id: 1,
-      title: 'The Gateway',
+      title: 'The Midnight Informant',
       difficulty: 'Easy',
-      correct_attacker: '22,80,666',
+      correct_attacker: '8080',
       points_on_solve: 125,
       status: 'active',
       description: JSON.stringify({
-        summary: 'We suspect the main router has a compromised port. Scan the node and find the open ports.',
-        brief: "The main router (192.168.1.1) is acting suspiciously. We need to know what ports are open. Connect to it, scan it, and print the open ports.",
-        network_topology: {
-          start_node: '192.168.1.1',
-          network: [
-            { id: '192.168.1.1', type: 'router', ports: [22, 80, 666], files: {}, connections: [] }
-          ]
-        },
-        available_functions: ['get_current_node()', 'scan_target()', 'print(value)'],
-        expected_output: 'Open ports are: 22,80,666',
-        starter_code: `// MISSION 1: The Gateway
-// Scan the current node and print the open ports.
+        summary: 'A contact at the docks has left a secure drop. Decrypt the port number.',
+        brief: "We received an encrypted telegram. A contact at the docks has left a secure drop for us. Write a Python script to decode the base64 string to find the correct port number.",
+        network_topology: null,
+        available_functions: ['import base64', 'base64.b64decode()', 'print()'],
+        expected_output: 'Decoded Port: 8080',
+        starter_code: `# MISSION 1: The Midnight Informant
+import base64
 
-let ip = get_current_node();
-print("Scanning: " + ip);
+encrypted_message = "ODA4MA=="
 
-// Step 1: Scan the target
-let result = scan_target();
+# Step 1: Decode the base64 message
+# Hint: use base64.b64decode()
 
-// Step 2: Print the ports correctly
-print("Open ports are: " + result.ports);
+# Step 2: Print the decoded port
+# Example: print(f"Decoded Port: {port}")
 `,
         hints: [
-          'Use scan_target() and save it to a variable.',
-          'Access the ports using .ports on the result.',
-          'Print the exact string expected.'
-        ]
+          'You need to decode the string using base64.b64decode()',
+          'Make sure you decode it to a UTF-8 string before printing.',
+          'The expected output format is EXACTLY: Decoded Port: 8080'
+        ],
+        piston_language: 'python'
       })
     },
     {
       id: 2,
-      title: 'The Malicious Payload',
+      title: 'The Speakeasy Ledger',
       difficulty: 'Easy',
-      correct_attacker: 'echo "hacked"',
+      correct_attacker: '1700',
       points_on_solve: 150,
       status: 'active',
       description: JSON.stringify({
-        summary: 'The web server (10.0.0.5) is hosting a malicious payload file. Find it and extract it.',
-        brief: "A web server connected to our router has been compromised. Connect to it, find the malicious payload file, download it, and print its content.",
-        network_topology: {
-          start_node: '192.168.1.1',
-          network: [
-            { id: '192.168.1.1', type: 'router', ports: [22], files: {}, connections: ['10.0.0.5'] },
-            { id: '10.0.0.5', type: 'server', ports: [80, 443], files: { 'payload.sh': 'echo "hacked"' }, connections: ['192.168.1.1'] }
-          ]
-        },
-        available_functions: ['get_connected_nodes()', 'connect_to(ip)', 'scan_target()', 'download_file(filename)', 'print(value)'],
-        expected_output: 'Payload Content: echo "hacked"',
-        starter_code: `// MISSION 2: The Malicious Payload
-// Connect to the web server, find the file, and download it.
+        summary: 'A hidden server at the Speakeasy holds a ledger of illicit transactions. Calculate the total sum.',
+        brief: "A raid on the 'Blind Tiger' speakeasy yielded a partial ledger of illicit transactions mixed with corrupted data. Write a Python script to extract and sum the valid transaction amounts.",
+        network_topology: null,
+        available_functions: ['for loops', 'isinstance()', 'type()', 'print()'],
+        expected_output: 'Total illicit transactions: 1700',
+        starter_code: `# MISSION 2: The Speakeasy Ledger
+ledger_entries = [1050, "garbage_data", 200, None, 450]
+total = 0
 
-// Check where we can go
-let ips = get_connected_nodes();
-print("Connected IPs: " + ips);
+# Step 1: Loop through the entries and sum the numbers
+# Hint: check if the type of the entry is int
 
-// Step 1: Connect to the server
-connect_to('10.0.0.5');
-
-// Step 2: Scan to see what files are there
-let scan_result = scan_target();
-print("Files found: " + scan_result.files);
-
-// Step 3: Download and print the payload
-let payload_content = download_file("payload.sh");
-print("Payload Content: " + payload_content);
+# Step 2: Print the total
+# Example: print(f"Total illicit transactions: {total}")
 `,
         hints: [
-          'Make sure you connect to the server first.',
-          'Check the filename exactly as it appears in the scan results.',
-        ]
+          'Use a for loop to iterate over ledger_entries.',
+          'Use isinstance(entry, int) to ignore strings and None.',
+          'The expected output format is EXACTLY: Total illicit transactions: 1700'
+        ],
+        piston_language: 'python'
       })
     },
     {
       id: 3,
-      title: 'Database Breach',
+      title: 'The Syndicate\'s Vault',
       difficulty: 'Intermediate',
-      correct_attacker: 'admin123',
+      correct_attacker: 'ARCHITECT-KEY-99',
       points_on_solve: 200,
       status: 'active',
       description: JSON.stringify({
-        summary: 'Hop through the network to the database and retrieve the stolen password.',
-        brief: "The attacker left a backdoor in the database server (10.0.0.99), but it's only accessible from the Web Server (10.0.0.5). Hop to the Web Server, then to the Database, and print the content of 'password.txt'.",
-        network_topology: {
-          start_node: '192.168.1.1',
-          network: [
-            { id: '192.168.1.1', type: 'router', ports: [22], files: {}, connections: ['10.0.0.5'] },
-            { id: '10.0.0.5', type: 'server', ports: [80], files: {}, connections: ['192.168.1.1', '10.0.0.99'] },
-            { id: '10.0.0.99', type: 'database', ports: [5432], files: { 'password.txt': 'admin123' }, connections: ['10.0.0.5'] }
-          ]
-        },
-        available_functions: ['connect_to(ip)', 'download_file(filename)', 'print(value)'],
-        expected_output: 'Target Password: admin123',
-        starter_code: `// MISSION 3: Database Breach
-// Navigate: Router -> Web Server -> Database
+        summary: 'The crime boss "The Architect" has hidden the master key in a list. Find the key.',
+        brief: "The crime boss 'The Architect' has a secured database storing the master key. We intercepted a data dump containing possible keys. The real key starts with 'ARCHITECT'. Write a Python script to find and print it.",
+        network_topology: null,
+        available_functions: ['for loops', 'startswith()', 'print()'],
+        expected_output: 'Master Key: ARCHITECT-KEY-99',
+        starter_code: `# MISSION 3: The Syndicate's Vault
+data_dump = [
+    "DECOY-KEY-01",
+    "FAKE-KEY-88",
+    "ARCHITECT-KEY-99",
+    "INVALID-KEY-44"
+]
 
-// Step 1: Hop to Web Server
-connect_to('10.0.0.5');
+# Step 1: Find the key that starts with 'ARCHITECT'
 
-// Step 2: Hop to Database
-connect_to('10.0.0.99');
-
-// Step 3: Download password.txt and print
-let pass = download_file("password.txt");
-print("Target Password: " + pass);
+# Step 2: Print the master key
+# Example: print(f"Master Key: {found_key}")
 `,
         hints: [
-          'You cannot jump straight to 10.0.0.99 from the start. You must go to 10.0.0.5 first.'
-        ]
+          'Use a for loop to check each key in data_dump.',
+          'Use the string method .startswith("ARCHITECT") to identify the real key.',
+          'The expected output format is EXACTLY: Master Key: ARCHITECT-KEY-99'
+        ],
+        piston_language: 'python'
       })
     }
   ];
