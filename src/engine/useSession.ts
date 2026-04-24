@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { CampaignAction, CampaignState } from './campaignStore';
+import { CampaignAction, CampaignState, normalizeCampaignState } from './campaignStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface UseSessionReturn {
@@ -21,9 +21,19 @@ export function useSession(
   const [isHost, setIsHost] = useState(false);
   const [partnerConnected, setPartnerConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestStateRef = useRef(localState);
+
+  useEffect(() => {
+    latestStateRef.current = localState;
+  }, [localState]);
 
   // Leave session cleanup
   const leaveSession = useCallback(() => {
+    if (joinTimeoutRef.current) {
+      clearTimeout(joinTimeoutRef.current);
+      joinTimeoutRef.current = null;
+    }
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
@@ -38,14 +48,14 @@ export function useSession(
   const handleStateSync = useCallback((payload: any) => {
     if (!isHost && payload?.state) {
       console.log('Received full state sync from host');
-      dispatchLocal({ type: 'INITIALIZE_STATE', state: payload.state });
+      dispatchLocal({ type: 'INITIALIZE_STATE', state: normalizeCampaignState({ ...payload.state, p2Pos: null }) });
     }
   }, [isHost, dispatchLocal]);
 
   // Join or Create logic
-  const setupChannel = useCallback((code: string, host: boolean) => {
+  const setupChannel = useCallback(async (code: string, host: boolean) => {
     leaveSession();
-    
+
     const channel = supabase.channel(`session:${code}`, {
       config: {
         broadcast: { ack: false },
@@ -73,42 +83,66 @@ export function useSession(
         }
       })
       .on('presence', { event: 'join' }, ({ key }) => {
-        if (host && key === 'client' && localState) {
+        if (host && key === 'client' && latestStateRef.current) {
           // Send full state to the new client
           channel.send({
             type: 'broadcast',
             event: 'SYNC_STATE',
-            payload: { state: localState }
+            payload: { state: latestStateRef.current }
           });
         }
       })
       .on('broadcast', { event: 'ACTION' }, (payload) => {
         const action = payload.payload as CampaignAction;
         dispatchLocal(action);
-      })
-      .on('broadcast', { event: 'SYNC_STATE' }, handleStateSync)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          channel.track({
-            pos: localState.playerPos
-          });
-        }
       });
+    channel.on('broadcast', { event: 'SYNC_STATE' }, handleStateSync);
 
     channelRef.current = channel;
     setSessionCode(code);
     setIsHost(host);
-  }, [leaveSession, localState, dispatchLocal, handleStateSync]);
+
+    return await new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const finish = (ok: boolean) => {
+        if (resolved) return;
+        resolved = true;
+        if (joinTimeoutRef.current) {
+          clearTimeout(joinTimeoutRef.current);
+          joinTimeoutRef.current = null;
+        }
+        resolve(ok);
+      };
+
+      joinTimeoutRef.current = setTimeout(() => {
+        leaveSession();
+        finish(false);
+      }, 5000);
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.track({ pos: latestStateRef.current.playerPos });
+          finish(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          leaveSession();
+          finish(false);
+        }
+      });
+    });
+  }, [leaveSession, dispatchLocal, handleStateSync]);
 
   const createSession = useCallback(() => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setupChannel(code, true);
+    void setupChannel(code, true);
     return code;
   }, [setupChannel]);
 
   const joinSession = useCallback(async (code: string) => {
-    setupChannel(code.toUpperCase(), false);
-    return true;
+    const sanitized = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(sanitized)) {
+      return false;
+    }
+    return setupChannel(sanitized, false);
   }, [setupChannel]);
 
   const broadcastAction = useCallback((action: CampaignAction) => {

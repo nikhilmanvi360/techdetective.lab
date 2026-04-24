@@ -69,7 +69,7 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
     }
     if (opt.reward) dispatch({ type: 'COLLECT_ITEM', item: opt.reward });
     if (opt.clue) dispatch({ type: 'ADD_CLUE', clue: opt.clue });
-    if (opt.repDelta) dispatch({ type: 'UPDATE_SCORE', delta: opt.repDelta * 10 }); // Simple score mapping
+    if (opt.repDelta) dispatch({ type: 'UPDATE_REPUTATION', delta: opt.repDelta * 10 });
   };
 
   const line = failMsg ? failMsg : (successMsg ? successMsg : (branchLines ? branchLines[branchIndex] : interaction.lines[lineIndex]));

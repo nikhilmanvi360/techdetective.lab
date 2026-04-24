@@ -38,27 +38,76 @@ export type CampaignAction =
   | { type: 'RECORD_FAILURE' }
   | { type: 'RECORD_NPC_VISIT'; npcId: string }
   | { type: 'SET_ROLES'; roles: { p1: string; p2: string } }
-  | { type: 'SET_P2_POS'; pos: [number, number] | null };
+  | { type: 'SET_P2_POS'; pos: [number, number] | null }
+  | { type: 'UPDATE_REPUTATION'; delta: number };
 
-const initialState: CampaignState = {
-  inventory: [],
-  clues: [],
-  activatedNodes: [],
-  currentZone: 'cafeteria',
-  unlockedZones: ['cafeteria'],
-  objectiveLog: ['Investigate the Cafeteria. Find clues about the 14th.'],
-  completedZones: [],
-  gameComplete: false,
-  playerPos: [1, 1],
-  score: 1000,
-  reputation: 50,
-  hintsUsed: 0,
-  failedAttempts: 0,
-  spokenNPCs: [],
-  teamRoles: null,
-  dynamicCode: Math.floor(1000 + Math.random() * 9000).toString(),
-  p2Pos: null,
-};
+function createInitialState(): CampaignState {
+  return {
+    inventory: [],
+    clues: [],
+    activatedNodes: [],
+    currentZone: 'cafeteria',
+    unlockedZones: ['cafeteria'],
+    objectiveLog: ['Investigate the Cafeteria. Find clues about the 14th.'],
+    completedZones: [],
+    gameComplete: false,
+    playerPos: [1, 1],
+    score: 1000,
+    reputation: 50,
+    hintsUsed: 0,
+    failedAttempts: 0,
+    spokenNPCs: [],
+    teamRoles: null,
+    dynamicCode: Math.floor(1000 + Math.random() * 9000).toString(),
+    p2Pos: null,
+  };
+}
+
+function asArray<T>(value: unknown, fallback: T[]): T[] {
+  return Array.isArray(value) ? value as T[] : fallback;
+}
+
+export function normalizeCampaignState(state: Partial<CampaignState> | null | undefined): CampaignState {
+  const base = createInitialState();
+  if (!state || typeof state !== 'object') return base;
+
+  const rawRoles = state.teamRoles;
+  const roles =
+    rawRoles && typeof rawRoles === 'object' && typeof rawRoles.p1 === 'string' && typeof rawRoles.p2 === 'string'
+      ? { p1: rawRoles.p1, p2: rawRoles.p2 }
+      : null;
+
+  const rawP2 = state.p2Pos;
+  const p2Pos =
+    Array.isArray(rawP2) && rawP2.length === 2 && rawP2.every(v => typeof v === 'number')
+      ? [rawP2[0], rawP2[1]] as [number, number]
+      : null;
+
+  return {
+    ...base,
+    ...state,
+    inventory: asArray(state.inventory, base.inventory),
+    clues: asArray(state.clues, base.clues),
+    activatedNodes: asArray(state.activatedNodes, base.activatedNodes),
+    currentZone: (state.currentZone ?? base.currentZone) as ZoneId,
+    unlockedZones: asArray(state.unlockedZones, base.unlockedZones) as ZoneId[],
+    objectiveLog: asArray(state.objectiveLog, base.objectiveLog),
+    completedZones: asArray(state.completedZones, base.completedZones) as ZoneId[],
+    gameComplete: typeof state.gameComplete === 'boolean' ? state.gameComplete : base.gameComplete,
+    playerPos:
+      Array.isArray(state.playerPos) && state.playerPos.length === 2 && state.playerPos.every(v => typeof v === 'number')
+        ? [state.playerPos[0], state.playerPos[1]] as [number, number]
+        : base.playerPos,
+    score: typeof state.score === 'number' ? state.score : base.score,
+    reputation: typeof state.reputation === 'number' ? state.reputation : base.reputation,
+    hintsUsed: typeof state.hintsUsed === 'number' ? state.hintsUsed : base.hintsUsed,
+    failedAttempts: typeof state.failedAttempts === 'number' ? state.failedAttempts : base.failedAttempts,
+    spokenNPCs: asArray(state.spokenNPCs, base.spokenNPCs),
+    teamRoles: roles,
+    dynamicCode: typeof state.dynamicCode === 'string' && state.dynamicCode.length > 0 ? state.dynamicCode : base.dynamicCode,
+    p2Pos,
+  };
+}
 
 function reducer(state: CampaignState, action: CampaignAction): CampaignState {
   switch (action.type) {
@@ -96,9 +145,11 @@ function reducer(state: CampaignState, action: CampaignAction): CampaignState {
     case 'ADD_OBJECTIVE':
       return { ...state, objectiveLog: [...state.objectiveLog, action.text] };
     case 'INITIALIZE_STATE':
-      return { ...state, ...action.state };
+      return normalizeCampaignState({ ...state, ...action.state, p2Pos: null });
     case 'UPDATE_SCORE':
       return { ...state, score: Math.max(0, state.score + action.delta) };
+    case 'UPDATE_REPUTATION':
+      return { ...state, reputation: Math.min(100, Math.max(0, state.reputation + action.delta)) };
     case 'RECORD_HINT':
       const penalties = {
         1: { score: 10, rep: 1 },
@@ -141,7 +192,7 @@ const CampaignContext = createContext<{
 } | undefined>(undefined);
 
 export function CampaignProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [isLoaded, setIsLoaded] = React.useState(false);
 
   // Load initial state
@@ -151,9 +202,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     })
       .then(res => res.json())
       .then(data => {
-        if (data && typeof data === 'object') {
-          dispatch({ type: 'INITIALIZE_STATE', state: data });
-        }
+        dispatch({ type: 'INITIALIZE_STATE', state: normalizeCampaignState(data) });
         setIsLoaded(true);
       })
       .catch(err => {
@@ -165,9 +214,25 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   // Save state on critical changes (debounce could be added, but skipping playerPos ensures we only save on milestone actions)
   React.useEffect(() => {
     if (!isLoaded) return;
-    
-    // We only want to save the milestone data, not every single footstep
-    const stateToSave = { ...state };
+
+    // Persist milestone progress and round 2 collaboration state, but avoid writing every footstep.
+    const stateToSave = {
+      inventory: state.inventory,
+      clues: state.clues,
+      activatedNodes: state.activatedNodes,
+      currentZone: state.currentZone,
+      unlockedZones: state.unlockedZones,
+      objectiveLog: state.objectiveLog,
+      completedZones: state.completedZones,
+      gameComplete: state.gameComplete,
+      score: state.score,
+      reputation: state.reputation,
+      hintsUsed: state.hintsUsed,
+      failedAttempts: state.failedAttempts,
+      spokenNPCs: state.spokenNPCs,
+      teamRoles: state.teamRoles,
+      dynamicCode: state.dynamicCode,
+    };
     
     fetch('/api/campaign/state', {
       method: 'POST',
@@ -177,7 +242,24 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       },
       body: JSON.stringify({ state: stateToSave })
     }).catch(err => console.error('Failed to save campaign state', err));
-  }, [state.inventory, state.clues, state.unlockedZones, state.currentZone, state.gameComplete]);
+  }, [
+    isLoaded,
+    state.inventory,
+    state.clues,
+    state.activatedNodes,
+    state.currentZone,
+    state.unlockedZones,
+    state.objectiveLog,
+    state.completedZones,
+    state.gameComplete,
+    state.score,
+    state.reputation,
+    state.hintsUsed,
+    state.failedAttempts,
+    state.spokenNPCs,
+    state.teamRoles,
+    state.dynamicCode,
+  ]);
 
   return (
     React.createElement(CampaignContext.Provider, { value: { state, dispatch, isLoaded } }, children)

@@ -44,6 +44,7 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
             const isPlayer = playerPos[0] === r && playerPos[1] === c;
             const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
             const isDrone = drones.some(d => d[0] === r && d[1] === c);
+            const showDualMarker = isPlayer && isP2;
             return (
               <div
                 key={c}
@@ -53,10 +54,17 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                   ${tile === 'wall' ? '' : 'border border-[#2a1c10]/40'}
                 `}
               >
-                {isPlayer ? (
+                {showDualMarker ? (
+                  <div className="relative w-full h-full">
+                    <span className="absolute left-0.5 top-0.5 text-[10px] text-[#d4a017] font-black leading-none z-20">1</span>
+                    <span className="absolute right-0.5 bottom-0.5 text-[10px] text-[#5a7a4a] font-black leading-none z-20">2</span>
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] animate-pulse z-10">🕵️</span>
+                    <span className="absolute inset-0 flex items-center justify-center translate-x-1 translate-y-1 text-[10px] opacity-90">🕵️‍♀️</span>
+                  </div>
+                ) : isPlayer ? (
                   <span className="text-sm animate-pulse z-20">🕵️</span>
                 ) : isP2 ? (
-                  <span className="text-sm z-10 opacity-80">🕵️‍♀️</span>
+                  <span className="text-sm z-10 opacity-80 text-[#5a7a4a]">🕵️‍♀️</span>
                 ) : isDrone ? (
                   <span className="text-sm animate-pulse z-10">🚨</span>
                 ) : (

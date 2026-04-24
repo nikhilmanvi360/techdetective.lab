@@ -8,7 +8,7 @@ interface SessionLobbyProps {
   isHost: boolean;
   partnerConnected: boolean;
   onCreate: () => void;
-  onJoin: (code: string) => void;
+  onJoin: (code: string) => Promise<boolean>;
   onStart: () => void;
 }
 
@@ -34,10 +34,12 @@ export default function SessionLobby({ sessionCode, isHost, partnerConnected, on
     onCreate();
   };
 
-  const handleJoinClick = () => {
+  const handleJoinClick = async () => {
     if (joinCode.length === 6) {
-      onJoin(joinCode);
-      setMode('client');
+      const joined = await onJoin(joinCode);
+      if (joined) {
+        setMode('client');
+      }
     }
   };
 
