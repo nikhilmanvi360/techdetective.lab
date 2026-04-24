@@ -5,7 +5,6 @@ import {
   Package,
   ShieldAlert,
   UserRound,
-  Waypoints,
 } from 'lucide-react';
 
 interface MapRendererProps {
@@ -15,6 +14,8 @@ interface MapRendererProps {
   zoneId: ZoneId;
   drones?: [number, number][];
 }
+
+const ASSET_ROOT = '/assets/kenney_retro-textures-fantasy/PNG';
 
 const TILE_META: Record<TileType, { label: string; symbol: string; accent: string }> = {
   walkable: { label: 'Floor', symbol: '', accent: 'text-[#8a6b44]' },
@@ -26,22 +27,32 @@ const TILE_META: Record<TileType, { label: string; symbol: string; accent: strin
   exit: { label: 'Exit', symbol: '↗', accent: 'text-[#55724a]' },
 };
 
-const TILE_BG: Record<TileType, string> = {
-  walkable: 'bg-[#f4ead1]',
-  wall: 'bg-[#6f5532]',
-  npc: 'bg-[#ead6b2]',
-  terminal: 'bg-[#e2ccb0]',
-  item: 'bg-[#efe1bf]',
-  gate: 'bg-[#dbc49d]',
-  exit: 'bg-[#ecdcb5]',
-};
-
 const ZONE_BORDER: Record<ZoneId, string> = {
   cafeteria: 'border-[#b5874a]',
   library: 'border-[#7a6a45]',
   maintenance: 'border-[#8a6c4d]',
   admin_core: 'border-[#8b6b57]',
 };
+
+const ZONE_FLOOR: Record<ZoneId, string> = {
+  cafeteria: `${ASSET_ROOT}/floor_tiles_sand_large.png`,
+  library: `${ASSET_ROOT}/floor_stone_pattern.png`,
+  maintenance: `${ASSET_ROOT}/floor_wood_planks.png`,
+  admin_core: `${ASSET_ROOT}/floor_stone_pattern_small_depth.png`,
+};
+
+const TILE_TEXTURE: Record<Exclude<TileType, 'walkable'>, string> = {
+  wall: `${ASSET_ROOT}/wall_stone.png`,
+  npc: `${ASSET_ROOT}/floor_tiles_tan_small.png`,
+  terminal: `${ASSET_ROOT}/floor_tiles_blue_small.png`,
+  item: `${ASSET_ROOT}/floor_tiles_tan_small_damaged.png`,
+  gate: `${ASSET_ROOT}/door_wood.png`,
+  exit: `${ASSET_ROOT}/door_metal_gate.png`,
+};
+
+function getTileTexture(tile: TileType, zoneId: ZoneId): string {
+  return tile === 'walkable' ? ZONE_FLOOR[zoneId] : TILE_TEXTURE[tile];
+}
 
 export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [] }: MapRendererProps) {
   return (
@@ -76,35 +87,55 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
               const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
               const isDrone = drones.some(d => d[0] === r && d[1] === c);
               const showDualMarker = isPlayer && isP2;
+              const tileTexture = getTileTexture(tile, zoneId);
+
               return (
                 <div
                   key={c}
                   title={meta.label}
                   className={`
                     w-8 h-8 flex items-center justify-center text-xs relative overflow-hidden
-                    ${isDrone ? 'bg-[#b44a3c]' : TILE_BG[tile]}
+                    ${isDrone ? 'bg-[#b44a3c]' : 'bg-[#eadbb8]'}
                     ${tile === 'wall' ? '' : 'border border-[#8f744f]/30'}
                   `}
+                  style={{
+                    backgroundImage: [
+                      'linear-gradient(180deg, rgba(255,248,231,0.07), rgba(34,20,7,0.12))',
+                      `url("${tileTexture}")`,
+                    ].join(', '),
+                    backgroundSize: 'cover, cover',
+                    backgroundPosition: 'center, center',
+                    backgroundBlendMode: 'soft-light, normal',
+                    filter: isDrone ? 'saturate(0.85) brightness(0.78)' : undefined,
+                  }}
                 >
                   <div
                     className="absolute inset-0 opacity-[0.06]"
                     style={{
-                      backgroundImage: 'linear-gradient(135deg, rgba(42,26,10,0.15) 25%, transparent 25%, transparent 50%, rgba(42,26,10,0.15) 50%, rgba(42,26,10,0.15) 75%, transparent 75%, transparent)',
+                      backgroundImage:
+                        'linear-gradient(135deg, rgba(42,26,10,0.15) 25%, transparent 25%, transparent 50%, rgba(42,26,10,0.15) 50%, rgba(42,26,10,0.15) 75%, transparent 75%, transparent)',
                       backgroundSize: '8px 8px',
                     }}
                   />
+
+                  {!isPlayer && !isP2 && !isDrone && tile !== 'wall' && (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,237,215,0.14),transparent_65%)]" />
+                  )}
+
                   {!isPlayer && !isP2 && !isDrone && tile !== 'walkable' && tile !== 'wall' && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="rounded-full bg-[#f8edd7]/90 border border-[#b58a53] px-0.5 py-0.5 shadow-sm">
+                      <div className="rounded-full bg-[#f8edd7]/88 border border-[#b58a53] px-0.5 py-0.5 shadow-sm backdrop-blur-[1px]">
                         <span className={`block text-[10px] leading-none ${meta.accent}`}>{meta.symbol}</span>
                       </div>
                     </div>
                   )}
+
                   {!isPlayer && !isP2 && !isDrone && tile === 'wall' && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <ShieldAlert className="w-3 h-3 text-[#f8edd7]/55" />
                     </div>
                   )}
+
                   {showDualMarker ? (
                     <div className="relative w-full h-full">
                       <span className="absolute left-0.5 top-0.5 text-[9px] text-[#8c5f22] font-black leading-none z-20">1</span>
@@ -137,7 +168,7 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                       style={{ imageRendering: 'pixelated' }}
                     />
                   ) : isDrone ? (
-                    <div className="flex flex-col items-center justify-center leading-none">
+                    <div className="flex flex-col items-center justify-center leading-none rounded-sm bg-[#7d2d25]/70 border border-[#f1c7aa]/40 p-0.5 shadow-[0_0_0_1px_rgba(42,26,10,0.12)]">
                       <ShieldAlert className="w-3.5 h-3.5 text-[#f8edd7]" />
                       <span className="text-[7px] font-black text-[#f8edd7] uppercase">Watch</span>
                     </div>
