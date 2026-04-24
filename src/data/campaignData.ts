@@ -13,7 +13,12 @@ export interface TileInteraction {
   // NEW MECHANICS
   terminalCmd?: string;        // Command required to solve terminal puzzle
   terminalContext?: string;    // Hint shown in terminal
+  terminalNudge?: string;      // Level 1: Small nudge
+  terminalHint?: string;       // Level 2: Stronger clue
   terminalSuccess?: string[];  // Lines shown after correct command
+  terminalPartials?: { trigger: string; response: string }[]; // "Almost Right" hints
+  
+  options?: { label: string; nextLines: string[]; reward?: string; clue?: string; repDelta?: number }[]; // Dialogue options
   
   requiredCluesToUnlock?: string[]; // Array of Clue IDs/Text player must present in any order
   clueFailMsg?: string[];        // What NPC says if wrong clue or no clue is presented
@@ -119,9 +124,27 @@ const adminGrid = createGrid((r, c) => {
 adminGrid[14][10] = G; // Firewall gate
 adminGrid[11][10] = T; // CORE TERMINAL
 adminGrid[4][4] = N; // Security Director
-adminGrid[4][16] = T; // Firewall Terminal
-adminGrid[16][10] = T; // Firewall Control (Inside)
+adminGrid[10][5] = T; // Core Node 1
+adminGrid[10][10] = T; // Core Node 2
+adminGrid[11][10] = T; // Final Core Node
+adminGrid[5][15] = I; // Admin Deskwall Control (Inside)
 adminGrid[6][10] = I; // Desk item
+
+export interface SynthesisRecipe {
+  requiredClues: string[];
+  resultClue: string;
+}
+
+export const SYNTHESIS_RECIPES: SynthesisRecipe[] = [
+  {
+    requiredClues: [
+      'Raza Malik was born in 1998.',
+      'Terminal log: sys_ghost active at 11:05 PM.',
+      'Redacted Doc: Librarian authorized sys_ghost access.'
+    ],
+    resultClue: 'SYNTHESIS: Raza Malik (1998) used Librarian access to breach the system at 11:05 PM.'
+  }
+];
 
 export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
@@ -151,7 +174,13 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         lines: ['Authentication successful.', 'You downloaded the Kitchen Passcode from the hard drive.'], 
         reward: 'kitchen_key',
         terminalCmd: 'login --pass Raza1998',
-        terminalContext: 'AUTHENTICATION REQUIRED. Password hint: Name + Birth Year.'
+        terminalContext: 'AUTHENTICATION REQUIRED. Password hint: Name + Birth Year.',
+        terminalNudge: 'Did you check the HR Printout on the desk near the entrance?',
+        terminalHint: 'Combine the Suspect First Name and Birth Year from the HR Printout.',
+        terminalPartials: [
+          { trigger: 'Raza', response: 'Name recognized. Missing the birth year passcode extension.' },
+          { trigger: '1998', response: 'Passcode recognized. Missing the suspect name prefix.' }
+        ]
       },
       '7,15': { type: 'gate', speaker: 'Kitchen Door', lines: ['The kitchen is locked. You need the Kitchen Passcode.'], requiresItems: ['kitchen_key'] },
       '3,16': { 
@@ -159,11 +188,25 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         speaker: 'Kitchen Terminal', 
         lines: ['System Log Accessed.', 'Log entry shows an active session under user sys_ghost at 11:05 PM.'], 
         clue: 'Terminal log: sys_ghost active at 11:05 PM.',
+        terminalHint: 'Examine the terminal logs for unusual activity.'
       },
       '12,5': { 
         type: 'dialogue', 
         speaker: 'Student Witness', 
         lines: ['The power went out at 11:00 PM exactly. No one was in the kitchen after that, I swear!'],
+        options: [
+          { 
+            label: 'Trust Witness', 
+            nextLines: ['Thank you for believing me! Check the terminal logs to verify.'],
+            repDelta: 1
+          },
+          { 
+            label: 'Press for Details', 
+            nextLines: ['I mean... maybe someone with admin access could bypass the power lock. Check the logs.'],
+            clue: 'Student suspicion: Admin bypassed power lock.',
+            repDelta: -1
+          }
+        ],
         requiredCluesToUnlock: ['Terminal log: sys_ghost active at 11:05 PM.'],
         clueFailMsg: ['I already told you, the power was out!'],
         reward: 'key_A'
@@ -184,9 +227,14 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         type: 'clue', 
         speaker: 'Archived Terminal', 
         lines: ['CSS Override removed.', 'The document reveals the Librarian authorized access for sys_ghost.'], 
-        clue: 'Decrypted Doc: Librarian authorized sys_ghost access.',
+        clue: 'Redacted Doc: Librarian authorized sys_ghost access.',
         terminalCmd: 'set display block',
-        terminalContext: 'DOCUMENT REDACTED. A CSS snippet on the desk reads ".redacted { display: none; }".'
+        terminalContext: 'DOCUMENT ENCRYPTED. CSS property "display" is currently set to "none".',
+        terminalNudge: 'Check the note on the library desk about CSS properties.',
+        terminalHint: 'You need to change the CSS property from "none" to "block" to see the content.',
+        terminalPartials: [
+          { trigger: 'block', response: 'Property "block" detected, but syntax is missing the "set display" command.' }
+        ]
       },
       '15,18': { 
         type: 'clue', 
@@ -210,7 +258,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         type: 'dialogue', 
         speaker: 'Librarian', 
         lines: ['I don\'t know anything about a sys_ghost. My logs are clean.'],
-        requiredCluesToUnlock: ['Decrypted Doc: Librarian authorized sys_ghost access.'],
+        requiredCluesToUnlock: ['Redacted Doc: Librarian authorized sys_ghost access.'],
         clueFailMsg: ['You have no proof of that. Please leave the library.']
       },
       '18,18': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'maintenance' },
@@ -238,7 +286,9 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         lines: ['Python script corrected. System pointing to index 3 (Grid_Control).', 'Node Alpha is back online.'], 
         reward: 'sync_alpha',
         terminalCmd: 'fix_index 3',
-        terminalContext: 'SYSTEM ERROR. IndexError: list index out of range. Current access: systems[4]. Enter the highest valid index for the list [Cooling, Lighting, Security, Grid_Control].'
+        terminalContext: 'SYSTEM ERROR. IndexError: list index out of range. Current access: systems[4]. Enter the highest valid index for the list [Cooling, Lighting, Security, Grid_Control].',
+        terminalNudge: 'The error says index 4 is too high. How many items are in that list?',
+        terminalHint: 'Lists are 0-indexed. If there are 4 items, the indices are 0, 1, 2, and 3.'
       },
       '11,12': { 
         type: 'item', 
@@ -247,7 +297,8 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         requiresItems: ['sync_alpha'],
         reward: 'sync_beta',
         terminalCmd: 'sync node_beta',
-        terminalContext: 'Awaiting sync command for Node Beta. Requires Node Alpha to be online first.'
+        terminalContext: 'Awaiting sync command for Node Beta. Requires Node Alpha to be online first.',
+        terminalHint: 'Type "sync node_beta" to proceed.'
       },
       '17,5': { 
         type: 'item', 
@@ -256,7 +307,8 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         requiresItems: ['sync_beta'],
         reward: 'sync_gamma',
         terminalCmd: 'sync node_gamma',
-        terminalContext: 'Awaiting sync command for Node Gamma. Requires Node Beta to be online first.'
+        terminalContext: 'Awaiting sync command for Node Gamma. Requires Node Beta to be online first.',
+        terminalHint: 'Type "sync node_gamma" to proceed.'
       },
       '18,12': { 
         type: 'item', 
@@ -281,15 +333,6 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     playerStart: [2, 2],
     grid: adminGrid,
     interactions: {
-      '4,16': { 
-        type: 'item', 
-        speaker: 'Firewall Terminal', 
-        lines: ['Firewall bypassed using evidence keys.', 'You have the Firewall Bypass key.'], 
-        reward: 'firewall_bypass',
-        terminalCmd: 'bypass -a "11:05 PM" -b "display block"',
-        terminalContext: 'FIREWALL. Enter flags: -a [Cafeteria Login Time] -b [Library CSS Property]'
-      },
-      '14,10': { type: 'gate', speaker: 'Firewall Gate', lines: ['The inner core is protected by a firewall.', 'You need the Firewall Bypass.'], requiresItems: ['firewall_bypass'] },
       '4,4': { 
         type: 'dialogue', 
         speaker: 'Security Director', 
@@ -297,16 +340,37 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         requiredCluesToUnlock: [
           'Raza Malik was born in 1998.',
           'Terminal log: sys_ghost active at 11:05 PM.',
-          'Decrypted Doc: Librarian authorized sys_ghost access.'
+          'Redacted Doc: Librarian authorized sys_ghost access.'
         ],
         clueFailMsg: ['That doesn\'t give me the full picture. I need proof of the suspect\'s identity, their timeline, AND how they bypassed the archive. Dig deeper.']
       },
       '11,10': { 
         type: 'final', 
-        speaker: 'Core Terminal', 
-        lines: ['ARGUS protocol terminated.', 'Conclusion: Raza Malik (sys_ghost) orchestrated the breach.', 'Case closed. Excellent work, Detective.'],
+        speaker: 'Mainframe Core', 
+        lines: ['CRITICAL OVERRIDE DETECTED.', 'System is shutting down...', 'The ARGUS protocol has been terminated.', 'Tech Detective Raza Malik has been apprehended.'],
+        requiresItems: ['core_decrypted'],
         terminalCmd: 'initiate_shutdown -f -u sys_ghost',
-        terminalContext: 'ARGUS CORE. Enter shutdown command with flags: force (-f) and target user (-u).'
+        terminalContext: 'FINAL SHUTDOWN AUTHORIZATION REQUIRED. Use force flag (-f) and target user (-u sys_ghost).',
+        terminalHint: 'Run the command exactly as described in the context.'
+      },
+      '10,5': { 
+        type: 'item', 
+        speaker: 'Core Node 1', 
+        lines: ['System logs overridden.'], 
+        reward: 'core_overridden',
+        terminalCmd: 'override -sys log',
+        terminalContext: 'Node 1: Awaiting system log override.',
+        terminalHint: 'Type "override -sys log" to proceed.'
+      },
+      '10,10': { 
+        type: 'item', 
+        speaker: 'Core Node 2', 
+        lines: ['ARGUS decryption complete.'], 
+        requiresItems: ['core_overridden'],
+        reward: 'core_decrypted',
+        terminalCmd: 'decrypt -v argus',
+        terminalContext: 'Node 2: Awaiting protocol decryption.',
+        terminalHint: 'Type "decrypt -v argus" to proceed.'
       },
     },
     drones: [

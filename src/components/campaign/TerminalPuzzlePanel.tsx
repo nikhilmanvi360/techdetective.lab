@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useCampaign } from '../../engine/campaignStore';
 import { Terminal } from 'lucide-react';
 import { TileInteraction } from '../../data/campaignData';
 
@@ -10,12 +11,14 @@ interface TerminalPuzzlePanelProps {
 }
 
 export default function TerminalPuzzlePanel({ interaction, onSuccess, onClose }: TerminalPuzzlePanelProps) {
+  const { dispatch } = useCampaign();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<{ text: string; isError: boolean }[]>([]);
   const [solved, setSolved] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(0);
-  const [hintRequested, setHintRequested] = useState(false);
+  const [hintLevel, setHintLevel] = useState(0); // 0: None, 1: Nudge, 2: Clue, 3: Solution
+  const [hintTimer, setHintTimer] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isActive = interaction && interaction.terminalCmd && !solved;
@@ -27,18 +30,23 @@ export default function TerminalPuzzlePanel({ interaction, onSuccess, onClose }:
       setSolved(false);
       setAttempts(0);
       setLockoutTime(0);
-      setHintRequested(false);
+      setHintLevel(0);
+      setHintTimer(0);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isActive, interaction]);
 
-  // Lockout timer
+  // Lockout & Hint timer
   useEffect(() => {
     if (lockoutTime > 0) {
       const timer = setTimeout(() => setLockoutTime(t => t - 1), 1000);
       return () => clearTimeout(timer);
     }
-  }, [lockoutTime]);
+    if (hintTimer > 0) {
+      const timer = setTimeout(() => setHintTimer(t => t - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [lockoutTime, hintTimer]);
 
   if (!isActive) return null;
 
@@ -51,14 +59,26 @@ export default function TerminalPuzzlePanel({ interaction, onSuccess, onClose }:
 
     if (cmd === interaction.terminalCmd) {
       newHistory.push({ text: 'COMMAND ACCEPTED. BYPASS SUCCESSFUL.', isError: false });
+      dispatch({ type: 'UPDATE_SCORE', delta: 200 });
       setHistory(newHistory);
       setSolved(true);
       setTimeout(() => {
         onSuccess();
       }, 1500);
     } else {
+      // Check for partials
+      const partial = interaction.terminalPartials?.find(p => cmd.toLowerCase().includes(p.trigger.toLowerCase()));
+      if (partial) {
+        newHistory.push({ text: `PARTIAL MATCH: ${partial.response}`, isError: false });
+        dispatch({ type: 'UPDATE_SCORE', delta: 25 });
+        setHistory(newHistory);
+        setInput('');
+        return;
+      }
+
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
+      dispatch({ type: 'RECORD_FAILURE' });
       if (newAttempts >= 3) {
         newHistory.push({ text: 'SECURITY LOCKOUT INITIATED. TRY AGAIN IN 10 SECONDS.', isError: true });
         setLockoutTime(10);
@@ -72,9 +92,21 @@ export default function TerminalPuzzlePanel({ interaction, onSuccess, onClose }:
   };
 
   const handleRequestHint = () => {
-    if (hintRequested) return;
-    setHintRequested(true);
-    setHistory([...history, { text: `HINT: The command you need is "${interaction.terminalCmd}"`, isError: false }]);
+    if (hintLevel === 0) {
+      setHintLevel(1);
+      dispatch({ type: 'RECORD_HINT', level: 1 });
+      setHistory([...history, { text: `HINT (Small Nudge): ${interaction.terminalNudge || 'There is evidence nearby that you haven\'t fully examined.'}`, isError: false }]);
+      setHintTimer(3); 
+    } else if (hintLevel === 1 && hintTimer === 0) {
+      setHintLevel(2);
+      dispatch({ type: 'RECORD_HINT', level: 2 });
+      setHistory([...history, { text: `HINT (Stronger Clue): ${interaction.terminalHint || 'Look closely at your collected evidence.'}`, isError: false }]);
+      setHintTimer(7); 
+    } else if (hintLevel === 2 && hintTimer === 0) {
+      setHintLevel(3);
+      dispatch({ type: 'RECORD_HINT', level: 3 });
+      setHistory([...history, { text: `HINT (Solution): The exact command is "${interaction.terminalCmd}"`, isError: false }]);
+    }
   };
 
   return (
@@ -93,12 +125,19 @@ export default function TerminalPuzzlePanel({ interaction, onSuccess, onClose }:
                 <Terminal className="w-4 h-4" />
                 <span>{interaction.speaker || 'TERMINAL INTERFACE'}</span>
               </div>
-              {!hintRequested && !solved && (
+              {hintLevel < 3 && !solved && (
                 <button 
                   onClick={handleRequestHint}
-                  className="text-[10px] bg-white/10 px-2 py-0.5 rounded hover:bg-white/20 transition-colors border border-white/20"
+                  disabled={hintTimer > 0}
+                  className={`text-[10px] px-2 py-0.5 rounded transition-colors border ${
+                    hintTimer > 0 
+                    ? 'bg-gray-800 text-gray-500 border-gray-700' 
+                    : 'bg-white/10 text-white hover:bg-white/20 border-white/20'
+                  }`}
                 >
-                  REQUEST HINT
+                  {hintLevel === 0 ? 'REQUEST NUDGE (-10 pts)' : 
+                   hintLevel === 1 ? (hintTimer > 0 ? `DECRYPTING CLUE... ${hintTimer}s` : 'REQUEST CLUE (-40 pts)') :
+                   (hintTimer > 0 ? `DECRYPTING SOLUTION... ${hintTimer}s` : 'SHOW SOLUTION (-100 pts)')}
                 </button>
               )}
             </div>

@@ -12,17 +12,21 @@ interface DialoguePanelProps {
 }
 
 export default function DialoguePanel({ interaction, lineIndex, onNext, onClose }: DialoguePanelProps) {
-  const { state } = useCampaign();
+  const { state, dispatch } = useCampaign();
   const [presenting, setPresenting] = useState(false);
   const [failMsg, setFailMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [presentedClues, setPresentedClues] = useState<string[]>([]);
+  const [branchLines, setBranchLines] = useState<string[] | null>(null);
+  const [branchIndex, setBranchIndex] = useState(0);
 
   useEffect(() => {
     setPresenting(false);
     setFailMsg(null);
     setSuccessMsg(null);
     setPresentedClues([]);
+    setBranchLines(null);
+    setBranchIndex(0);
   }, [interaction]);
 
   if (!interaction) return null;
@@ -58,7 +62,20 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
     }
   };
 
-  const line = failMsg ? failMsg : (successMsg ? successMsg : interaction.lines[lineIndex]);
+  const handleOption = (opt: any) => {
+    if (opt.nextLines) {
+      setBranchLines(opt.nextLines);
+      setBranchIndex(0);
+    }
+    if (opt.reward) dispatch({ type: 'COLLECT_ITEM', item: opt.reward });
+    if (opt.clue) dispatch({ type: 'ADD_CLUE', clue: opt.clue });
+    if (opt.repDelta) dispatch({ type: 'UPDATE_SCORE', delta: opt.repDelta * 10 }); // Simple score mapping
+  };
+
+  const line = failMsg ? failMsg : (successMsg ? successMsg : (branchLines ? branchLines[branchIndex] : interaction.lines[lineIndex]));
+  const isBranching = isLast && interaction.options && !branchLines;
+  const inBranch = !!branchLines;
+  const isBranchLast = inBranch && branchIndex >= branchLines!.length - 1;
 
   return (
     <AnimatePresence>
@@ -110,10 +127,22 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
           ) : (
             <div className="flex justify-between items-center mt-4">
               <span className="text-[9px] text-[#a07830] uppercase tracking-widest font-black">
-                {failMsg ? 'FAIL' : successMsg ? 'EVIDENCE ACCEPTED' : `${lineIndex + 1} / ${interaction.lines.length}`}
+                {failMsg ? 'FAIL' : successMsg ? 'EVIDENCE ACCEPTED' : inBranch ? `RESPONSE ${branchIndex + 1} / ${branchLines!.length}` : `${lineIndex + 1} / ${interaction.lines.length}`}
               </span>
               
-              {requiresClue && !failMsg && !successMsg ? (
+              {isBranching ? (
+                <div className="flex gap-2">
+                  {interaction.options!.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleOption(opt)}
+                      className="bg-[#2a1a0a] text-[#d4a017] px-3 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-[#d4a017] hover:text-[#2a1a0a] transition-colors border-2 border-[#a07830]"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : requiresClue && !failMsg && !successMsg && !inBranch ? (
                 <button
                   onClick={() => setPresenting(true)}
                   className="flex items-center gap-2 bg-[#8B2020] text-[#e8d5a0] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#a02020] transition-colors border-2 border-[#5a1010]"
@@ -122,10 +151,15 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
                 </button>
               ) : (
                 <button
-                  onClick={isLast && !failMsg && !successMsg ? onClose : (failMsg || successMsg ? () => { setFailMsg(null); setSuccessMsg(null); setPresenting(true); } : onNext)}
+                  onClick={
+                    (isLast && !failMsg && !successMsg && !interaction.options) || isBranchLast 
+                    ? onClose 
+                    : (failMsg || successMsg ? () => { setFailMsg(null); setSuccessMsg(null); setPresenting(true); } 
+                    : (inBranch ? () => setBranchIndex(branchIndex + 1) : onNext))
+                  }
                   className="flex items-center gap-2 bg-[#2a1a0a] text-[#d4a017] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#d4a017] hover:text-[#2a1a0a] transition-colors border-2 border-[#a07830]"
                 >
-                  {isLast && !failMsg && !successMsg ? 'Close' : (failMsg || successMsg ? 'Back to Evidence' : 'Continue')} <ChevronRight className="w-3.5 h-3.5" />
+                  {(isLast && !interaction.options) || isBranchLast ? 'Close' : (failMsg || successMsg ? 'Back to Evidence' : 'Continue')} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>

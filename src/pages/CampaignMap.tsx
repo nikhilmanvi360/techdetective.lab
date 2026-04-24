@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, ChevronLeft } from 'lucide-react';
 
@@ -18,6 +18,7 @@ import ClueNotebook from '../components/campaign/ClueNotebook';
 import ZoneTransitionOverlay from '../components/campaign/ZoneTransitionOverlay';
 import InteractionPrompt from '../components/campaign/InteractionPrompt';
 import CaseResolution from '../components/campaign/CaseResolution';
+import RoleSelectionOverlay from '../components/campaign/RoleSelectionOverlay';
 
 // ── Inner component (needs CampaignProvider context) ──────────────────────────
 function CampaignMapInner() {
@@ -103,11 +104,11 @@ function CampaignMapInner() {
     ];
     const hasInteractable = neighbors.some(([nr, nc]) => {
       const tile = grid[nr]?.[nc];
-      return tile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(tile);
+      return tile && ['N', 'T', 'I', 'G', 'E'].includes(tile);
     });
-    // Also check current tile for items/terminals
+    // Also check current tile
     const curTile = getTile(state.playerPos, grid);
-    setCanInteract(hasInteractable || ['npc', 'terminal', 'item', 'gate', 'exit'].includes(curTile));
+    setCanInteract(hasInteractable || ['N', 'T', 'I', 'G', 'E'].includes(curTile));
   }, [state.playerPos, currentZoneConfig]);
 
   const triggerInteraction = useCallback(() => {
@@ -121,14 +122,14 @@ function CampaignMapInner() {
       for (const [nr, nc] of dirs) {
         const pos: [number, number] = [nr, nc];
         const ix = getInteraction(pos, currentZoneConfig);
-        if (ix) { openInteraction(ix); return; }
+        if (ix) { openInteraction(ix, pos); return; }
       }
       return;
     }
-    openInteraction(interaction);
+    openInteraction(interaction, state.playerPos);
   }, [state.playerPos, currentZoneConfig, activeInteraction]);
 
-  function openInteraction(ix: TileInteraction) {
+  function openInteraction(ix: TileInteraction, targetPos: [number, number]) {
     // Gate check
     if (ix.type === 'gate' && ix.requiresItems) {
       const missing = ix.requiresItems.filter(item => !state.inventory.includes(item));
@@ -137,6 +138,9 @@ function CampaignMapInner() {
         setTimeout(() => setLockedMsg(null), 3000);
         return;
       }
+    }
+    if (ix.type === 'dialogue') {
+      dispatch({ type: 'RECORD_NPC_VISIT', npcId: `${state.currentZone}_${targetPos[0]}_${targetPos[1]}` });
     }
     setActiveInteraction(ix);
     setTerminalSolved(false);
@@ -187,7 +191,7 @@ function CampaignMapInner() {
 
   // Keyboard handler
   useEffect(() => {
-    if (activeInteraction || transitionZone) return;
+    if (activeInteraction || transitionZone || !state.teamRoles) return;
 
     const KEY_DIR: Record<string, Direction> = {
       ArrowUp: 'up', w: 'up', W: 'up',
@@ -207,7 +211,7 @@ function CampaignMapInner() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, triggerInteraction, dispatch]);
+  }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, state.teamRoles, triggerInteraction, dispatch]);
 
   if (!isLoaded) {
     return (
@@ -224,17 +228,20 @@ function CampaignMapInner() {
       {/* ── HUD ── */}
       <CampaignHUD />
 
+      {/* ── Role Selection ── */}
+      <RoleSelectionOverlay />
+
       {/* ── Back + Notebook controls ── */}
       <div className="absolute top-20 left-4 flex gap-2 z-20">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors"
+          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors pointer-events-auto"
         >
           <ChevronLeft className="w-3 h-3" /> Bureau
         </button>
         <button
           onClick={() => setNotebookOpen(o => !o)}
-          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors"
+          className="flex items-center gap-1 bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-1.5 text-[9px] font-black text-[#d4a017] uppercase tracking-widest hover:bg-[#d4a017]/10 transition-colors pointer-events-auto"
         >
           <BookOpen className="w-3 h-3" /> Notebook ({state.clues.length})
         </button>

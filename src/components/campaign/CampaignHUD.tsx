@@ -1,6 +1,6 @@
 import { ZoneId } from '../../data/campaignData';
 import { useCampaign } from '../../engine/campaignStore';
-import { BookOpen, Package, MapPin } from 'lucide-react';
+import { BookOpen, Package, MapPin, Award, Shield, Users } from 'lucide-react';
 
 const ZONE_LABELS: Record<ZoneId, string> = {
   cafeteria: 'Zone 01 — Cafeteria',
@@ -32,18 +32,48 @@ export default function CampaignHUD() {
       </div>
 
       {/* Stats */}
-      <div className="flex gap-2">
-        <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
-          <Package className="w-3.5 h-3.5 text-[#d4a017]" />
-          <span className="text-xs font-black text-[#f0e0a0]">{state.inventory.length}</span>
+      {/* Stats & Roles */}
+      <div className="flex flex-col gap-2 items-end">
+        <div className="flex gap-2">
+          {state.teamRoles && (
+            <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex flex-col items-end">
+              <div className="text-[8px] text-[#a07830] uppercase font-black tracking-widest flex items-center gap-1">
+                <Users className="w-2.5 h-2.5" /> Team Roles
+              </div>
+              <div className="text-[10px] font-serif text-[#f0e0a0] italic">
+                {state.teamRoles.p1} & {state.teamRoles.p2}
+              </div>
+            </div>
+          )}
+          <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
+            <Award className="w-3.5 h-3.5 text-[#d4a017]" />
+            <div className="flex flex-col">
+              <span className="text-[7px] text-[#a07830] uppercase font-black">Score</span>
+              <span className="text-xs font-black text-[#f0e0a0] leading-none">{state.score}</span>
+            </div>
+          </div>
+          <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-[#d4a017]" />
+            <div className="flex flex-col">
+              <span className="text-[7px] text-[#a07830] uppercase font-black">Reputation</span>
+              <span className="text-xs font-black text-[#f0e0a0] leading-none">{state.reputation}%</span>
+            </div>
+          </div>
         </div>
-        <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-[#d4a017]" />
-          <span className="text-xs font-black text-[#f0e0a0]">{state.clues.length}</span>
-        </div>
-        <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
-          <span className="text-[9px] text-[#a07830] font-black uppercase">Zones</span>
-          <span className="text-xs font-black text-[#f0e0a0]">{progress}/4</span>
+
+        <div className="flex gap-2">
+          <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
+            <Package className="w-3.5 h-3.5 text-[#d4a017]" />
+            <span className="text-xs font-black text-[#f0e0a0]">{state.inventory.length}</span>
+          </div>
+          <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
+            <BookOpen className="w-3.5 h-3.5 text-[#d4a017]" />
+            <span className="text-xs font-black text-[#f0e0a0]">{state.clues.length}</span>
+          </div>
+          <div className="bg-[#1d1208]/90 border border-[#d4a017]/40 px-3 py-2 shadow-lg flex items-center gap-2">
+            <span className="text-[9px] text-[#a07830] font-black uppercase">Zones</span>
+            <span className="text-xs font-black text-[#f0e0a0]">{progress}/4</span>
+          </div>
         </div>
       </div>
     </div>
