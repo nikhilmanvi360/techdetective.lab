@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Coffee, Fingerprint, User } from 'lucide-react';
+import { Coffee, Fingerprint, Shield, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Team } from '../types';
 import { useSound } from '../hooks/useSound';
@@ -15,6 +15,9 @@ export default function Login({ onLogin }: LoginProps) {
  const [loading, setLoading] = useState(false);
  const [error, setError] = useState('');
  const { playSound } = useSound();
+ const isLocalDev =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
  const handleSubmit = async (e: React.FormEvent) => {
  e.preventDefault();
@@ -44,6 +47,14 @@ export default function Login({ onLogin }: LoginProps) {
  setError('Connection Link Severed');
  setLoading(false);
  }
+ };
+
+ const enableAdminBypass = () => {
+ playSound('click');
+ setTeamName('CCU_ADMIN');
+ setPassword('admin123');
+ setRole('detective');
+ setError('');
  };
 
  return (
@@ -108,7 +119,7 @@ export default function Login({ onLogin }: LoginProps) {
  </div>
 
  {/* Role Selector Buttons */}
- <div className="grid grid-cols-2 gap-3 mb-5">
+ <div className={`grid ${isLocalDev ? 'grid-cols-3' : 'grid-cols-2'} gap-3 mb-5`}>
  <button
  type="button"
  onClick={() => { playSound('click'); setRole('detective'); }}
@@ -128,8 +139,8 @@ export default function Login({ onLogin }: LoginProps) {
  </button>
 
  <button
- type="button"
- onClick={() => { playSound('click'); setRole('analyst'); }}
+  type="button"
+  onClick={() => { playSound('click'); setRole('analyst'); }}
  className="flex flex-col items-center gap-1 py-3 px-2 transition-all"
  style={{
  background: role === 'analyst'
@@ -144,6 +155,24 @@ export default function Login({ onLogin }: LoginProps) {
  <Fingerprint className="w-5 h-5" />
  <span className="text-[10px] font-bold uppercase tracking-wider">Field Operative<br />Console</span>
  </button>
+
+ {isLocalDev && (
+ <button
+ type="button"
+ onClick={enableAdminBypass}
+ className="flex flex-col items-center gap-1 py-3 px-2 transition-all"
+ style={{
+ background: 'linear-gradient(to bottom, #f7d48b, #b9861b)',
+ border: '2px solid #8B6914',
+ boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+ borderRadius: '3px',
+ color: '#3d2510',
+ }}
+ >
+ <Shield className="w-5 h-5" />
+ <span className="text-[10px] font-bold uppercase tracking-wider">Admin<br />Override</span>
+ </button>
+ )}
  </div>
 
  {/* Form */}
@@ -222,8 +251,8 @@ export default function Login({ onLogin }: LoginProps) {
 
  {/* Login button */}
  <button
- type="submit"
- disabled={loading}
+  type="submit"
+  disabled={loading}
  className="w-full py-4 text-base font-bold uppercase tracking-[0.4em] transition-all mt-2"
  style={{
  background: loading
@@ -242,6 +271,12 @@ export default function Login({ onLogin }: LoginProps) {
  {loading ? 'VERIFYING...' : 'LOG IN'}
  </button>
  </form>
+
+ {isLocalDev && (
+ <div className="mt-3 text-[10px] font-mono text-amber-900/70 text-center uppercase tracking-widest">
+ Local dev override available for <span className="font-bold">CCU_ADMIN / admin123</span>
+ </div>
+ )}
 
  {/* Footer status bar */}
  <div className="mt-6 pt-4 border-t border-amber-900/30">
