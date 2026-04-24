@@ -97,16 +97,20 @@ function AnimatedSprite({
   className = '',
   imageClassName = '',
   delay = 0,
+  bob = 1.5,
+  tilt = 0.35,
 }: {
   src: string;
   alt: string;
   className?: string;
   imageClassName?: string;
   delay?: number;
+  bob?: number;
+  tilt?: number;
 }) {
   return (
     <motion.div
-      animate={{ y: [0, -1.5, 0], rotate: [0, 0.35, 0] }}
+      animate={{ y: [0, -bob, 0], rotate: [0, tilt, 0] }}
       transition={{
         duration: 1.8,
         repeat: Infinity,
@@ -288,19 +292,27 @@ export default function MapRenderer({
 
                         {showDualMarker ? (
                           <div className="relative w-full h-full">
-                            <span className="absolute left-0.5 top-0.5 text-[9px] text-[#8c5f22] font-black leading-none z-20">1</span>
-                            <span className="absolute right-0.5 bottom-0.5 text-[9px] text-[#55724a] font-black leading-none z-20">2</span>
+                            <span className="absolute left-0.5 top-0.5 rounded-full bg-[#f8edd7]/90 px-1 py-0.5 text-[8px] text-[#8c5f22] font-black leading-none z-20 shadow-sm">
+                              YOU
+                            </span>
+                            <span className="absolute right-0.5 bottom-0.5 rounded-full bg-[#f8edd7]/90 px-1 py-0.5 text-[8px] text-[#55724a] font-black leading-none z-20 shadow-sm">
+                              P2
+                            </span>
                             <AnimatedSprite
                               src="/assets/noir_sprite_mc.png"
                               alt="Player one"
                               delay={0}
+                              bob={1.7}
+                              tilt={0.42}
                               className="absolute inset-0 w-full h-full"
-                              imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
+                              imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
                             />
                             <AnimatedSprite
                               src="/assets/noir_sprite_partner.png"
                               alt="Player two"
-                              delay={0.15}
+                              delay={0.3}
+                              bob={1.1}
+                              tilt={0.18}
                               className="absolute inset-0 w-full h-full"
                               imageClassName="w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-90 mix-blend-normal"
                             />
@@ -309,14 +321,18 @@ export default function MapRenderer({
                           <AnimatedSprite
                             src="/assets/noir_sprite_mc.png"
                             alt="Player"
+                            bob={1.7}
+                            tilt={0.42}
                             className="w-full h-full"
-                            imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_2px_rgba(42,26,10,0.35)]"
+                            imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
                           />
                         ) : isP2 ? (
                           <AnimatedSprite
                             src="/assets/noir_sprite_partner.png"
                             alt="Teammate"
-                            delay={0.15}
+                            delay={0.3}
+                            bob={1.1}
+                            tilt={0.18}
                             className="w-full h-full"
                             imageClassName="w-full h-full object-contain p-0.5 opacity-95"
                           />
