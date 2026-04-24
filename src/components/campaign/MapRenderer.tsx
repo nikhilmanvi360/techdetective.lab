@@ -55,7 +55,7 @@ function getTileTexture(tile: TileType, zoneId: ZoneId): string {
 }
 
 export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [] }: MapRendererProps) {
-  const cellPx = grid.length > 24 ? 28 : 32;
+  const cellPx = grid.length > 24 ? 24 : 32;
   const boardWidth = (grid[0]?.length || 0) * cellPx;
 
   return (

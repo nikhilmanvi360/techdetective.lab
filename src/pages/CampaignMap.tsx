@@ -310,23 +310,26 @@ function CampaignMapInner() {
       </div>
 
       {/* ── Map ── */}
-      <div className="flex-1 flex items-center justify-center pt-16">
-        <motion.div
-          key={state.currentZone}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          {currentZoneConfig && (
-            <MapRenderer
-              grid={currentZoneConfig.grid}
-              playerPos={state.playerPos}
-              p2Pos={state.p2Pos || undefined}
-              zoneId={state.currentZone}
-              drones={activeDrones.map(d => d.pos)}
-            />
-          )}
-        </motion.div>
+      <div className="flex-1 min-h-0 px-4 pt-10 pb-4 overflow-hidden">
+        <div className="h-full w-full overflow-auto flex items-start justify-center lg:items-center">
+          <motion.div
+            key={state.currentZone}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="w-full flex items-start justify-center"
+          >
+            {currentZoneConfig && (
+              <MapRenderer
+                grid={currentZoneConfig.grid}
+                playerPos={state.playerPos}
+                p2Pos={state.p2Pos || undefined}
+                zoneId={state.currentZone}
+                drones={activeDrones.map(d => d.pos)}
+              />
+            )}
+          </motion.div>
+        </div>
       </div>
 
       {/* ── Security Timer Overlay ── */}
