@@ -64,6 +64,7 @@ const submissionLimiter = rateLimit({
 export const teamTokenVersions = new Map<number, number>();
 // In-memory fallback for investigation rooms if DB table is missing
 const memoryRooms = new Map<string, any>();
+const campaignStateMemory = new Map<number, any>();
 
 // =========================================================
 // App & Socket.IO setup
@@ -655,18 +656,21 @@ async function startServer() {
         
       if (error && error.code !== 'PGRST116') {
         console.error('Campaign state fetch error:', error);
-        return res.status(500).json({ error: 'Failed to fetch campaign state' });
+        return res.json(campaignStateMemory.get(req.user.id) || null);
       }
-      
-      res.json(data?.state || null);
+
+      const state = data?.state || campaignStateMemory.get(req.user.id) || null;
+      res.json(state);
     } catch (e) {
-      res.status(500).json({ error: 'Failed to fetch campaign state' });
+      console.error('Campaign state fetch error:', e);
+      res.json(campaignStateMemory.get(req.user.id) || null);
     }
   });
 
   protectedRouter.post('/campaign/state', async (req: any, res: any) => {
     try {
       const { state } = req.body;
+      campaignStateMemory.set(req.user.id, state);
       const { error } = await supabase
         .from('case_team_state')
         .upsert({
@@ -675,11 +679,14 @@ async function startServer() {
           state: state
         }, { onConflict: 'case_id,team_id' });
         
-      if (error) throw error;
+      if (error) {
+        console.error('Campaign state save error:', error);
+        return res.json({ success: true, fallback: true });
+      }
       res.json({ success: true });
     } catch (e) {
       console.error('Campaign state save error:', e);
-      res.status(500).json({ error: 'Failed to save campaign state' });
+      res.json({ success: true, fallback: true });
     }
   });
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { motion } from 'motion/react';
 import { DoorOpen, FileText, Package, ShieldAlert, UserRound } from 'lucide-react';
 
@@ -99,6 +100,8 @@ function AnimatedSprite({
   delay = 0,
   bob = 1.5,
   tilt = 0.35,
+  ringClassName = '',
+  imageStyle,
 }: {
   src: string;
   alt: string;
@@ -107,6 +110,8 @@ function AnimatedSprite({
   delay?: number;
   bob?: number;
   tilt?: number;
+  ringClassName?: string;
+  imageStyle?: CSSProperties;
 }) {
   return (
     <motion.div
@@ -117,13 +122,13 @@ function AnimatedSprite({
         ease: 'easeInOut',
         delay,
       }}
-      className={className}
+      className={`${className} ${ringClassName}`}
     >
       <img
         src={src}
         alt={alt}
         className={imageClassName}
-        style={{ imageRendering: 'pixelated' }}
+        style={{ imageRendering: 'pixelated', ...imageStyle }}
       />
     </motion.div>
   );
@@ -292,10 +297,10 @@ export default function MapRenderer({
 
                         {showDualMarker ? (
                           <div className="relative w-full h-full">
-                            <span className="absolute left-0.5 top-0.5 rounded-full bg-[#f8edd7]/90 px-1 py-0.5 text-[8px] text-[#8c5f22] font-black leading-none z-20 shadow-sm">
+                            <span className="absolute left-0.5 top-0.5 rounded-full bg-[#f8edd7]/95 px-1 py-0.5 text-[8px] text-[#8c5f22] font-black leading-none z-20 shadow-sm">
                               YOU
                             </span>
-                            <span className="absolute right-0.5 bottom-0.5 rounded-full bg-[#f8edd7]/90 px-1 py-0.5 text-[8px] text-[#55724a] font-black leading-none z-20 shadow-sm">
+                            <span className="absolute right-0.5 bottom-0.5 rounded-full bg-[#f8edd7]/95 px-1 py-0.5 text-[8px] text-[#55724a] font-black leading-none z-20 shadow-sm">
                               P2
                             </span>
                             <AnimatedSprite
@@ -304,8 +309,10 @@ export default function MapRenderer({
                               delay={0}
                               bob={1.7}
                               tilt={0.42}
+                              ringClassName="absolute inset-0 w-full h-full rounded-md border border-[#b5874a]/60 bg-[#f8edd7]/18 shadow-[0_0_0_1px_rgba(42,26,10,0.14)]"
                               className="absolute inset-0 w-full h-full"
                               imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
+                              imageStyle={{ filter: 'saturate(1.1) contrast(1.08)' }}
                             />
                             <AnimatedSprite
                               src="/assets/noir_sprite_partner.png"
@@ -313,8 +320,10 @@ export default function MapRenderer({
                               delay={0.3}
                               bob={1.1}
                               tilt={0.18}
+                              ringClassName="absolute inset-0 w-full h-full rounded-md border border-[#6f8b5b]/65 bg-[#e7f3dd]/22 shadow-[0_0_0_1px_rgba(42,26,10,0.10)]"
                               className="absolute inset-0 w-full h-full"
-                              imageClassName="w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-90 mix-blend-normal"
+                              imageClassName="w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-95 mix-blend-normal"
+                              imageStyle={{ filter: 'hue-rotate(92deg) saturate(1.35) brightness(1.05)', transform: 'scaleX(-1)' }}
                             />
                           </div>
                         ) : isPlayer ? (
@@ -323,8 +332,10 @@ export default function MapRenderer({
                             alt="Player"
                             bob={1.7}
                             tilt={0.42}
+                            ringClassName="w-full h-full rounded-md border border-[#b5874a]/60 bg-[#f8edd7]/18 shadow-[0_0_0_1px_rgba(42,26,10,0.14)]"
                             className="w-full h-full"
                             imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
+                            imageStyle={{ filter: 'saturate(1.1) contrast(1.08)' }}
                           />
                         ) : isP2 ? (
                           <AnimatedSprite
@@ -333,8 +344,10 @@ export default function MapRenderer({
                             delay={0.3}
                             bob={1.1}
                             tilt={0.18}
+                            ringClassName="w-full h-full rounded-md border border-[#6f8b5b]/65 bg-[#e7f3dd]/22 shadow-[0_0_0_1px_rgba(42,26,10,0.10)]"
                             className="w-full h-full"
                             imageClassName="w-full h-full object-contain p-0.5 opacity-95"
+                            imageStyle={{ filter: 'hue-rotate(92deg) saturate(1.35) brightness(1.05)', transform: 'scaleX(-1)' }}
                           />
                         ) : isDrone ? (
                           <div className="flex flex-col items-center justify-center leading-none rounded-sm bg-[#7d2d25]/70 border border-[#f1c7aa]/40 p-0.5 shadow-[0_0_0_1px_rgba(42,26,10,0.12)]">

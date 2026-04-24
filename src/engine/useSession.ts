@@ -23,6 +23,7 @@ export function useSession(
   const channelRef = useRef<RealtimeChannel | null>(null);
   const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestStateRef = useRef(localState);
+  const activeChannelIdRef = useRef(0);
 
   useEffect(() => {
     latestStateRef.current = localState;
@@ -30,13 +31,15 @@ export function useSession(
 
   // Leave session cleanup
   const leaveSession = useCallback(() => {
+    activeChannelIdRef.current += 1;
     if (joinTimeoutRef.current) {
       clearTimeout(joinTimeoutRef.current);
       joinTimeoutRef.current = null;
     }
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      const channel = channelRef.current;
       channelRef.current = null;
+      void supabase.removeChannel(channel).catch(() => undefined);
     }
     setSessionCode(null);
     setIsHost(false);
@@ -55,6 +58,7 @@ export function useSession(
   // Join or Create logic
   const setupChannel = useCallback(async (code: string, host: boolean) => {
     leaveSession();
+    const channelId = activeChannelIdRef.current;
 
     const channel = supabase.channel(`session:${code}`, {
       config: {
@@ -66,6 +70,7 @@ export function useSession(
     // ALL listeners MUST be defined BEFORE .subscribe()
     channel
       .on('presence', { event: 'sync' }, () => {
+        if (activeChannelIdRef.current !== channelId) return;
         const state = channel.presenceState();
         const hostPresent = state['host']?.length > 0;
         const clientPresent = state['client']?.length > 0;
@@ -83,6 +88,7 @@ export function useSession(
         }
       })
       .on('presence', { event: 'join' }, ({ key }) => {
+        if (activeChannelIdRef.current !== channelId) return;
         if (host && key === 'client' && latestStateRef.current) {
           // Send full state to the new client
           channel.send({
@@ -93,6 +99,7 @@ export function useSession(
         }
       })
       .on('broadcast', { event: 'ACTION' }, (payload) => {
+        if (activeChannelIdRef.current !== channelId) return;
         const action = payload.payload as CampaignAction;
         dispatchLocal(action);
       });
@@ -120,6 +127,7 @@ export function useSession(
       }, 5000);
 
       channel.subscribe((status) => {
+        if (activeChannelIdRef.current !== channelId) return;
         if (status === 'SUBSCRIBED') {
           channel.track({ pos: latestStateRef.current.playerPos });
           finish(true);
