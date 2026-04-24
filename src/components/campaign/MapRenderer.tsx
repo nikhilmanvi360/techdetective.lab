@@ -4,6 +4,7 @@ interface MapRendererProps {
   grid: TileType[][];
   playerPos: [number, number];
   zoneId: ZoneId;
+  drones?: [number, number][];
 }
 
 const TILE_ICONS: Record<TileType, string> = {
@@ -33,24 +34,27 @@ const ZONE_BORDER: Record<ZoneId, string> = {
   admin_core: 'border-[#8B2020]',
 };
 
-export default function MapRenderer({ grid, playerPos, zoneId }: MapRendererProps) {
+export default function MapRenderer({ grid, playerPos, zoneId, drones = [] }: MapRendererProps) {
   return (
     <div className={`inline-block border-2 ${ZONE_BORDER[zoneId]} shadow-2xl`}>
       {grid.map((row, r) => (
         <div key={r} className="flex">
           {row.map((tile, c) => {
             const isPlayer = playerPos[0] === r && playerPos[1] === c;
+            const isDrone = drones.some(d => d[0] === r && d[1] === c);
             return (
               <div
                 key={c}
                 className={`
                   w-6 h-6 flex items-center justify-center text-xs relative
-                  ${TILE_BG[tile]}
+                  ${isDrone ? 'bg-red-900' : TILE_BG[tile]}
                   ${tile === 'wall' ? '' : 'border border-[#2a1c10]/40'}
                 `}
               >
                 {isPlayer ? (
                   <span className="text-sm animate-pulse z-10">🕵️</span>
+                ) : isDrone ? (
+                  <span className="text-sm animate-pulse z-10">🚨</span>
                 ) : (
                   <span className="opacity-70">{TILE_ICONS[tile]}</span>
                 )}

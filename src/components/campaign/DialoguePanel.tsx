@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { TileInteraction } from '../../data/campaignData';
-import { X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, FileSearch } from 'lucide-react';
+import { useCampaign } from '../../engine/campaignStore';
+import { useState, useEffect } from 'react';
 
 interface DialoguePanelProps {
   interaction: TileInteraction | null;
@@ -10,9 +12,32 @@ interface DialoguePanelProps {
 }
 
 export default function DialoguePanel({ interaction, lineIndex, onNext, onClose }: DialoguePanelProps) {
+  const { state } = useCampaign();
+  const [presenting, setPresenting] = useState(false);
+  const [failMsg, setFailMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPresenting(false);
+    setFailMsg(null);
+  }, [interaction]);
+
   if (!interaction) return null;
-  const line = interaction.lines[lineIndex];
   const isLast = lineIndex >= interaction.lines.length - 1;
+  const requiresClue = isLast && !!interaction.requiredClueToUnlock;
+
+  const handlePresent = (clueStr: string) => {
+    if (clueStr === interaction.requiredClueToUnlock || clueStr.includes(interaction.requiredClueToUnlock!)) {
+      setPresenting(false);
+      setFailMsg(null);
+      // Hack: tell the parent it succeeded by calling onClose
+      // In a real app, we might want a separate onSuccess callback
+      onClose();
+    } else {
+      setFailMsg(interaction.clueFailMsg?.[0] || 'That doesn\'t seem relevant to what I asked.');
+    }
+  };
+
+  const line = failMsg ? failMsg : interaction.lines[lineIndex];
 
   return (
     <AnimatePresence>
@@ -44,17 +69,46 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
           </p>
 
           {/* Controls */}
-          <div className="flex justify-between items-center mt-4">
-            <span className="text-[9px] text-[#a07830] uppercase tracking-widest font-black">
-              {lineIndex + 1} / {interaction.lines.length}
-            </span>
-            <button
-              onClick={isLast ? onClose : onNext}
-              className="flex items-center gap-2 bg-[#2a1a0a] text-[#d4a017] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#d4a017] hover:text-[#2a1a0a] transition-colors border-2 border-[#a07830]"
-            >
-              {isLast ? 'Close' : 'Continue'} <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          {presenting ? (
+            <div className="mt-4 border-t border-[#a07830]/30 pt-3">
+              <span className="text-[10px] text-[#a07830] uppercase font-black block mb-2">Select Evidence:</span>
+              <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                {state.clues.length === 0 && <span className="text-xs text-[#2a1a0a]/50 italic">No clues collected yet.</span>}
+                {state.clues.map((c, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => handlePresent(c)}
+                    className="text-left bg-[#d4a017]/10 hover:bg-[#a07830] hover:text-[#e8d5a0] text-[#2a1a0a] text-xs font-serif p-2 border border-[#a07830]/20 transition-colors"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setPresenting(false)} className="mt-2 text-[10px] text-red-800 uppercase font-black hover:underline">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center mt-4">
+              <span className="text-[9px] text-[#a07830] uppercase tracking-widest font-black">
+                {failMsg ? 'FAIL' : `${lineIndex + 1} / ${interaction.lines.length}`}
+              </span>
+              
+              {requiresClue && !failMsg ? (
+                <button
+                  onClick={() => setPresenting(true)}
+                  className="flex items-center gap-2 bg-[#8B2020] text-[#e8d5a0] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#a02020] transition-colors border-2 border-[#5a1010]"
+                >
+                  <FileSearch className="w-3.5 h-3.5" /> Present Evidence
+                </button>
+              ) : (
+                <button
+                  onClick={isLast && !failMsg ? onClose : (failMsg ? () => setFailMsg(null) : onNext)}
+                  className="flex items-center gap-2 bg-[#2a1a0a] text-[#d4a017] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#d4a017] hover:text-[#2a1a0a] transition-colors border-2 border-[#a07830]"
+                >
+                  {isLast ? 'Close' : (failMsg ? 'Back' : 'Continue')} <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>

@@ -12,6 +12,7 @@ import { TileInteraction } from '../data/campaignData';
 import MapRenderer from '../components/campaign/MapRenderer';
 import CampaignHUD from '../components/campaign/CampaignHUD';
 import DialoguePanel from '../components/campaign/DialoguePanel';
+import TerminalPuzzlePanel from '../components/campaign/TerminalPuzzlePanel';
 import InventoryPanel from '../components/campaign/InventoryPanel';
 import ClueNotebook from '../components/campaign/ClueNotebook';
 import ZoneTransitionOverlay from '../components/campaign/ZoneTransitionOverlay';
@@ -24,13 +25,49 @@ function CampaignMapInner() {
   const navigate = useNavigate();
 
   const [activeInteraction, setActiveInteraction] = useState<TileInteraction | null>(null);
+  const [terminalSolved, setTerminalSolved] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
   const [notebookOpen, setNotebookOpen] = useState(false);
   const [transitionZone, setTransitionZone] = useState<ZoneId | null>(null);
   const [lockedMsg, setLockedMsg] = useState<string | null>(null);
   const [canInteract, setCanInteract] = useState(false);
+  const [droneTick, setDroneTick] = useState(0);
 
   const currentZoneConfig = CAMPAIGN_ZONES.find(z => z.id === state.currentZone)!;
+
+  // Drone logic
+  useEffect(() => {
+    if (!currentZoneConfig.drones || currentZoneConfig.drones.length === 0) return;
+    if (activeInteraction || transitionZone) return;
+
+    const interval = setInterval(() => {
+      setDroneTick(t => t + 1);
+    }, 1000); // Drones move every 1 second
+    return () => clearInterval(interval);
+  }, [currentZoneConfig, activeInteraction, transitionZone]);
+
+  const activeDrones = (currentZoneConfig.drones || []).map(d => {
+    const totalSteps = d.path.length;
+    const currentStep = d.path[droneTick % totalSteps];
+    return { id: d.id, pos: currentStep };
+  });
+
+  // Collision check
+  useEffect(() => {
+    for (const drone of activeDrones) {
+      const [dr, dc] = drone.pos;
+      const [pr, pc] = state.playerPos;
+      // Caught if on same tile or adjacent
+      if (Math.abs(dr - pr) <= 1 && Math.abs(dc - pc) <= 1) {
+        setLockedMsg('CAUGHT BY SECURITY DRONE! Resetting...');
+        setTimeout(() => {
+          dispatch({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+          setLockedMsg(null);
+        }, 1500);
+        break;
+      }
+    }
+  }, [droneTick, state.playerPos, currentZoneConfig.playerStart, dispatch, activeDrones]);
 
   // Check if adjacent tile is interactable
   useEffect(() => {
@@ -77,6 +114,7 @@ function CampaignMapInner() {
       }
     }
     setActiveInteraction(ix);
+    setTerminalSolved(false);
     setLineIndex(0);
   }
 
@@ -189,6 +227,7 @@ function CampaignMapInner() {
             grid={currentZoneConfig.grid}
             playerPos={state.playerPos}
             zoneId={state.currentZone}
+            drones={activeDrones.map(d => d.pos)}
           />
         </motion.div>
       </div>
@@ -221,13 +260,22 @@ function CampaignMapInner() {
       {/* ── Inventory ── */}
       <InventoryPanel />
 
-      {/* ── Dialogue ── */}
-      <DialoguePanel
+      {/* ── Terminal Puzzle ── */}
+      <TerminalPuzzlePanel
         interaction={activeInteraction}
-        lineIndex={lineIndex}
-        onNext={handleNextLine}
+        onSuccess={() => setTerminalSolved(true)}
         onClose={closeInteraction}
       />
+
+      {/* ── Dialogue ── */}
+      {(!activeInteraction?.terminalCmd || terminalSolved) && (
+        <DialoguePanel
+          interaction={activeInteraction}
+          lineIndex={lineIndex}
+          onNext={handleNextLine}
+          onClose={closeInteraction}
+        />
+      )}
 
       {/* ── Clue Notebook ── */}
       <ClueNotebook open={notebookOpen} onClose={() => setNotebookOpen(false)} />

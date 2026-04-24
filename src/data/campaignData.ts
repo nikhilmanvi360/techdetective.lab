@@ -9,6 +9,19 @@ export interface TileInteraction {
   clue?: string;         // clue text
   requiresItems?: string[];
   unlocksZone?: ZoneId;
+  
+  // NEW MECHANICS
+  terminalCmd?: string;        // Command required to solve terminal puzzle
+  terminalContext?: string;    // Hint shown in terminal
+  terminalSuccess?: string[];  // Lines shown after correct command
+  
+  requiredClueToUnlock?: string; // Clue ID/Text player must present to NPC to get the reward/clue
+  clueFailMsg?: string[];        // What NPC says if wrong clue or no clue is presented
+}
+
+export interface DroneConfig {
+  id: string;
+  path: [number, number][]; // Sequence of coordinates to patrol
 }
 
 export interface ZoneConfig {
@@ -19,6 +32,7 @@ export interface ZoneConfig {
   requiredItems: string[];
   grid: TileType[][];
   interactions: Record<string, TileInteraction>; // "row,col" → interaction
+  drones?: DroneConfig[]; // Hazards that reset player
   playerStart: [number, number];
 }
 
@@ -125,7 +139,14 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '14,8': { type: 'dialogue', speaker: 'Canteen Staff', lines: ['You need to get into the kitchen?', 'I dropped my spare kitchen key near the vending machines in the south-west corner. If you find it, you can use it.'] },
       '17,2': { type: 'item', speaker: 'Vending Machine', lines: ['You look under the vending machine.', 'You found the Kitchen Key!'], reward: 'kitchen_key' },
       '7,15': { type: 'gate', speaker: 'Kitchen Door', lines: ['The kitchen is locked. You need the Kitchen Key to enter.'], requiresItems: ['kitchen_key'] },
-      '3,16': { type: 'clue', speaker: 'Kitchen Terminal', lines: ['Delivery Log: "Midnight rations picked up by sys_ghost."', 'Clue logged: sys_ghost was in the kitchen at midnight.'], clue: 'sys_ghost was in the kitchen at midnight.' },
+      '3,16': { 
+        type: 'clue', 
+        speaker: 'Kitchen Terminal', 
+        lines: ['You hacked the terminal.', 'Delivery Log: "Midnight rations picked up by sys_ghost."', 'Clue logged: sys_ghost was in the kitchen at midnight.'], 
+        clue: 'sys_ghost was in the kitchen at midnight.',
+        terminalCmd: 'grep "sys_ghost" auth.log',
+        terminalContext: 'SYSTEM TERMINAL. Filter auth.log for "sys_ghost" to proceed.'
+      },
       '4,14': { type: 'item', speaker: 'Locker', lines: ['Inside the staff locker, you find a Library Access Card.', 'You collect KEY_A.'], reward: 'key_A' },
       '18,18': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to the Library. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'library' },
     },
@@ -140,10 +161,23 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     grid: libraryGrid,
     interactions: {
       '2,2': { type: 'dialogue', speaker: 'Librarian', lines: ['Someone broke the archive seal last night. They scrambled the book locations.', 'The terminal might tell you where the archive override is.'] },
-      '8,6': { type: 'dialogue', speaker: 'Research Student', lines: ['I was studying when the lights flickered.', 'I heard someone messing with the locker in the south-west corner. They dropped a torn page in the east wing.'] },
+      '8,6': { 
+        type: 'dialogue', 
+        speaker: 'Research Student', 
+        lines: ['Who are you? Why are you asking me questions?', 'Oh, you know about sys_ghost? Okay, fine.', 'I saw them messing with the locker in the south-west corner. They dropped a torn page in the east wing.'],
+        requiredClueToUnlock: 'sys_ghost was in the kitchen at midnight.',
+        clueFailMsg: ['I have nothing to say to you. Leave me alone to study.']
+      },
       '5,15': { type: 'clue', speaker: 'Catalog Terminal', lines: ['Search query: "ARGUS_PROTOCOL". Results deleted.', 'Clue logged: ARGUS protocol reference.'], clue: 'ARGUS protocol reference found in library.' },
       '15,18': { type: 'clue', speaker: 'Torn Page', lines: ['You find a torn page on the floor: "Locker code is 8-4-2-1".', 'Clue logged: Locker code.'], clue: 'Library locker code: 8-4-2-1' },
-      '18,2': { type: 'item', speaker: 'Locked Locker', lines: ['You enter the code 8-4-2-1. It opens!', 'Inside is the Master Badge (KEY_B).'], reward: 'key_B' },
+      '18,2': { 
+        type: 'item', 
+        speaker: 'Locked Locker', 
+        lines: ['You entered the override sequence. It opens!', 'Inside is the Master Badge (KEY_B).'], 
+        reward: 'key_B',
+        terminalCmd: 'unlock --code 8421',
+        terminalContext: 'ELECTRONIC LOCK. Enter unlock sequence using the 4-digit pin.'
+      },
       '18,18': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'maintenance' },
     },
   },
@@ -160,9 +194,20 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '4,8': { type: 'clue', speaker: 'Node 1', lines: ['Node 1 log: Rebooted at 23:51 by sys_ghost.', 'Clue logged.'], clue: 'Node 1 rebooted by sys_ghost.' },
       '11,12': { type: 'clue', speaker: 'Node 2', lines: ['Node 2 log: Encryption bypassed.', 'Clue logged.'], clue: 'Node 2 encryption bypassed.' },
       '17,5': { type: 'clue', speaker: 'Node 3', lines: ['Node 3 log: Cabinet code reset to 0000.', 'Clue logged.'], clue: 'Cabinet code reset to 0000.' },
-      '18,12': { type: 'item', speaker: 'Security Cabinet', lines: ['You enter 0000. It unlocks.', 'You collect the OVERRIDE_TOKEN.'], reward: 'override_token' },
+      '18,12': { 
+        type: 'item', 
+        speaker: 'Security Cabinet', 
+        lines: ['You hacked the cabinet. It unlocks.', 'You collect the OVERRIDE_TOKEN.'], 
+        reward: 'override_token',
+        terminalCmd: 'sudo bypass_lock 0000',
+        terminalContext: 'SECURITY CABINET. Root privileges required to bypass lock with 4-digit code.'
+      },
       '18,18': { type: 'gate', speaker: 'Admin Core Entrance', lines: ['Admin Core requires the Override Token.'], requiresItems: ['override_token'], unlocksZone: 'admin_core' },
     },
+    drones: [
+      { id: 'drone1', path: [[10, 2], [10, 3], [10, 4], [10, 5], [10, 6], [10, 7], [10, 8], [10, 9], [10, 8], [10, 7], [10, 6], [10, 5], [10, 4], [10, 3]] },
+      { id: 'drone2', path: [[16, 2], [16, 3], [16, 4], [16, 5], [16, 6], [16, 7], [16, 8], [16, 9], [16, 8], [16, 7], [16, 6], [16, 5], [16, 4], [16, 3]] }
+    ]
   },
   {
     id: 'admin_core',
@@ -174,12 +219,36 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     grid: adminGrid,
     interactions: {
       '4,4': { type: 'dialogue', speaker: 'System Admin', lines: ['You made it. The hacker is using ARGUS.', 'Find the firewall control terminal in the south to lower the barrier.'] },
-      '4,16': { type: 'dialogue', speaker: 'Security Director', lines: ['We need the admin passcode to drop the firewall.', 'Check the desk in the north area.'] },
+      '4,16': { 
+        type: 'dialogue', 
+        speaker: 'Security Director', 
+        lines: ['Ah, you found the ARGUS protocol clue.', 'We need the admin passcode to drop the firewall.', 'Check the desk in the north area.'],
+        requiredClueToUnlock: 'ARGUS protocol reference found in library.',
+        clueFailMsg: ['We are dealing with a severe breach here. Come back when you actually have evidence of what we are dealing with.']
+      },
       '6,10': { type: 'item', speaker: 'Desk', lines: ['You find a sticky note: "Admin Pass: HUNTER2".', 'You collect the Admin Passcode.'], reward: 'admin_passcode' },
-      '16,10': { type: 'item', speaker: 'Firewall Control', lines: ['You enter the Admin Passcode. The firewall is disabled!', 'You collect the Firewall Bypass key.'], requiresItems: ['admin_passcode'], reward: 'firewall_bypass' },
+      '16,10': { 
+        type: 'item', 
+        speaker: 'Firewall Control', 
+        lines: ['Firewall disabled!', 'You collect the Firewall Bypass key.'], 
+        requiresItems: ['admin_passcode'], 
+        reward: 'firewall_bypass',
+        terminalCmd: 'disable_firewall --pass HUNTER2',
+        terminalContext: 'FIREWALL CONTROL. Command requires the Admin Passcode.'
+      },
       '14,10': { type: 'gate', speaker: 'Firewall', lines: ['The inner core is protected by a firewall.', 'You need the Firewall Bypass.'], requiresItems: ['firewall_bypass'] },
-      '11,10': { type: 'final', speaker: 'Core Terminal', lines: ['Evidence summary: sys_ghost traces, ARGUS protocol.', 'Conclusion: Raza Malik (sys_ghost) orchestrated the breach using ARGUS.', 'Case closed. Initiating shutdown of ARGUS. Bureau notified.'] },
+      '11,10': { 
+        type: 'final', 
+        speaker: 'Core Terminal', 
+        lines: ['Evidence summary: sys_ghost traces, ARGUS protocol.', 'Conclusion: Raza Malik (sys_ghost) orchestrated the breach using ARGUS.', 'Case closed. Initiating shutdown of ARGUS. Bureau notified.'],
+        terminalCmd: 'initiate_shutdown -f',
+        terminalContext: 'ARGUS CORE TERMINAL. Awaiting shutdown initiation. Force flag (-f) required.'
+      },
     },
+    drones: [
+      { id: 'drone3', path: [[12, 6], [12, 7], [12, 8], [12, 9], [12, 10], [12, 11], [12, 12], [12, 13], [12, 14], [12, 13], [12, 12], [12, 11], [12, 10], [12, 9], [12, 8], [12, 7]] },
+      { id: 'drone4', path: [[15, 6], [15, 7], [15, 8], [15, 9], [15, 10], [15, 11], [15, 12], [15, 13], [15, 14], [15, 13], [15, 12], [15, 11], [15, 10], [15, 9], [15, 8], [15, 7]] }
+    ]
   },
 ];
 
