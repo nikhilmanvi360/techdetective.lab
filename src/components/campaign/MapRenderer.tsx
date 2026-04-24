@@ -34,6 +34,43 @@ const ZONE_BORDER: Record<ZoneId, string> = {
   admin_core: 'border-[#8b6b57]',
 };
 
+const ZONE_THEME: Record<ZoneId, {
+  glow: string;
+  stamp: string;
+  boardLine: string;
+  accent: string;
+  textureHint: string;
+}> = {
+  cafeteria: {
+    glow: 'from-[#d39a4a]/20 via-[#f1d0a1]/10 to-transparent',
+    stamp: 'CAFE TERRITORY',
+    boardLine: 'rgba(181,135,74,0.18)',
+    accent: '#b5874a',
+    textureHint: 'steam, paper, and spill marks',
+  },
+  library: {
+    glow: 'from-[#6a8c5a]/18 via-[#9bb084]/10 to-transparent',
+    stamp: 'ARCHIVE STACK',
+    boardLine: 'rgba(122,106,69,0.18)',
+    accent: '#7a6a45',
+    textureHint: 'catalog lanes and archive dust',
+  },
+  maintenance: {
+    glow: 'from-[#9b7448]/22 via-[#bea07a]/10 to-transparent',
+    stamp: 'SERVICE TUNNELS',
+    boardLine: 'rgba(138,108,77,0.18)',
+    accent: '#8a6c4d',
+    textureHint: 'pipes, grease, and hazard tape',
+  },
+  admin_core: {
+    glow: 'from-[#b54a3c]/22 via-[#8b6b57]/10 to-transparent',
+    stamp: 'LOCKED CORE',
+    boardLine: 'rgba(139,107,87,0.18)',
+    accent: '#8b6b57',
+    textureHint: 'security glass and firewall grids',
+  },
+};
+
 const ZONE_FLOOR: Record<ZoneId, string> = {
   cafeteria: `${ASSET_ROOT}/floor_tiles_sand_large.png`,
   library: `${ASSET_ROOT}/floor_stone_pattern.png`,
@@ -103,6 +140,7 @@ export default function MapRenderer({
   const boardWidth = (grid[0]?.length || 0) * cellPx;
   const hoveredMeta = hoveredTile ? TILE_META[hoveredTile.tile] : null;
   const activeDroneCount = drones.length;
+  const theme = ZONE_THEME[zoneId];
 
   return (
     <div className="relative w-full max-w-[1280px] mx-auto">
@@ -120,6 +158,7 @@ export default function MapRenderer({
           ].join(', '),
         }}
       >
+        <div className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${theme.glow}`} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(42,26,10,0.05),transparent_58%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/20 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#3c2613]/18 to-transparent" />
@@ -174,6 +213,12 @@ export default function MapRenderer({
         <div className="relative mt-4 overflow-hidden rounded-[1.5rem] border border-[#97754e] bg-[#eadbb8]">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(42,26,10,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(42,26,10,0.03)_1px,transparent_1px)] bg-[size:24px_24px] opacity-55" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,237,215,0.1),transparent_65%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-3 border-b border-white/20 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)]" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-3 border-r border-white/15 bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.18),transparent)]" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3 border-t border-black/10 bg-[linear-gradient(90deg,transparent,rgba(42,26,10,0.18),transparent)]" />
+          <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-[rgba(255,255,255,0.28)] bg-[#f5ead0]/85 px-3 py-1 text-[8px] font-black uppercase tracking-[0.35em] text-[#6e5535] shadow-[0_8px_20px_rgba(42,26,10,0.10)]">
+            {theme.stamp}
+          </div>
 
           <div className="relative overflow-auto">
             <div style={{ width: boardWidth }}>
@@ -211,6 +256,7 @@ export default function MapRenderer({
                           backgroundPosition: 'center, center',
                           backgroundBlendMode: 'soft-light, normal',
                           filter: isDrone ? 'saturate(0.85) brightness(0.78)' : undefined,
+                          boxShadow: isHovered ? `0 0 0 1px ${theme.accent} inset` : undefined,
                         }}
                       >
                         <div
@@ -306,6 +352,9 @@ export default function MapRenderer({
                   Row {hoveredTile.row + 1} / Col {hoveredTile.col + 1}
                 </div>
               )}
+              <div className="mt-2 text-[9px] uppercase tracking-[0.25em] text-[#7a6040]">
+                Zone texture: {theme.textureHint}
+              </div>
             </motion.div>
           </div>
         </div>

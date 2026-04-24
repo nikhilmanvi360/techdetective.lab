@@ -337,21 +337,6 @@ function CampaignMapInner() {
               </div>
             </div>
 
-            <div className="rounded-[1.75rem] border border-[#b58a53]/70 bg-[#f4e6c4]/92 p-4 shadow-[0_18px_42px_rgba(42,26,10,0.16)] backdrop-blur-sm">
-              <div className="text-[9px] uppercase tracking-[0.4em] font-black text-[#8a6b44]">Operator Notes</div>
-              <div className="mt-2 space-y-3 text-sm text-[#2a1a0a]">
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Latest Brief</div>
-                  <div className="mt-1 font-serif italic leading-snug">{latestObjective}</div>
-                </div>
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Controls</div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-[#5e4a2f]">
-                    Move with WASD or arrow keys. Press E to interact. Hover tiles to inspect the board.
-                  </div>
-                </div>
-              </div>
-            </div>
           </aside>
 
           <div className="flex min-h-0 flex-col gap-4">
