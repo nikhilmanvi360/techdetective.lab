@@ -18,6 +18,7 @@ export interface CampaignState {
   failedAttempts: number;
   spokenNPCs: string[];
   teamRoles: { p1: string; p2: string } | null;
+  dynamicCode: string; // Randomized per session
 }
 
 type Action =
@@ -53,6 +54,7 @@ const initialState: CampaignState = {
   failedAttempts: 0,
   spokenNPCs: [],
   teamRoles: null,
+  dynamicCode: Math.floor(1000 + Math.random() * 9000).toString(),
 };
 
 function reducer(state: CampaignState, action: Action): CampaignState {

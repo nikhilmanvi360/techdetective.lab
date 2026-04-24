@@ -29,18 +29,27 @@ export default function ClueNotebook({ open, onClose }: ClueNotebookProps) {
   };
 
   const handleSynthesize = () => {
-    const match = SYNTHESIS_RECIPES.find(recipe => 
-      recipe.requiredClues.length === selectedClues.length &&
-      recipe.requiredClues.every(req => selectedClues.includes(req))
-    );
+    const interpolate = (str: string) => str.replace(/{dynamicCode}/g, state.dynamicCode);
+
+    const match = SYNTHESIS_RECIPES.find(recipe => {
+      const reqs = recipe.requiredClues.map(interpolate);
+      return reqs.length === selectedClues.length && reqs.every(req => selectedClues.includes(req));
+    });
 
     if (match) {
-      if (state.clues.includes(match.resultClue)) {
+      const result = interpolate(match.resultClue);
+      if (state.clues.includes(result)) {
         setSynthMsg({ text: 'Already synthesized.', isError: true });
       } else {
-        dispatch({ type: 'ADD_CLUE', clue: match.resultClue });
-        dispatch({ type: 'UPDATE_SCORE', delta: 500 });
-        setSynthMsg({ text: 'SYNTHESIS SUCCESSFUL.', isError: false });
+        if (match.isRedHerring) {
+          dispatch({ type: 'ADD_CLUE', clue: result });
+          dispatch({ type: 'UPDATE_SCORE', delta: -100 }); // Penalty
+          setSynthMsg({ text: 'FALSE LEAD. -100 PTS.', isError: true });
+        } else {
+          dispatch({ type: 'ADD_CLUE', clue: result });
+          dispatch({ type: 'UPDATE_SCORE', delta: 500 });
+          setSynthMsg({ text: 'SYNTHESIS SUCCESSFUL.', isError: false });
+        }
         setSelectedClues([]);
       }
     } else {

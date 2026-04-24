@@ -142,7 +142,28 @@ function CampaignMapInner() {
     if (ix.type === 'dialogue') {
       dispatch({ type: 'RECORD_NPC_VISIT', npcId: `${state.currentZone}_${targetPos[0]}_${targetPos[1]}` });
     }
-    setActiveInteraction(ix);
+    // Interpolate dynamic code
+    const interpolate = (str: string) => str.replace(/{dynamicCode}/g, state.dynamicCode);
+    
+    const processedIx: TileInteraction = {
+      ...ix,
+      lines: ix.lines.map(interpolate),
+      clue: ix.clue ? interpolate(ix.clue) : undefined,
+      terminalCmd: ix.terminalCmd ? interpolate(ix.terminalCmd) : undefined,
+      terminalContext: ix.terminalContext ? interpolate(ix.terminalContext) : undefined,
+      terminalNudge: ix.terminalNudge ? interpolate(ix.terminalNudge) : undefined,
+      terminalHint: ix.terminalHint ? interpolate(ix.terminalHint) : undefined,
+      terminalSuccess: ix.terminalSuccess ? ix.terminalSuccess.map(interpolate) : undefined,
+      terminalPartials: ix.terminalPartials ? ix.terminalPartials.map(p => ({ trigger: interpolate(p.trigger), response: interpolate(p.response) })) : undefined,
+      options: ix.options ? ix.options.map(o => ({
+        ...o,
+        label: interpolate(o.label),
+        nextLines: o.nextLines.map(interpolate),
+        clue: o.clue ? interpolate(o.clue) : undefined
+      })) : undefined
+    };
+
+    setActiveInteraction(processedIx);
     setTerminalSolved(false);
     setLineIndex(0);
   }

@@ -74,6 +74,8 @@ cafeteriaGrid[4][14] = I; // HR Printout
 cafeteriaGrid[12][5] = N; // Witness
 cafeteriaGrid[14][8] = I; // Bulletin Board
 cafeteriaGrid[17][2] = T; // Left-Behind Laptop
+cafeteriaGrid[2][2] = I;  // Lost USB (Side Quest)
+cafeteriaGrid[5][5] = N;  // Stressed Professor
 cafeteriaGrid[18][18] = E; // Exit to library
 
 // ==========================================
@@ -133,16 +135,25 @@ adminGrid[6][10] = I; // Desk item
 export interface SynthesisRecipe {
   requiredClues: string[];
   resultClue: string;
+  isRedHerring?: boolean;
 }
 
 export const SYNTHESIS_RECIPES: SynthesisRecipe[] = [
   {
     requiredClues: [
-      'Raza Malik was born in 1998.',
+      'Raza Malik was born in {dynamicCode}.',
       'Terminal log: sys_ghost active at 11:05 PM.',
       'Redacted Doc: Librarian authorized sys_ghost access.'
     ],
-    resultClue: 'SYNTHESIS: Raza Malik (1998) used Librarian access to breach the system at 11:05 PM.'
+    resultClue: 'SYNTHESIS: Raza Malik ({dynamicCode}) used Librarian access to breach the system at 11:05 PM.'
+  },
+  {
+    requiredClues: [
+      'Decoy: 2022 warning about VBA macros.',
+      'Terminal log: sys_ghost active at 11:05 PM.'
+    ],
+    resultClue: 'FALSE LEAD: The 2022 VBA warning is completely unrelated to the current breach.',
+    isRedHerring: true
   }
 ];
 
@@ -165,21 +176,21 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '4,14': { 
         type: 'clue', 
         speaker: 'Discarded HR Printout', 
-        lines: ['You find an employee data sheet. It belongs to a "Raza Malik".', 'Birth Year: 1998.'], 
-        clue: 'Raza Malik was born in 1998.' 
+        lines: ['You find an employee data sheet. It belongs to a "Raza Malik".', 'Birth Year: {dynamicCode}.'], 
+        clue: 'Raza Malik was born in {dynamicCode}.' 
       },
       '17,2': { 
         type: 'item', 
         speaker: 'Left-Behind Laptop', 
         lines: ['Authentication successful.', 'You downloaded the Kitchen Passcode from the hard drive.'], 
         reward: 'kitchen_key',
-        terminalCmd: 'login --pass Raza1998',
+        terminalCmd: 'login --pass Raza{dynamicCode}',
         terminalContext: 'AUTHENTICATION REQUIRED. Password hint: Name + Birth Year.',
         terminalNudge: 'Did you check the HR Printout on the desk near the entrance?',
         terminalHint: 'Combine the Suspect First Name and Birth Year from the HR Printout.',
         terminalPartials: [
           { trigger: 'Raza', response: 'Name recognized. Missing the birth year passcode extension.' },
-          { trigger: '1998', response: 'Passcode recognized. Missing the suspect name prefix.' }
+          { trigger: '{dynamicCode}', response: 'Passcode recognized. Missing the suspect name prefix.' }
         ]
       },
       '7,15': { type: 'gate', speaker: 'Kitchen Door', lines: ['The kitchen is locked. You need the Kitchen Passcode.'], requiresItems: ['kitchen_key'] },
@@ -210,6 +221,27 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         requiredCluesToUnlock: ['Terminal log: sys_ghost active at 11:05 PM.'],
         clueFailMsg: ['I already told you, the power was out!'],
         reward: 'key_A'
+      },
+      '2,2': {
+        type: 'clue',
+        speaker: 'Under a Table',
+        lines: ['You found a small, encrypted USB drive.', 'It has a label: "Prof. H. - Final Exams".'],
+        clue: 'Lost USB Drive (Prof. H)'
+      },
+      '5,5': {
+        type: 'dialogue',
+        speaker: 'Stressed Professor',
+        lines: ['I dropped my USB drive somewhere in here! My entire curriculum is on it!'],
+        requiredCluesToUnlock: ['Lost USB Drive (Prof. H)'],
+        clueFailMsg: ['That is not my USB drive. Please keep looking!'],
+        options: [
+          {
+            label: 'Hand over USB',
+            nextLines: ['Oh thank you! Thank you! Take this admin override code, I won\'t need it anymore.'],
+            reward: 'admin_override_code',
+            repDelta: 5
+          }
+        ]
       },
       '18,18': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to the Library. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'library' },
     },
