@@ -15,29 +15,50 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
   const { state } = useCampaign();
   const [presenting, setPresenting] = useState(false);
   const [failMsg, setFailMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [presentedClues, setPresentedClues] = useState<string[]>([]);
 
   useEffect(() => {
     setPresenting(false);
     setFailMsg(null);
+    setSuccessMsg(null);
+    setPresentedClues([]);
   }, [interaction]);
 
   if (!interaction) return null;
   const isLast = lineIndex >= interaction.lines.length - 1;
-  const requiresClue = isLast && !!interaction.requiredClueToUnlock;
+  const reqClues = interaction.requiredCluesToUnlock || [];
+  const requiresClue = isLast && reqClues.length > 0;
 
   const handlePresent = (clueStr: string) => {
-    if (clueStr === interaction.requiredClueToUnlock || clueStr.includes(interaction.requiredClueToUnlock!)) {
-      setPresenting(false);
-      setFailMsg(null);
-      // Hack: tell the parent it succeeded by calling onClose
-      // In a real app, we might want a separate onSuccess callback
-      onClose();
+    // Check if the presented clue matches any of the required clues
+    const match = reqClues.find(req => clueStr === req || clueStr.includes(req));
+    
+    if (match) {
+      if (!presentedClues.includes(match)) {
+        const newPresented = [...presentedClues, match];
+        setPresentedClues(newPresented);
+        setFailMsg(null);
+        
+        if (newPresented.length === reqClues.length) {
+          // All clues presented!
+          setPresenting(false);
+          onClose(); // Success!
+        } else {
+          // Need more clues
+          setSuccessMsg(`Evidence accepted (${newPresented.length}/${reqClues.length}). What else?`);
+        }
+      } else {
+        setSuccessMsg(null);
+        setFailMsg("You already presented that evidence.");
+      }
     } else {
+      setSuccessMsg(null);
       setFailMsg(interaction.clueFailMsg?.[0] || 'That doesn\'t seem relevant to what I asked.');
     }
   };
 
-  const line = failMsg ? failMsg : interaction.lines[lineIndex];
+  const line = failMsg ? failMsg : (successMsg ? successMsg : interaction.lines[lineIndex]);
 
   return (
     <AnimatePresence>
@@ -89,10 +110,10 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
           ) : (
             <div className="flex justify-between items-center mt-4">
               <span className="text-[9px] text-[#a07830] uppercase tracking-widest font-black">
-                {failMsg ? 'FAIL' : `${lineIndex + 1} / ${interaction.lines.length}`}
+                {failMsg ? 'FAIL' : successMsg ? 'EVIDENCE ACCEPTED' : `${lineIndex + 1} / ${interaction.lines.length}`}
               </span>
               
-              {requiresClue && !failMsg ? (
+              {requiresClue && !failMsg && !successMsg ? (
                 <button
                   onClick={() => setPresenting(true)}
                   className="flex items-center gap-2 bg-[#8B2020] text-[#e8d5a0] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#a02020] transition-colors border-2 border-[#5a1010]"
@@ -101,10 +122,10 @@ export default function DialoguePanel({ interaction, lineIndex, onNext, onClose 
                 </button>
               ) : (
                 <button
-                  onClick={isLast && !failMsg ? onClose : (failMsg ? () => setFailMsg(null) : onNext)}
+                  onClick={isLast && !failMsg && !successMsg ? onClose : (failMsg || successMsg ? () => { setFailMsg(null); setSuccessMsg(null); setPresenting(true); } : onNext)}
                   className="flex items-center gap-2 bg-[#2a1a0a] text-[#d4a017] px-4 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-[#d4a017] hover:text-[#2a1a0a] transition-colors border-2 border-[#a07830]"
                 >
-                  {isLast ? 'Close' : (failMsg ? 'Back' : 'Continue')} <ChevronRight className="w-3.5 h-3.5" />
+                  {isLast && !failMsg && !successMsg ? 'Close' : (failMsg || successMsg ? 'Back to Evidence' : 'Continue')} <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>

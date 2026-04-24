@@ -15,7 +15,7 @@ export interface TileInteraction {
   terminalContext?: string;    // Hint shown in terminal
   terminalSuccess?: string[];  // Lines shown after correct command
   
-  requiredClueToUnlock?: string; // Clue ID/Text player must present to NPC to get the reward/clue
+  requiredCluesToUnlock?: string[]; // Array of Clue IDs/Text player must present in any order
   clueFailMsg?: string[];        // What NPC says if wrong clue or no clue is presented
 }
 
@@ -99,9 +99,10 @@ const maintenanceGrid = createGrid((r, c) => {
   return W;
 });
 maintenanceGrid[2][2] = N; // Caretaker
-maintenanceGrid[4][8] = T; // Node 1 (Java Error)
-maintenanceGrid[11][12] = T; // Node 2
-maintenanceGrid[17][5] = T; // Node 3
+maintenanceGrid[4][8] = T; // Node Alpha (Java Error)
+maintenanceGrid[2][16] = I; // Whiteboard
+maintenanceGrid[11][12] = T; // Node Beta
+maintenanceGrid[17][5] = T; // Node Gamma
 maintenanceGrid[18][12] = I; // Security Cabinet
 maintenanceGrid[18][18] = G; // Exit
 
@@ -162,7 +163,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         type: 'dialogue', 
         speaker: 'Student Witness', 
         lines: ['The power went out at 11:00 PM exactly. No one was in the kitchen after that, I swear!'],
-        requiredClueToUnlock: 'Terminal log: sys_ghost active at 11:05 PM.',
+        requiredCluesToUnlock: ['Terminal log: sys_ghost active at 11:05 PM.'],
         clueFailMsg: ['I already told you, the power was out!'],
         reward: 'key_A'
       },
@@ -202,7 +203,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         type: 'dialogue', 
         speaker: 'Librarian', 
         lines: ['I don\'t know anything about a sys_ghost. My logs are clean.'],
-        requiredClueToUnlock: 'Decrypted Doc: Librarian authorized sys_ghost access.',
+        requiredCluesToUnlock: ['Decrypted Doc: Librarian authorized sys_ghost access.'],
         clueFailMsg: ['You have no proof of that. Please leave the library.']
       },
       '18,18': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'maintenance' },
@@ -217,27 +218,44 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     playerStart: [2, 2],
     grid: maintenanceGrid,
     interactions: {
-      '2,2': { type: 'dialogue', speaker: 'Caretaker', lines: ['The nodes crashed. I saw a Java error on Node 1 about a "SecurityGate" being null.', 'You\'ll need to initialize it to restore power.'] },
-      '4,8': { 
+      '2,2': { type: 'dialogue', speaker: 'Caretaker', lines: ['The nodes crashed. I saw a Java error on Node Alpha about a "SecurityGate" being null.', 'You\'ll need to initialize it, then sync the other nodes in the correct order.'] },
+      '2,16': { 
         type: 'clue', 
-        speaker: 'Node 1', 
-        lines: ['SecurityGate object initialized.', 'Node 1 is back online.'], 
-        clue: 'Node 1: Online.',
+        speaker: 'Whiteboard', 
+        lines: ['A Python script is scribbled here:', '"nodes = [\'Node Gamma\', \'Node Alpha\', \'Node Beta\']"', '"nodes.sort()"'], 
+        clue: 'Python Sort: Sync order is Alpha, Beta, Gamma.' 
+      },
+      '4,8': { 
+        type: 'item', 
+        speaker: 'Node Alpha', 
+        lines: ['SecurityGate object initialized.', 'Node Alpha is back online.'], 
+        reward: 'sync_alpha',
         terminalCmd: 'init SecurityGate',
         terminalContext: 'SYSTEM HALTED. Java Exception: NullPointerException at SecurityGate.authenticate().'
       },
       '11,12': { 
-        type: 'clue', 
-        speaker: 'Node 2', 
-        lines: ['Node 2 synced successfully.'], 
-        clue: 'Node 2: Online.',
-        terminalCmd: 'sync node_2',
-        terminalContext: 'Awaiting sync command for node 2.'
+        type: 'item', 
+        speaker: 'Node Beta', 
+        lines: ['Node Beta synced successfully.'], 
+        requiresItems: ['sync_alpha'],
+        reward: 'sync_beta',
+        terminalCmd: 'sync node_beta',
+        terminalContext: 'Awaiting sync command for Node Beta. Requires Node Alpha to be online first.'
+      },
+      '17,5': { 
+        type: 'item', 
+        speaker: 'Node Gamma', 
+        lines: ['Node Gamma synced successfully. The grid is stable.'], 
+        requiresItems: ['sync_beta'],
+        reward: 'sync_gamma',
+        terminalCmd: 'sync node_gamma',
+        terminalContext: 'Awaiting sync command for Node Gamma. Requires Node Beta to be online first.'
       },
       '18,12': { 
         type: 'item', 
         speaker: 'Security Cabinet', 
         lines: ['With the nodes online, the cabinet unlocks.', 'You collect the OVERRIDE_TOKEN.'], 
+        requiresItems: ['sync_gamma'],
         reward: 'override_token'
       },
       '18,18': { type: 'gate', speaker: 'Admin Core Entrance', lines: ['Admin Core requires the Override Token.'], requiresItems: ['override_token'], unlocksZone: 'admin_core' },
@@ -269,8 +287,12 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         type: 'dialogue', 
         speaker: 'Security Director', 
         lines: ['This breach is severe. I need to see exactly how sys_ghost infiltrated the system.'],
-        requiredClueToUnlock: 'Decrypted Doc: Librarian authorized sys_ghost access.',
-        clueFailMsg: ['That doesn\'t prove how they got high-level access. Dig deeper.']
+        requiredCluesToUnlock: [
+          'Raza Malik was born in 1998.',
+          'Terminal log: sys_ghost active at 11:05 PM.',
+          'Decrypted Doc: Librarian authorized sys_ghost access.'
+        ],
+        clueFailMsg: ['That doesn\'t give me the full picture. I need proof of the suspect\'s identity, their timeline, AND how they bypassed the archive. Dig deeper.']
       },
       '11,10': { 
         type: 'final', 
