@@ -19,11 +19,30 @@ import ZoneTransitionOverlay from '../components/campaign/ZoneTransitionOverlay'
 import InteractionPrompt from '../components/campaign/InteractionPrompt';
 import CaseResolution from '../components/campaign/CaseResolution';
 import RoleSelectionOverlay from '../components/campaign/RoleSelectionOverlay';
+import SessionLobby from '../components/campaign/SessionLobby';
+import { useSession } from '../engine/useSession';
+import { CampaignAction } from '../engine/campaignStore';
 
 // ── Inner component (needs CampaignProvider context) ──────────────────────────
 function CampaignMapInner() {
   const { state, dispatch, isLoaded } = useCampaign();
   const navigate = useNavigate();
+
+  const {
+    sessionCode,
+    isHost,
+    partnerConnected,
+    createSession,
+    joinSession,
+    broadcastAction,
+    leaveSession
+  } = useSession(state, dispatch);
+
+  // Wrap dispatch to broadcast actions
+  const dispatchSync = useCallback((action: CampaignAction) => {
+    dispatch(action);
+    broadcastAction(action);
+  }, [dispatch, broadcastAction]);
 
   const [activeInteraction, setActiveInteraction] = useState<TileInteraction | null>(null);
   const [terminalSolved, setTerminalSolved] = useState(false);
@@ -54,7 +73,7 @@ function CampaignMapInner() {
     if (securityTimer === 0) {
       setLockedMsg('SECURITY LOCKDOWN! Time expired. Resetting core...');
       setTimeout(() => {
-        dispatch({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+        dispatchSync({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
         setSecurityTimer(300);
         setLockedMsg(null);
       }, 2000);
@@ -87,13 +106,13 @@ function CampaignMapInner() {
       if (Math.abs(dr - pr) <= 1 && Math.abs(dc - pc) <= 1) {
         setLockedMsg('CAUGHT BY SECURITY DRONE! Resetting...');
         setTimeout(() => {
-          dispatch({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
+          dispatchSync({ type: 'SET_POS', pos: currentZoneConfig.playerStart });
           setLockedMsg(null);
         }, 1500);
         break;
       }
     }
-  }, [droneTick, state.playerPos, currentZoneConfig.playerStart, dispatch, activeDrones]);
+  }, [droneTick, state.playerPos, currentZoneConfig.playerStart, dispatchSync, activeDrones]);
 
   // Check if adjacent tile is interactable
   useEffect(() => {
@@ -182,31 +201,31 @@ function CampaignMapInner() {
     if (!activeInteraction) return;
     // Apply rewards after dialogue finishes
     if (activeInteraction.reward) {
-      dispatch({ type: 'COLLECT_ITEM', item: activeInteraction.reward });
-      dispatch({ type: 'ADD_OBJECTIVE', text: `Item collected: ${activeInteraction.reward}. Proceed to the next zone.` });
+      dispatchSync({ type: 'COLLECT_ITEM', item: activeInteraction.reward });
+      dispatchSync({ type: 'ADD_OBJECTIVE', text: `Item collected: ${activeInteraction.reward}. Proceed to the next zone.` });
     }
     if (activeInteraction.clue) {
-      dispatch({ type: 'ADD_CLUE', clue: activeInteraction.clue });
+      dispatchSync({ type: 'ADD_CLUE', clue: activeInteraction.clue });
     }
     if (activeInteraction.type === 'gate' && activeInteraction.unlocksZone) {
       enterZone(activeInteraction.unlocksZone);
     }
     if (activeInteraction.type === 'final') {
-      dispatch({ type: 'COMPLETE_ZONE', zone: state.currentZone });
-      dispatch({ type: 'COMPLETE_GAME' });
+      dispatchSync({ type: 'COMPLETE_ZONE', zone: state.currentZone });
+      dispatchSync({ type: 'COMPLETE_GAME' });
     }
     setActiveInteraction(null);
   }
 
   function enterZone(zoneId: ZoneId) {
-    dispatch({ type: 'COMPLETE_ZONE', zone: state.currentZone });
-    dispatch({ type: 'UNLOCK_ZONE', zone: zoneId });
+    dispatchSync({ type: 'COMPLETE_ZONE', zone: state.currentZone });
+    dispatchSync({ type: 'UNLOCK_ZONE', zone: zoneId });
     const zoneConfig = CAMPAIGN_ZONES.find(z => z.id === zoneId)!;
     setTransitionZone(zoneId);
     setTimeout(() => {
-      dispatch({ type: 'ENTER_ZONE', zone: zoneId, pos: zoneConfig.playerStart });
+      dispatchSync({ type: 'ENTER_ZONE', zone: zoneId, pos: zoneConfig.playerStart });
       setTransitionZone(null);
-      dispatch({ type: 'ADD_OBJECTIVE', text: `Entered ${zoneConfig.name}. ${zoneConfig.description}` });
+      dispatchSync({ type: 'ADD_OBJECTIVE', text: `Entered ${zoneConfig.name}. ${zoneConfig.description}` });
     }, 2000);
   }
 
@@ -227,7 +246,7 @@ function CampaignMapInner() {
       if (!dir) return;
       e.preventDefault();
       const next = getNextPos(state.playerPos, dir, currentZoneConfig.grid);
-      if (next) dispatch({ type: 'SET_POS', pos: next });
+      if (next) dispatchSync({ type: 'SET_POS', pos: next });
     };
 
     window.addEventListener('keydown', handler);
@@ -247,10 +266,17 @@ function CampaignMapInner() {
       style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }}>
       
       {/* ── HUD ── */}
-      <CampaignHUD />
+      <CampaignHUD partnerConnected={partnerConnected} />
 
-      {/* ── Role Selection ── */}
-      <RoleSelectionOverlay />
+      {/* ── Role Selection / Session Lobby ── */}
+      <SessionLobby 
+        sessionCode={sessionCode}
+        isHost={isHost}
+        partnerConnected={partnerConnected}
+        onCreate={createSession}
+        onJoin={joinSession}
+        onStart={() => dispatchSync({ type: 'SET_ROLES', roles: { p1: 'Lead Investigator', p2: 'Forensic Tech' } })}
+      />
 
       {/* ── Back + Notebook controls ── */}
       <div className="absolute top-20 left-4 flex gap-2 z-20">
@@ -279,6 +305,7 @@ function CampaignMapInner() {
           <MapRenderer
             grid={currentZoneConfig.grid}
             playerPos={state.playerPos}
+            p2Pos={state.p2Pos || undefined}
             zoneId={state.currentZone}
             drones={activeDrones.map(d => d.pos)}
           />

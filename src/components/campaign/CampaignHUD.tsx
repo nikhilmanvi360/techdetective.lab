@@ -9,7 +9,11 @@ const ZONE_LABELS: Record<ZoneId, string> = {
   admin_core: 'Zone 04 — Admin Core',
 };
 
-export default function CampaignHUD() {
+interface CampaignHUDProps {
+  partnerConnected?: boolean;
+}
+
+export default function CampaignHUD({ partnerConnected = false }: CampaignHUDProps) {
   const { state } = useCampaign();
   const latestObjective = state.objectiveLog[state.objectiveLog.length - 1];
   const progress = state.completedZones.length;
@@ -58,6 +62,15 @@ export default function CampaignHUD() {
               <span className="text-[7px] text-[#a07830] uppercase font-black">Reputation</span>
               <span className="text-xs font-black text-[#f0e0a0] leading-none">{state.reputation}%</span>
             </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end mt-1">
+          <div className={`bg-[#1d1208]/90 border px-3 py-1.5 shadow-lg flex items-center gap-2 ${partnerConnected ? 'border-[#5a7a4a]' : 'border-[#8B2020]'}`}>
+            <div className={`w-2 h-2 rounded-full ${partnerConnected ? 'bg-[#5a7a4a] animate-pulse' : 'bg-[#8B2020]'}`} />
+            <span className={`text-[8px] font-black uppercase tracking-widest ${partnerConnected ? 'text-[#5a7a4a]' : 'text-[#8B2020]'}`}>
+              {partnerConnected ? 'Partner Linked' : 'Partner Offline'}
+            </span>
           </div>
         </div>
 

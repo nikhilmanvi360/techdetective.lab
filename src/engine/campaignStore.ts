@@ -19,9 +19,10 @@ export interface CampaignState {
   spokenNPCs: string[];
   teamRoles: { p1: string; p2: string } | null;
   dynamicCode: string; // Randomized per session
+  p2Pos: [number, number] | null; // Other player's position
 }
 
-type Action =
+export type CampaignAction =
   | { type: 'COLLECT_ITEM'; item: string }
   | { type: 'ADD_CLUE'; clue: string }
   | { type: 'ACTIVATE_NODE'; node: string }
@@ -36,7 +37,8 @@ type Action =
   | { type: 'RECORD_HINT'; level: 1 | 2 | 3 }
   | { type: 'RECORD_FAILURE' }
   | { type: 'RECORD_NPC_VISIT'; npcId: string }
-  | { type: 'SET_ROLES'; roles: { p1: string; p2: string } };
+  | { type: 'SET_ROLES'; roles: { p1: string; p2: string } }
+  | { type: 'SET_P2_POS'; pos: [number, number] | null };
 
 const initialState: CampaignState = {
   inventory: [],
@@ -55,9 +57,10 @@ const initialState: CampaignState = {
   spokenNPCs: [],
   teamRoles: null,
   dynamicCode: Math.floor(1000 + Math.random() * 9000).toString(),
+  p2Pos: null,
 };
 
-function reducer(state: CampaignState, action: Action): CampaignState {
+function reducer(state: CampaignState, action: CampaignAction): CampaignState {
   switch (action.type) {
     case 'COLLECT_ITEM':
       if (state.inventory.includes(action.item)) return state;
@@ -124,6 +127,8 @@ function reducer(state: CampaignState, action: Action): CampaignState {
       };
     case 'SET_ROLES':
       return { ...state, teamRoles: action.roles };
+    case 'SET_P2_POS':
+      return { ...state, p2Pos: action.pos };
     default:
       return state;
   }
@@ -131,9 +136,9 @@ function reducer(state: CampaignState, action: Action): CampaignState {
 
 const CampaignContext = createContext<{
   state: CampaignState;
-  dispatch: React.Dispatch<Action>;
+  dispatch: React.Dispatch<CampaignAction>;
   isLoaded: boolean;
-} | null>(null);
+} | undefined>(undefined);
 
 export function CampaignProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);

@@ -3,6 +3,7 @@ import { TileType, ZoneId } from '../../data/campaignData';
 interface MapRendererProps {
   grid: TileType[][];
   playerPos: [number, number];
+  p2Pos?: [number, number];
   zoneId: ZoneId;
   drones?: [number, number][];
 }
@@ -34,13 +35,14 @@ const ZONE_BORDER: Record<ZoneId, string> = {
   admin_core: 'border-[#8B2020]',
 };
 
-export default function MapRenderer({ grid, playerPos, zoneId, drones = [] }: MapRendererProps) {
+export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [] }: MapRendererProps) {
   return (
     <div className={`inline-block border-2 ${ZONE_BORDER[zoneId]} shadow-2xl`}>
       {grid.map((row, r) => (
         <div key={r} className="flex">
           {row.map((tile, c) => {
             const isPlayer = playerPos[0] === r && playerPos[1] === c;
+            const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
             const isDrone = drones.some(d => d[0] === r && d[1] === c);
             return (
               <div
@@ -52,7 +54,9 @@ export default function MapRenderer({ grid, playerPos, zoneId, drones = [] }: Ma
                 `}
               >
                 {isPlayer ? (
-                  <span className="text-sm animate-pulse z-10">🕵️</span>
+                  <span className="text-sm animate-pulse z-20">🕵️</span>
+                ) : isP2 ? (
+                  <span className="text-sm z-10 opacity-80">🕵️‍♀️</span>
                 ) : isDrone ? (
                   <span className="text-sm animate-pulse z-10">🚨</span>
                 ) : (
