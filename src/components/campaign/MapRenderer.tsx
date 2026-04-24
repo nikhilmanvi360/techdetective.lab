@@ -1,4 +1,13 @@
 import { TileType, ZoneId } from '../../data/campaignData';
+import {
+  DoorOpen,
+  FileText,
+  Package,
+  ShieldAlert,
+  UserRound,
+  Waypoints,
+  type LucideIcon,
+} from 'lucide-react';
 
 interface MapRendererProps {
   grid: TileType[][];
@@ -8,14 +17,14 @@ interface MapRendererProps {
   drones?: [number, number][];
 }
 
-const TILE_ICONS: Record<TileType, string> = {
-  walkable: '',
-  wall: '',
-  npc: '👤',
-  terminal: '✦',
-  item: '⌁',
-  gate: '◇',
-  exit: '→',
+const TILE_META: Record<TileType, { label: string; icon?: LucideIcon; accent: string }> = {
+  walkable: { label: 'Floor', accent: 'text-[#8a6b44]' },
+  wall: { label: 'Wall', accent: 'text-[#6f5532]' },
+  npc: { label: 'Witness', icon: UserRound, accent: 'text-[#8c5f22]' },
+  terminal: { label: 'Terminal', icon: FileText, accent: 'text-[#7a6540]' },
+  item: { label: 'Evidence', icon: Package, accent: 'text-[#7a6a45]' },
+  gate: { label: 'Door', icon: DoorOpen, accent: 'text-[#8b6b57]' },
+  exit: { label: 'Exit', icon: Waypoints, accent: 'text-[#55724a]' },
 };
 
 const TILE_BG: Record<TileType, string> = {
@@ -63,15 +72,18 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
         {(grid || []).map((row, r) => (
           <div key={r} className="flex">
             {row.map((tile, c) => {
+              const meta = TILE_META[tile];
               const isPlayer = playerPos[0] === r && playerPos[1] === c;
               const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
               const isDrone = drones.some(d => d[0] === r && d[1] === c);
               const showDualMarker = isPlayer && isP2;
+              const Icon = meta.icon;
               return (
                 <div
                   key={c}
+                  title={meta.label}
                   className={`
-                    w-7 h-7 flex items-center justify-center text-xs relative overflow-hidden
+                    w-8 h-8 flex items-center justify-center text-xs relative overflow-hidden
                     ${isDrone ? 'bg-[#b44a3c]' : TILE_BG[tile]}
                     ${tile === 'wall' ? '' : 'border border-[#8f744f]/30'}
                   `}
@@ -83,6 +95,16 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                       backgroundSize: '8px 8px',
                     }}
                   />
+                  {!isPlayer && !isP2 && !isDrone && Icon && tile !== 'walkable' && tile !== 'wall' && (
+                    <div className="absolute top-0.5 left-0.5 rounded-full bg-[#f8edd7]/90 border border-[#b58a53] p-0.5 shadow-sm">
+                      <Icon className={`w-2.5 h-2.5 ${meta.accent}`} />
+                    </div>
+                  )}
+                  {!isPlayer && !isP2 && !isDrone && tile === 'wall' && (
+                    <div className="absolute inset-0 flex items-center justify-center text-[9px] text-[#f8edd7]/70">
+                      <ShieldAlert className="w-3 h-3" />
+                    </div>
+                  )}
                   {showDualMarker ? (
                     <div className="relative w-full h-full">
                       <span className="absolute left-0.5 top-0.5 text-[9px] text-[#8c5f22] font-black leading-none z-20">1</span>
@@ -115,15 +137,33 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                       style={{ imageRendering: 'pixelated' }}
                     />
                   ) : isDrone ? (
-                    <span className="text-sm animate-pulse z-10">⚑</span>
+                    <div className="flex flex-col items-center justify-center leading-none">
+                      <ShieldAlert className="w-3.5 h-3.5 text-[#f8edd7]" />
+                      <span className="text-[7px] font-black text-[#f8edd7] uppercase">Watch</span>
+                    </div>
                   ) : (
-                    <span className="opacity-70 text-[#6e5739]">{TILE_ICONS[tile]}</span>
+                    <span className="opacity-70 text-[#6e5739]" />
                   )}
                 </div>
               );
             })}
           </div>
         ))}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] uppercase tracking-[0.25em] font-black text-[#7a6040]">
+        <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-2 py-1">
+          <DoorOpen className="w-3 h-3 text-[#8b6b57]" /> Door
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-2 py-1">
+          <FileText className="w-3 h-3 text-[#7a6540]" /> Terminal
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-2 py-1">
+          <Package className="w-3 h-3 text-[#7a6a45]" /> Evidence
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-2 py-1">
+          <UserRound className="w-3 h-3 text-[#8c5f22]" /> NPC
+        </div>
       </div>
     </div>
   );
