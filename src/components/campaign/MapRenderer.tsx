@@ -44,13 +44,13 @@ export default function MapRenderer({ grid, playerPos, zoneId }: MapRendererProp
               <div
                 key={c}
                 className={`
-                  w-9 h-9 flex items-center justify-center text-sm relative
+                  w-6 h-6 flex items-center justify-center text-xs relative
                   ${TILE_BG[tile]}
                   ${tile === 'wall' ? '' : 'border border-[#2a1c10]/40'}
                 `}
               >
                 {isPlayer ? (
-                  <span className="text-base animate-pulse z-10">🕵️</span>
+                  <span className="text-sm animate-pulse z-10">🕵️</span>
                 ) : (
                   <span className="opacity-70">{TILE_ICONS[tile]}</span>
                 )}

@@ -20,7 +20,7 @@ import CaseResolution from '../components/campaign/CaseResolution';
 
 // ── Inner component (needs CampaignProvider context) ──────────────────────────
 function CampaignMapInner() {
-  const { state, dispatch } = useCampaign();
+  const { state, dispatch, isLoaded } = useCampaign();
   const navigate = useNavigate();
 
   const [activeInteraction, setActiveInteraction] = useState<TileInteraction | null>(null);
@@ -145,6 +145,14 @@ function CampaignMapInner() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, triggerInteraction, dispatch]);
+
+  if (!isLoaded) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#1d1208] text-[#d4a017] uppercase tracking-widest text-xs font-black">
+        Loading Campaign Data...
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#1d1208] relative overflow-hidden"

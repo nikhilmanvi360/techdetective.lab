@@ -643,6 +643,46 @@ async function startServer() {
     }
   });
 
+  // --- Campaign Map State (Round 2) ---
+  protectedRouter.get('/campaign/state', async (req: any, res: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('case_team_state')
+        .select('state')
+        .eq('case_id', 999)
+        .eq('team_id', req.user.id)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Campaign state fetch error:', error);
+        return res.status(500).json({ error: 'Failed to fetch campaign state' });
+      }
+      
+      res.json(data?.state || null);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch campaign state' });
+    }
+  });
+
+  protectedRouter.post('/campaign/state', async (req: any, res: any) => {
+    try {
+      const { state } = req.body;
+      const { error } = await supabase
+        .from('case_team_state')
+        .upsert({
+          case_id: 999,
+          team_id: req.user.id,
+          state: state
+        }, { onConflict: 'case_id,team_id' });
+        
+      if (error) throw error;
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Campaign state save error:', e);
+      res.status(500).json({ error: 'Failed to save campaign state' });
+    }
+  });
+
   // --- Evidence ---
   protectedRouter.get('/evidence/:id', async (req: any, res: any) => {
     const { data: item, error } = await supabase.from('evidence').select('*').eq('id', req.params.id).single();

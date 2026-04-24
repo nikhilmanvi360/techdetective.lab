@@ -22,7 +22,8 @@ type Action =
   | { type: 'COMPLETE_ZONE'; zone: ZoneId }
   | { type: 'SET_POS'; pos: [number, number] }
   | { type: 'COMPLETE_GAME' }
-  | { type: 'ADD_OBJECTIVE'; text: string };
+  | { type: 'ADD_OBJECTIVE'; text: string }
+  | { type: 'INITIALIZE_STATE'; state: CampaignState };
 
 const initialState: CampaignState = {
   inventory: [],
@@ -61,6 +62,8 @@ function reducer(state: CampaignState, action: Action): CampaignState {
       return { ...state, gameComplete: true };
     case 'ADD_OBJECTIVE':
       return { ...state, objectiveLog: [...state.objectiveLog, action.text] };
+    case 'INITIALIZE_STATE':
+      return { ...action.state };
     default:
       return state;
   }
@@ -69,12 +72,50 @@ function reducer(state: CampaignState, action: Action): CampaignState {
 const CampaignContext = createContext<{
   state: CampaignState;
   dispatch: React.Dispatch<Action>;
+  isLoaded: boolean;
 } | null>(null);
 
 export function CampaignProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [isLoaded, setIsLoaded] = React.useState(false);
+
+  // Load initial state
+  React.useEffect(() => {
+    fetch('/api/campaign/state', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.inventory) { // basic validation
+          dispatch({ type: 'INITIALIZE_STATE', state: { ...initialState, ...data } });
+        }
+        setIsLoaded(true);
+      })
+      .catch(err => {
+        console.error('Failed to load campaign state', err);
+        setIsLoaded(true);
+      });
+  }, []);
+
+  // Save state on critical changes (debounce could be added, but skipping playerPos ensures we only save on milestone actions)
+  React.useEffect(() => {
+    if (!isLoaded) return;
+    
+    // We only want to save the milestone data, not every single footstep
+    const stateToSave = { ...state };
+    
+    fetch('/api/campaign/state', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ state: stateToSave })
+    }).catch(err => console.error('Failed to save campaign state', err));
+  }, [state.inventory, state.clues, state.unlockedZones, state.currentZone, state.gameComplete]);
+
   return (
-    React.createElement(CampaignContext.Provider, { value: { state, dispatch } }, children)
+    React.createElement(CampaignContext.Provider, { value: { state, dispatch, isLoaded } }, children)
   );
 }
 

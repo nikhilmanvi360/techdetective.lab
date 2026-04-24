@@ -22,7 +22,6 @@ export interface ZoneConfig {
   playerStart: [number, number];
 }
 
-// 12×12 grid per zone (smaller = more playable in browser)
 const W: TileType = 'walkable';
 const X: TileType = 'wall';
 const N: TileType = 'npc';
@@ -31,97 +30,138 @@ const I: TileType = 'item';
 const G: TileType = 'gate';
 const E: TileType = 'exit';
 
+// Utility to create 20x20 walls by default
+function createGrid(filler: (r: number, c: number) => TileType): TileType[][] {
+  return Array(20).fill(null).map((_, r) => Array(20).fill(null).map((_, c) => {
+    if (r === 0 || r === 19 || c === 0 || c === 19) return X;
+    return filler(r, c);
+  }));
+}
+
+// ==========================================
+// CAFETERIA (Zone 1)
+// ==========================================
+const cafeteriaGrid = createGrid((r, c) => {
+  // Kitchen area (top right)
+  if (r >= 2 && r <= 7 && c >= 12 && c <= 18) {
+    if (r === 7 && c !== 15) return X; // wall with a door
+    if (c === 12 && r !== 7) return X;
+    return W;
+  }
+  // Tables
+  if (r % 3 === 0 && c > 2 && c < 10) return X;
+  return W;
+});
+cafeteriaGrid[7][15] = G; // Gate to kitchen
+cafeteriaGrid[3][16] = T; // Kitchen terminal
+cafeteriaGrid[4][14] = I; // Item in kitchen
+cafeteriaGrid[12][5] = N; // Witness
+cafeteriaGrid[14][8] = N; // Staff
+cafeteriaGrid[17][2] = I; // Hidden key
+cafeteriaGrid[18][18] = E; // Exit to library
+
+// ==========================================
+// LIBRARY (Zone 2)
+// ==========================================
+const libraryGrid = createGrid((r, c) => {
+  // Bookshelf maze
+  if (c % 4 === 0 && r > 2 && r < 17) return X;
+  if (r === 10 && c % 4 !== 0 && c < 16) return X; 
+  return W;
+});
+libraryGrid[10][2] = W; // gap in maze
+libraryGrid[10][10] = W;
+libraryGrid[2][2] = N; // Librarian
+libraryGrid[5][15] = T; // Terminal
+libraryGrid[15][18] = I; // Hidden clue
+libraryGrid[18][2] = I; // Locker
+libraryGrid[8][6] = N; // Student
+libraryGrid[18][18] = E; // Exit
+
+// ==========================================
+// MAINTENANCE (Zone 3)
+// ==========================================
+const maintenanceGrid = createGrid((r, c) => {
+  if (r === 5 || r === 12) {
+    if (c !== 4 && c !== 15) return X; // walls with gaps
+  }
+  if (c === 10 && r > 2 && r < 18) return X; // central pillar
+  return W;
+});
+maintenanceGrid[2][2] = N; // Janitor
+maintenanceGrid[4][8] = T; // Node 1
+maintenanceGrid[11][12] = T; // Node 2
+maintenanceGrid[17][5] = T; // Node 3
+maintenanceGrid[18][12] = G; // Locked cabinet
+maintenanceGrid[18][18] = E; // Exit
+
+// ==========================================
+// ADMIN CORE (Zone 4)
+// ==========================================
+const adminGrid = createGrid((r, c) => {
+  if (r === 8 && c > 5 && c < 15) return X;
+  if (r === 14 && c > 5 && c < 15) return X;
+  if ((c === 5 || c === 15) && r > 8 && r < 14) return X;
+  return W;
+});
+adminGrid[14][10] = G; // Firewall gate
+adminGrid[11][10] = T; // CORE TERMINAL
+adminGrid[4][4] = N; // Admin
+adminGrid[4][16] = N; // Security
+adminGrid[16][10] = T; // Firewall control
+adminGrid[6][10] = I; // Desk item
+
 export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
     id: 'cafeteria',
-    name: 'Cafeteria',
-    description: 'The campus canteen. Something happened here on the night of the 14th.',
+    name: 'Cafeteria & Kitchen',
+    description: 'The campus canteen. Explore the seating area and find a way into the staff kitchen.',
     color: '#b5874a',
     requiredItems: [],
-    playerStart: [1, 1],
-    grid: [
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-      [X, W, W, W, W, N, W, W, W, W, W, X],
-      [X, W, X, X, W, W, W, X, X, W, W, X],
-      [X, W, X, W, W, W, W, W, X, W, W, X],
-      [X, W, W, W, T, W, W, W, W, I, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, X, W, N, W, X, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, I, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, W, W, W, W, W, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, E, X],
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-    ],
+    playerStart: [2, 2],
+    grid: cafeteriaGrid,
     interactions: {
-      '1,5': { type: 'dialogue', speaker: 'Canteen Staff', lines: ['The power cut at 11 PM. I saw someone in a grey hoodie near the notice board.', 'They dropped something before running off.'] },
-      '6,5': { type: 'dialogue', speaker: 'Student Witness', lines: ['I was studying late. I heard the alarm go off in the library around midnight.', 'The librarian looked really nervous the next morning.'] },
-      '4,4': { type: 'clue', speaker: 'Login Terminal', lines: ['Access log shows: user "r_malik" authenticated at 23:04 from this terminal.', 'Clue logged: Login anomaly — A-17.'], clue: 'Login anomaly — A-17: user r_malik, 23:04' },
-      '4,9': { type: 'item', speaker: 'Dropped Item', lines: ['A laminated key card. Badge reads: LIBRARY ACCESS — KEY_A.', 'You pick it up.'], reward: 'key_A' },
-      '7,10': { type: 'clue', speaker: 'Crumpled Note', lines: ['A torn note: "shift by 3… the locker is in the reading room."', 'Clue logged: shift_3 cipher hint.'], clue: 'Cipher note: shift_3 — locker in reading room' },
-      '10,10': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to the Library. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'library' },
+      '12,5': { type: 'dialogue', speaker: 'Student Witness', lines: ['I saw someone run into the kitchen right after the power cut.', 'The kitchen door auto-locked behind them. The staff member over there might have the key.'] },
+      '14,8': { type: 'dialogue', speaker: 'Canteen Staff', lines: ['You need to get into the kitchen?', 'I dropped my spare kitchen key near the vending machines in the south-west corner. If you find it, you can use it.'] },
+      '17,2': { type: 'item', speaker: 'Vending Machine', lines: ['You look under the vending machine.', 'You found the Kitchen Key!'], reward: 'kitchen_key' },
+      '7,15': { type: 'gate', speaker: 'Kitchen Door', lines: ['The kitchen is locked. You need the Kitchen Key to enter.'], requiresItems: ['kitchen_key'] },
+      '3,16': { type: 'clue', speaker: 'Kitchen Terminal', lines: ['Delivery Log: "Midnight rations picked up by sys_ghost."', 'Clue logged: sys_ghost was in the kitchen at midnight.'], clue: 'sys_ghost was in the kitchen at midnight.' },
+      '4,14': { type: 'item', speaker: 'Locker', lines: ['Inside the staff locker, you find a Library Access Card.', 'You collect KEY_A.'], reward: 'key_A' },
+      '18,18': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to the Library. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'library' },
     },
   },
   {
     id: 'library',
-    name: 'Library',
-    description: 'Archived records, fragmented data, and a nervous librarian.',
+    name: 'Campus Library',
+    description: 'A maze of bookshelves. The archivist is hiding something.',
     color: '#5a7a4a',
     requiredItems: ['key_A'],
-    playerStart: [1, 1],
-    grid: [
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, X, W, N, W, X, X, W, W, X],
-      [X, W, X, W, W, W, W, W, X, T, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, W, I, W, W, W, I, W, W, W, X],
-      [X, W, X, X, W, N, W, X, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, W, W, W, W, W, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, E, X],
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-    ],
+    playerStart: [2, 2],
+    grid: libraryGrid,
     interactions: {
-      '2,5': { type: 'dialogue', speaker: 'Librarian', lines: ['Someone broke the archive seal last night.', 'The catalog terminal recorded an unusual query at 23:47.'] },
-      '6,5': { type: 'dialogue', speaker: 'Research Student', lines: ['I found a USB drive under the shelf. It had fragments of encoded data.', 'Whoever left it knew their way around cryptography.'] },
-      '3,9': { type: 'clue', speaker: 'Catalog Terminal', lines: ['Search query at 23:47: "ARGUS_PROTOCOL_V2". Files partially deleted.', 'Clue logged: ARGUS protocol reference.'], clue: 'Catalog query: ARGUS_PROTOCOL_V2 — files deleted at 23:47' },
-      '5,3': { type: 'item', speaker: 'Locker', lines: ['The shift cipher works — locker 3 opens. Inside: a master access badge.', 'You collect KEY_B.'], reward: 'key_B' },
-      '5,7': { type: 'clue', speaker: 'Torn Archive Page', lines: ['A page titled "System Override Tokens — Admin Issue Only". One token is crossed out.', 'Clue logged: override_token reference.'], clue: 'Archive page: override_token issued to unknown admin account' },
-      '10,10': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires both Key A and Key B.'], requiresItems: ['key_A', 'key_B'], unlocksZone: 'maintenance' },
+      '2,2': { type: 'dialogue', speaker: 'Librarian', lines: ['Someone broke the archive seal last night. They scrambled the book locations.', 'The terminal might tell you where the archive override is.'] },
+      '8,6': { type: 'dialogue', speaker: 'Research Student', lines: ['I was studying when the lights flickered.', 'I heard someone messing with the locker in the south-west corner. They dropped a torn page in the east wing.'] },
+      '5,15': { type: 'clue', speaker: 'Catalog Terminal', lines: ['Search query: "ARGUS_PROTOCOL". Results deleted.', 'Clue logged: ARGUS protocol reference.'], clue: 'ARGUS protocol reference found in library.' },
+      '15,18': { type: 'clue', speaker: 'Torn Page', lines: ['You find a torn page on the floor: "Locker code is 8-4-2-1".', 'Clue logged: Locker code.'], clue: 'Library locker code: 8-4-2-1' },
+      '18,2': { type: 'item', speaker: 'Locked Locker', lines: ['You enter the code 8-4-2-1. It opens!', 'Inside is the Master Badge (KEY_B).'], reward: 'key_B' },
+      '18,18': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'maintenance' },
     },
   },
   {
     id: 'maintenance',
     name: 'Maintenance Wing',
-    description: 'Boiler rooms, power nodes, and the system that runs it all.',
+    description: 'Dark corridors and heavy machinery. Reboot the power nodes.',
     color: '#7a5a3a',
     requiredItems: ['key_A', 'key_B'],
-    playerStart: [1, 1],
-    grid: [
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, T, W, W, W, T, X, W, W, X],
-      [X, W, X, W, W, N, W, W, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, W, W, T, W, W, W, I, W, W, X],
-      [X, W, X, X, W, W, W, X, X, W, W, X],
-      [X, W, W, T, W, N, W, W, W, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, W, W, W, W, W, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, E, X],
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-    ],
+    playerStart: [2, 2],
+    grid: maintenanceGrid,
     interactions: {
-      '3,5': { type: 'dialogue', speaker: 'Maintenance Tech', lines: ['Node 3 and Node 7 were manually rebooted. That\'s unusual — they\'re on an auto-cycle.', 'Someone with system access did it. Maybe the same person using ARGUS.'] },
-      '7,5': { type: 'dialogue', speaker: 'Caretaker', lines: ['I noticed the server logs were wiped at midnight. Someone used a terminal in Admin Core.', 'You\'ll need the override token to get in there.'] },
-      '2,3': { type: 'clue', speaker: 'Power Node Alpha', lines: ['Node Alpha: manually triggered at 23:51. Operator ID: sys_ghost.', 'Clue logged: sys_ghost operator trace.'], clue: 'Power node log: sys_ghost activated Node Alpha at 23:51' },
-      '2,7': { type: 'clue', speaker: 'Power Node Beta', lines: ['Node Beta: rebooted at 23:58. Same operator: sys_ghost.', 'Clue logged: second sys_ghost activation.'], clue: 'Node Beta log: sys_ghost, 23:58' },
-      '5,4': { type: 'clue', speaker: 'Fake Terminal', lines: ['This terminal looks active but the display is looping a pre-recorded screen.', 'A decoy. Clue logged: ARGUS uses decoy terminals.'], clue: 'Decoy terminal found — ARGUS uses misdirection' },
-      '7,3': { type: 'clue', speaker: 'Backup Console', lines: ['Backup log entry: "ARGUS initiated Phase 2 at 00:00. Admin Core sealed."', 'Clue logged: ARGUS Phase 2 timestamp.'], clue: 'ARGUS Phase 2 initiated at 00:00 — Admin Core sealed' },
-      '5,8': { type: 'item', speaker: 'Secured Cabinet', lines: ['The cabinet clicks open. Inside is a laminated card: OVERRIDE_TOKEN — Level 4.', 'You collect the override token.'], reward: 'override_token' },
-      '10,10': { type: 'gate', speaker: 'Admin Core Entrance', lines: ['Admin Core requires all three: Key A, Key B, and the Override Token.'], requiresItems: ['key_A', 'key_B', 'override_token'], unlocksZone: 'admin_core' },
+      '2,2': { type: 'dialogue', speaker: 'Janitor', lines: ['The power nodes are acting up. Someone locked the security cabinet.', 'You need to check Node 1, Node 2, and Node 3.'] },
+      '4,8': { type: 'clue', speaker: 'Node 1', lines: ['Node 1 log: Rebooted at 23:51 by sys_ghost.', 'Clue logged.'], clue: 'Node 1 rebooted by sys_ghost.' },
+      '11,12': { type: 'clue', speaker: 'Node 2', lines: ['Node 2 log: Encryption bypassed.', 'Clue logged.'], clue: 'Node 2 encryption bypassed.' },
+      '17,5': { type: 'clue', speaker: 'Node 3', lines: ['Node 3 log: Cabinet code reset to 0000.', 'Clue logged.'], clue: 'Cabinet code reset to 0000.' },
+      '18,12': { type: 'item', speaker: 'Security Cabinet', lines: ['You enter 0000. It unlocks.', 'You collect the OVERRIDE_TOKEN.'], reward: 'override_token' },
+      '18,18': { type: 'gate', speaker: 'Admin Core Entrance', lines: ['Admin Core requires the Override Token.'], requiresItems: ['override_token'], unlocksZone: 'admin_core' },
     },
   },
   {
@@ -130,32 +170,24 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     description: 'The nerve centre. ARGUS is here. End this.',
     color: '#8B2020',
     requiredItems: ['key_A', 'key_B', 'override_token'],
-    playerStart: [1, 1],
-    grid: [
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, X, W, W, W, X, X, W, W, X],
-      [X, W, X, W, W, N, W, W, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, X, N, W, N, X, X, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, W, W, W, W, W, W, W, W, W, X],
-      [X, W, X, W, W, W, W, W, X, W, W, X],
-      [X, W, W, W, W, T, W, W, W, W, W, X],
-      [X, X, X, X, X, X, X, X, X, X, X, X],
-    ],
+    playerStart: [2, 2],
+    grid: adminGrid,
     interactions: {
-      '3,5': { type: 'dialogue', speaker: 'System Admin', lines: ['You made it. The account "sys_ghost" belongs to a former student — Raza Malik.', 'He planted ARGUS to automate grade manipulation. We have the logs now.'] },
-      '6,4': { type: 'dialogue', speaker: 'Campus Director', lines: ['Raza Malik graduated 3 years ago. He kept a back-door account.', 'Everything points to him. We just need you to confirm it at the core terminal.'] },
-      '6,6': { type: 'dialogue', speaker: 'ARGUS Terminal Proxy', lines: ['"PROTOCOL ACTIVE. INVESTIGATOR DETECTED. INITIATING COUNTERMEASURES."', '"…All countermeasures disabled. You have full override. Access the core terminal to shut me down."'] },
-      '10,5': { type: 'final', speaker: 'Core Terminal', lines: ['Evidence summary: A-17 login, shift_3 cipher, ARGUS_PROTOCOL_V2, sys_ghost traces, override_token.', 'Conclusion: Raza Malik — sys_ghost — orchestrated the breach using ARGUS.', 'Case closed. Initiating shutdown of ARGUS. Bureau notified.'] },
+      '4,4': { type: 'dialogue', speaker: 'System Admin', lines: ['You made it. The hacker is using ARGUS.', 'Find the firewall control terminal in the south to lower the barrier.'] },
+      '4,16': { type: 'dialogue', speaker: 'Security Director', lines: ['We need the admin passcode to drop the firewall.', 'Check the desk in the north area.'] },
+      '6,10': { type: 'item', speaker: 'Desk', lines: ['You find a sticky note: "Admin Pass: HUNTER2".', 'You collect the Admin Passcode.'], reward: 'admin_passcode' },
+      '16,10': { type: 'item', speaker: 'Firewall Control', lines: ['You enter the Admin Passcode. The firewall is disabled!', 'You collect the Firewall Bypass key.'], requiresItems: ['admin_passcode'], reward: 'firewall_bypass' },
+      '14,10': { type: 'gate', speaker: 'Firewall', lines: ['The inner core is protected by a firewall.', 'You need the Firewall Bypass.'], requiresItems: ['firewall_bypass'] },
+      '11,10': { type: 'final', speaker: 'Core Terminal', lines: ['Evidence summary: sys_ghost traces, ARGUS protocol.', 'Conclusion: Raza Malik (sys_ghost) orchestrated the breach using ARGUS.', 'Case closed. Initiating shutdown of ARGUS. Bureau notified.'] },
     },
   },
 ];
 
 export const ITEMS: Record<string, { name: string; description: string; icon: string }> = {
   key_A: { name: 'Library Key Card', description: 'Grants access to the Library wing.', icon: '🗝️' },
-  key_B: { name: 'Master Badge', description: 'Found in the reading room locker. Unlocks restricted areas.', icon: '🪪' },
+  key_B: { name: 'Master Badge', description: 'Found in the library locker. Unlocks restricted areas.', icon: '🪪' },
+  kitchen_key: { name: 'Kitchen Key', description: 'Opens the cafeteria kitchen.', icon: '🔑' },
   override_token: { name: 'Override Token', description: 'Level-4 admin override. For the Admin Core entrance.', icon: '📋' },
+  admin_passcode: { name: 'Admin Passcode', description: 'Passcode to disable the firewall.', icon: '📝' },
+  firewall_bypass: { name: 'Firewall Bypass', description: 'Digital key to open the inner core.', icon: '💻' },
 };
