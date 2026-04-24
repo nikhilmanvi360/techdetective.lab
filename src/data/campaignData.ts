@@ -218,20 +218,20 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     playerStart: [2, 2],
     grid: maintenanceGrid,
     interactions: {
-      '2,2': { type: 'dialogue', speaker: 'Caretaker', lines: ['The nodes crashed. I saw a Java error on Node Alpha about a "SecurityGate" being null.', 'You\'ll need to initialize it, then sync the other nodes in the correct order.'] },
+      '2,2': { type: 'dialogue', speaker: 'Caretaker', lines: ['The system script crashed. I saw a Python error on Node Alpha: "IndexError: list index out of range".', 'It seems it was trying to access a system that doesn\'t exist. You need to point it to the correct core system.'] },
       '2,16': { 
         type: 'clue', 
         speaker: 'Whiteboard', 
-        lines: ['A Python script is scribbled here:', '"nodes = [\'Node Gamma\', \'Node Alpha\', \'Node Beta\']"', '"nodes.sort()"'], 
-        clue: 'Python Sort: Sync order is Alpha, Beta, Gamma.' 
+        lines: ['A list of core systems is written here:', 'systems = ["Cooling", "Lighting", "Security", "Grid_Control"]', 'The error says it tried to access index 4.'], 
+        clue: 'Python IndexError: Index 4 is out of range for a list of size 4.' 
       },
       '4,8': { 
         type: 'item', 
         speaker: 'Node Alpha', 
-        lines: ['SecurityGate object initialized.', 'Node Alpha is back online.'], 
+        lines: ['Python script corrected. System pointing to index 3 (Grid_Control).', 'Node Alpha is back online.'], 
         reward: 'sync_alpha',
-        terminalCmd: 'init SecurityGate',
-        terminalContext: 'SYSTEM HALTED. Java Exception: NullPointerException at SecurityGate.authenticate().'
+        terminalCmd: 'fix_index 3',
+        terminalContext: 'SYSTEM ERROR. IndexError: list index out of range. Current access: systems[4]. Enter the highest valid index for the list [Cooling, Lighting, Security, Grid_Control].'
       },
       '11,12': { 
         type: 'item', 
