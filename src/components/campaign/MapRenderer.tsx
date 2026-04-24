@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   UserRound,
   Waypoints,
-  type LucideIcon,
 } from 'lucide-react';
 
 interface MapRendererProps {
@@ -17,14 +16,14 @@ interface MapRendererProps {
   drones?: [number, number][];
 }
 
-const TILE_META: Record<TileType, { label: string; icon?: LucideIcon; accent: string }> = {
-  walkable: { label: 'Floor', accent: 'text-[#8a6b44]' },
-  wall: { label: 'Wall', accent: 'text-[#6f5532]' },
-  npc: { label: 'Witness', icon: UserRound, accent: 'text-[#8c5f22]' },
-  terminal: { label: 'Terminal', icon: FileText, accent: 'text-[#7a6540]' },
-  item: { label: 'Evidence', icon: Package, accent: 'text-[#7a6a45]' },
-  gate: { label: 'Door', icon: DoorOpen, accent: 'text-[#8b6b57]' },
-  exit: { label: 'Exit', icon: Waypoints, accent: 'text-[#55724a]' },
+const TILE_META: Record<TileType, { label: string; symbol: string; accent: string }> = {
+  walkable: { label: 'Floor', symbol: '', accent: 'text-[#8a6b44]' },
+  wall: { label: 'Wall', symbol: '', accent: 'text-[#6f5532]' },
+  npc: { label: 'Witness', symbol: '👤', accent: 'text-[#8c5f22]' },
+  terminal: { label: 'Terminal', symbol: '⌘', accent: 'text-[#7a6540]' },
+  item: { label: 'Evidence', symbol: '✦', accent: 'text-[#7a6a45]' },
+  gate: { label: 'Door', symbol: '◫', accent: 'text-[#8b6b57]' },
+  exit: { label: 'Exit', symbol: '↗', accent: 'text-[#55724a]' },
 };
 
 const TILE_BG: Record<TileType, string> = {
@@ -77,7 +76,6 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
               const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
               const isDrone = drones.some(d => d[0] === r && d[1] === c);
               const showDualMarker = isPlayer && isP2;
-              const Icon = meta.icon;
               return (
                 <div
                   key={c}
@@ -95,10 +93,10 @@ export default function MapRenderer({ grid, playerPos, p2Pos, zoneId, drones = [
                       backgroundSize: '8px 8px',
                     }}
                   />
-                  {!isPlayer && !isP2 && !isDrone && Icon && tile !== 'walkable' && tile !== 'wall' && (
+                  {!isPlayer && !isP2 && !isDrone && tile !== 'walkable' && tile !== 'wall' && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="rounded-full bg-[#f8edd7]/90 border border-[#b58a53] p-0.5 shadow-sm">
-                        <Icon className={`w-2.5 h-2.5 ${meta.accent}`} />
+                      <div className="rounded-full bg-[#f8edd7]/90 border border-[#b58a53] px-0.5 py-0.5 shadow-sm">
+                        <span className={`block text-[10px] leading-none ${meta.accent}`}>{meta.symbol}</span>
                       </div>
                     </div>
                   )}
