@@ -29,19 +29,6 @@ export interface DroneConfig {
   path: [number, number][]; // Sequence of coordinates to patrol
 }
 
-export interface MapDecoration {
-  id: string;
-  pos: [number, number];
-  src: string;
-  alt: string;
-  span?: [number, number];
-  frameCount?: number;
-  opacity?: number;
-  scale?: number;
-  zIndex?: number;
-  animate?: boolean;
-}
-
 export interface ZoneConfig {
   id: ZoneId;
   name: string;
@@ -52,7 +39,6 @@ export interface ZoneConfig {
   interactions: Record<string, TileInteraction>; // "row,col" → interaction
   drones?: DroneConfig[]; // Hazards that reset player
   playerStart: [number, number];
-  decorations?: MapDecoration[];
 }
 
 const W: TileType = 'walkable';
@@ -71,21 +57,6 @@ function createGrid(size: number, filler: (r: number, c: number) => TileType): T
 }
 
 const MAP_SIZE = 28;
-
-const ROUND2_ROOT = '/assets/round2-topdown';
-const ROUND2_SPRITES = {
-  player: `${ROUND2_ROOT}/characters/player_back_standing.png`,
-  npc: `${ROUND2_ROOT}/characters/npc_idle_b.png`,
-  drone: `${ROUND2_ROOT}/characters/enemy_standing_b.png`,
-  house1: `${ROUND2_ROOT}/environment/house_1.png`,
-  house2: `${ROUND2_ROOT}/environment/house_2.png`,
-  pine: `${ROUND2_ROOT}/environment/pine_tree.png`,
-  birch: `${ROUND2_ROOT}/environment/birch_tree.png`,
-  stone: `${ROUND2_ROOT}/environment/stone.png`,
-  campfire: `${ROUND2_ROOT}/effects/campfire.png`,
-  torch: `${ROUND2_ROOT}/effects/torch.png`,
-  road: `${ROUND2_ROOT}/environment/road.png`,
-};
 
 // ==========================================
 // CAFETERIA (Zone 1)
@@ -214,15 +185,6 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     requiredItems: [],
     playerStart: [2, 2],
     grid: cafeteriaGrid,
-    decorations: [
-      { id: 'cafeteria-annex', pos: [3, 21], span: [4, 5], src: ROUND2_SPRITES.house1, alt: 'Cafeteria annex' },
-      { id: 'cafeteria-pine-a', pos: [6, 24], span: [4, 3], src: ROUND2_SPRITES.pine, alt: 'Pine tree' },
-      { id: 'cafeteria-pine-b', pos: [10, 22], span: [4, 3], src: ROUND2_SPRITES.pine, alt: 'Pine tree' },
-      { id: 'cafeteria-birch', pos: [19, 21], span: [3, 2], src: ROUND2_SPRITES.birch, alt: 'Birch tree' },
-      { id: 'cafeteria-campfire', pos: [22, 8], span: [2, 2], src: ROUND2_SPRITES.campfire, alt: 'Campfire', frameCount: 8, animate: true, opacity: 0.95 },
-      { id: 'cafeteria-torch', pos: [20, 13], span: [2, 1], src: ROUND2_SPRITES.torch, alt: 'Torch', frameCount: 8 },
-      { id: 'cafeteria-stone', pos: [23, 18], span: [2, 2], src: ROUND2_SPRITES.stone, alt: 'Stone outcrop' },
-    ],
     interactions: {
       '14,8': { 
         type: 'clue', 
@@ -311,14 +273,6 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     requiredItems: ['key_A'],
     playerStart: [2, 2],
     grid: libraryGrid,
-    decorations: [
-      { id: 'library-annex', pos: [3, 21], span: [4, 5], src: ROUND2_SPRITES.house2, alt: 'Archive annex' },
-      { id: 'library-birch-a', pos: [7, 24], span: [4, 2], src: ROUND2_SPRITES.birch, alt: 'Birch tree' },
-      { id: 'library-birch-b', pos: [18, 22], span: [3, 2], src: ROUND2_SPRITES.birch, alt: 'Birch tree' },
-      { id: 'library-forest', pos: [21, 6], span: [4, 3], src: ROUND2_SPRITES.pine, alt: 'Pine tree' },
-      { id: 'library-stone', pos: [22, 17], span: [2, 2], src: ROUND2_SPRITES.stone, alt: 'Stone pile' },
-      { id: 'library-torch', pos: [12, 21], span: [2, 1], src: ROUND2_SPRITES.torch, alt: 'Torch', frameCount: 8 },
-    ],
     interactions: {
       '5,15': { 
         type: 'clue', 
@@ -369,14 +323,6 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     requiredItems: ['key_A', 'key_B'],
     playerStart: [2, 2],
     grid: maintenanceGrid,
-    decorations: [
-      { id: 'maintenance-shack', pos: [2, 21], span: [4, 4], src: ROUND2_SPRITES.house1, alt: 'Maintenance shack' },
-      { id: 'maintenance-road', pos: [20, 4], span: [4, 6], src: ROUND2_SPRITES.road, alt: 'Road strip' },
-      { id: 'maintenance-stone', pos: [22, 16], span: [2, 2], src: ROUND2_SPRITES.stone, alt: 'Stone pile' },
-      { id: 'maintenance-campfire', pos: [23, 7], span: [2, 2], src: ROUND2_SPRITES.campfire, alt: 'Campfire', frameCount: 8, animate: true, opacity: 0.9 },
-      { id: 'maintenance-pine', pos: [6, 24], span: [4, 3], src: ROUND2_SPRITES.pine, alt: 'Pine tree' },
-      { id: 'maintenance-torch', pos: [14, 22], span: [2, 1], src: ROUND2_SPRITES.torch, alt: 'Torch', frameCount: 8 },
-    ],
     interactions: {
       '2,2': { type: 'dialogue', speaker: 'Caretaker', lines: ['The system script crashed. I saw a Python error on Node Alpha: "IndexError: list index out of range".', 'It seems it was trying to access a system that doesn\'t exist. You need to point it to the correct core system.'] },
       '2,16': { 
@@ -437,14 +383,6 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     requiredItems: ['key_A', 'key_B', 'override_token'],
     playerStart: [2, 2],
     grid: adminGrid,
-    decorations: [
-      { id: 'admin-shack', pos: [2, 21], span: [4, 4], src: ROUND2_SPRITES.house2, alt: 'Admin bunker' },
-      { id: 'admin-stone-a', pos: [20, 21], span: [2, 2], src: ROUND2_SPRITES.stone, alt: 'Stone pile' },
-      { id: 'admin-stone-b', pos: [22, 4], span: [2, 2], src: ROUND2_SPRITES.stone, alt: 'Stone pile' },
-      { id: 'admin-torch-a', pos: [7, 21], span: [2, 1], src: ROUND2_SPRITES.torch, alt: 'Torch', frameCount: 8 },
-      { id: 'admin-torch-b', pos: [17, 22], span: [2, 1], src: ROUND2_SPRITES.torch, alt: 'Torch', frameCount: 8 },
-      { id: 'admin-campfire', pos: [15, 8], span: [2, 2], src: ROUND2_SPRITES.campfire, alt: 'Campfire', frameCount: 8, animate: true, opacity: 0.92 },
-    ],
     interactions: {
       '4,4': { 
         type: 'dialogue', 
