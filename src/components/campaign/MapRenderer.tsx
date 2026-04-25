@@ -1,35 +1,42 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { TileType, ZoneId } from '../../data/campaignData';
 
-const TILE_SIZE = 48;
+const TILE_SIZE = 56;
+const FRAME_W = 96;
+const FRAME_H = 32;
 
-const PEOPLE = '/assets/people and map/PNG';
-const MAP_WALLS = '/assets/map/Tiles/PNG/Walls';
-const MAP_ROOF = '/assets/map/Tiles/PNG/Roof';
-const MAP_OBJECTS = '/assets/map/Objects/PNG';
+type Facing = 0 | 1 | 2 | 3;
 
-const ASSETS = {
-  floor: `${MAP_WALLS}/walls_0002_Layer-3.png`,
-  floorAlt: `${MAP_WALLS}/walls_0007_Layer-8.png`,
-  wall: `${MAP_WALLS}/walls_0051_Layer-0.png`,
-  roof: `${MAP_ROOF}/roof_0036_Layer-0.png`,
-  door: `${MAP_WALLS}/walls_0040_Layer-41.png`,
-  terminal: `${MAP_OBJECTS}/objects_house_0007_Layer-8.png`,
-  evidence: `${MAP_OBJECTS}/objects_house_0017_Layer-18.png`,
-  decor: `${PEOPLE}/Decorative_cracks.png`,
-  playerIdle: `${PEOPLE}/Citizen1_Idle.png`,
-  playerWalk: `${PEOPLE}/Citizen1_Walk.png`,
-  partner: `${PEOPLE}/Citizen2_Idle.png`,
-  npc1: `${PEOPLE}/Talking_person1.png`,
-  npc2: `${PEOPLE}/Talking_person2.png`,
-  drone: `${PEOPLE}/Fighter2_Idle.png`,
+type SpriteSheet = {
+  src: string;
+  cols: number;
+  rows: number;
+};
+
+const SPRITES = {
+  playerIdle: { src: '/assets/people and map/PNG/Citizen1_Idle.png', cols: 4, rows: 4 } satisfies SpriteSheet,
+  playerWalk: { src: '/assets/people and map/PNG/Citizen1_Walk.png', cols: 2, rows: 4 } satisfies SpriteSheet,
+  partnerIdle: { src: '/assets/people and map/PNG/Citizen2_Idle.png', cols: 4, rows: 4 } satisfies SpriteSheet,
+  partnerWalk: { src: '/assets/people and map/PNG/Citizen2_Walk.png', cols: 2, rows: 4 } satisfies SpriteSheet,
+  npcA: { src: '/assets/people and map/PNG/Talking_person1.png', cols: 4, rows: 1 } satisfies SpriteSheet,
+  npcB: { src: '/assets/people and map/PNG/Talking_person2.png', cols: 4, rows: 1 } satisfies SpriteSheet,
+  droneIdle: { src: '/assets/people and map/PNG/Fighter2_Idle.png', cols: 4, rows: 4 } satisfies SpriteSheet,
+  droneWalk: { src: '/assets/people and map/PNG/Fighter2_Walk.png', cols: 4, rows: 4 } satisfies SpriteSheet,
+  evidence: '/assets/people and map/PNG/Attacked_Manequin1_with_shadow.png',
+  cracks: '/assets/people and map/PNG/Decorative_cracks.png',
+  terminal: '/assets/people and map/PNG/Interior_objects.png',
+  floor: '/assets/map/Tiles/PNG/Walls/walls_0002_Layer-3.png',
+  floorAlt: '/assets/map/Tiles/PNG/Walls/walls_0007_Layer-8.png',
+  wall: '/assets/map/Tiles/PNG/Walls/walls_0051_Layer-0.png',
+  roof: '/assets/map/Tiles/PNG/Roof/roof_0036_Layer-0.png',
+  door: '/assets/map/Tiles/PNG/Walls/walls_0040_Layer-41.png',
 };
 
 type TileAssetConfig = {
   floor: string;
-  object?: string;
   overlay?: string;
+  object?: string;
   objectScale?: number;
   objectOffsetY?: number;
   glow?: string;
@@ -38,45 +45,43 @@ type TileAssetConfig = {
 
 const TILE_CONFIG: Record<TileType, TileAssetConfig> = {
   walkable: {
-    floor: ASSETS.floor,
-    overlay: ASSETS.decor,
+    floor: SPRITES.floor,
+    overlay: SPRITES.cracks,
   },
   wall: {
-    floor: ASSETS.wall,
-    overlay: ASSETS.roof,
+    floor: SPRITES.wall,
+    overlay: SPRITES.roof,
     dark: true,
   },
   npc: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.npc1,
-    objectScale: 0.76,
-    objectOffsetY: 3,
-    glow: 'rgba(212, 160, 23, 0.32)',
+    floor: SPRITES.floorAlt,
+    object: SPRITES.terminal,
+    objectScale: 0.66,
+    objectOffsetY: 2,
+    glow: 'rgba(212, 160, 23, 0.24)',
   },
   terminal: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.terminal,
-    objectScale: 0.72,
+    floor: SPRITES.floorAlt,
+    object: SPRITES.terminal,
+    objectScale: 0.68,
     objectOffsetY: 4,
     glow: 'rgba(124, 200, 255, 0.22)',
   },
   item: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.evidence,
-    objectScale: 0.76,
-    objectOffsetY: 4,
+    floor: SPRITES.floorAlt,
+    object: SPRITES.evidence,
+    objectScale: 0.66,
+    objectOffsetY: 3,
     glow: 'rgba(236, 208, 88, 0.32)',
   },
   gate: {
-    floor: ASSETS.door,
+    floor: SPRITES.door,
     objectScale: 0.78,
-    objectOffsetY: 0,
-    glow: 'rgba(212, 160, 23, 0.24)',
+    glow: 'rgba(212, 160, 23, 0.26)',
   },
   exit: {
-    floor: ASSETS.door,
+    floor: SPRITES.door,
     objectScale: 0.78,
-    objectOffsetY: 0,
     glow: 'rgba(92, 194, 106, 0.30)',
   },
 };
@@ -109,11 +114,28 @@ function useViewportSize() {
   return viewport;
 }
 
-function coordKey(row: number, col: number) {
+function useTicker(interval: number) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(t => t + 1), interval);
+    return () => window.clearInterval(id);
+  }, [interval]);
+  return tick;
+}
+
+function key(row: number, col: number) {
   return `${row},${col}`;
 }
 
-function accentForZone(zoneId: ZoneId) {
+function directionFromDelta(dr: number, dc: number): Facing | null {
+  if (dr === 0 && dc === 0) return null;
+  if (Math.abs(dr) >= Math.abs(dc)) {
+    return dr > 0 ? 0 : 3;
+  }
+  return dc < 0 ? 1 : 2;
+}
+
+function zoneAccent(zoneId: ZoneId) {
   switch (zoneId) {
     case 'cafeteria':
       return '#b5874a';
@@ -128,38 +150,122 @@ function accentForZone(zoneId: ZoneId) {
   }
 }
 
+function SheetSprite({
+  sheet,
+  frameCol,
+  frameRow,
+  width = FRAME_W,
+  height = FRAME_H,
+  scale = 1,
+  filter,
+  glow,
+  bob,
+}: {
+  sheet: SpriteSheet;
+  frameCol: number;
+  frameRow: number;
+  width?: number;
+  height?: number;
+  scale?: number;
+  filter?: string;
+  glow?: string;
+  bob?: boolean;
+}) {
+  const sheetWidth = sheet.cols * FRAME_W;
+  const sheetHeight = sheet.rows * FRAME_H;
+  const spriteWidth = width * scale;
+  const spriteHeight = height * scale;
+
+  const sprite = (
+    <div
+      style={{
+        width: spriteWidth,
+        height: spriteHeight,
+        backgroundImage: `url("${sheet.src}")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: `${sheetWidth}px ${sheetHeight}px`,
+        backgroundPosition: `-${frameCol * FRAME_W}px -${frameRow * FRAME_H}px`,
+        imageRendering: 'pixelated',
+        filter: filter ?? 'drop-shadow(0 4px 8px rgba(0,0,0,0.9))',
+      }}
+    />
+  );
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {glow && (
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: 'translateY(6px)',
+            width: spriteWidth,
+            height: spriteHeight,
+            filter: `blur(8px)`,
+            background: glow,
+            opacity: 0.35,
+          }}
+        />
+      )}
+      {bob ? (
+        <motion.div
+          animate={{ y: [0, -3, 0] }}
+          transition={{ duration: 1.05, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          {sprite}
+        </motion.div>
+      ) : (
+        sprite
+      )}
+    </div>
+  );
+}
+
 function TileCell({
   tile,
   row,
   col,
   isPlayer,
-  isPlayerMoving,
+  isPlayerWalking,
+  playerFacing,
   isP2,
+  p2Walking,
+  p2Facing,
   isDrone,
   showInteract,
-  tick,
+  idleTick,
+  fastTick,
 }: {
   tile: TileType;
   row: number;
   col: number;
   isPlayer: boolean;
-  isPlayerMoving: boolean;
+  isPlayerWalking: boolean;
+  playerFacing: Facing;
   isP2: boolean;
+  p2Walking: boolean;
+  p2Facing: Facing;
   isDrone: boolean;
   showInteract: boolean;
-  tick: number;
+  idleTick: number;
+  fastTick: number;
 }) {
   const cfg = TILE_CONFIG[tile];
-  const playerSprite = isPlayerMoving ? ASSETS.playerWalk : ASSETS.playerIdle;
-  const npcSprite = tick % 2 === 0 ? ASSETS.npc1 : ASSETS.npc2;
-  const npcBob = tick % 2 === 0 ? 0 : -1;
-  const objectScale = cfg.objectScale ?? 0.75;
-  const objectOffsetY = cfg.objectOffsetY ?? 0;
-  const crackShift = ((row * 13 + col * 17) % 96) / 2;
+  const npcVariant = (row + col) % 2 === 0 ? SPRITES.npcA : SPRITES.npcB;
+  const background = tile === 'wall'
+    ? 'linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.15))'
+    : undefined;
+
+  const npcFrame = idleTick % npcVariant.cols;
+  const playerSheet = isPlayerWalking ? SPRITES.playerWalk : SPRITES.playerIdle;
+  const playerFrame = isPlayerWalking ? fastTick % playerSheet.cols : idleTick % playerSheet.cols;
+  const p2Sheet = p2Walking ? SPRITES.partnerWalk : SPRITES.partnerIdle;
+  const p2Frame = p2Walking ? fastTick % p2Sheet.cols : idleTick % p2Sheet.cols;
+  const droneSheet = isDrone ? (fastTick % 2 === 0 ? SPRITES.droneIdle : SPRITES.droneWalk) : SPRITES.droneIdle;
+  const droneFrame = fastTick % droneSheet.cols;
 
   return (
     <div
-      className="absolute overflow-hidden select-none"
+      className="absolute select-none overflow-hidden"
       style={{
         left: col * TILE_SIZE,
         top: row * TILE_SIZE,
@@ -174,29 +280,29 @@ function TileCell({
           backgroundImage: `url("${cfg.floor}")`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          filter: cfg.dark ? 'brightness(0.66) saturate(0.72)' : 'none',
+          filter: cfg.dark ? 'brightness(0.65) saturate(0.72)' : 'none',
         }}
       />
 
       {cfg.overlay && (
         <div
-          className="absolute inset-0 opacity-70"
+          className="absolute inset-0 opacity-75"
           style={{
             backgroundImage: `url("${cfg.overlay}")`,
             backgroundSize: '96px 96px',
             backgroundRepeat: 'repeat',
-            backgroundPosition: `${crackShift}px ${crackShift / 3}px`,
+            backgroundPosition: `${((row * 11) + (col * 7)) % 96}px ${((row * 5) + (col * 13)) % 96}px`,
             mixBlendMode: tile === 'wall' ? 'screen' : 'soft-light',
           }}
         />
       )}
 
+      {background && <div className="absolute inset-0" style={{ background }} />}
+
       {cfg.glow && (
         <div
           className="absolute inset-0"
-          style={{
-            boxShadow: `inset 0 0 16px 4px ${cfg.glow}`,
-          }}
+          style={{ boxShadow: `inset 0 0 16px 4px ${cfg.glow}` }}
         />
       )}
 
@@ -204,114 +310,105 @@ function TileCell({
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(180deg, transparent 12%, rgba(92,194,106,0.08) 100%)',
+            background: 'linear-gradient(180deg, transparent 10%, rgba(92,194,106,0.08) 100%)',
           }}
         />
       )}
 
       {!isPlayer && !isP2 && !isDrone && cfg.object && (
-        <div
-          className="absolute inset-0 flex items-end justify-center"
-          style={{ transform: `translateY(${objectOffsetY}px)` }}
-        >
-          <img
-            src={cfg.object}
-            alt={tile}
-            className="select-none object-contain"
-            style={{
-              width: `${Math.round(TILE_SIZE * objectScale)}px`,
-              height: `${Math.round(TILE_SIZE * objectScale)}px`,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.78))',
-            }}
+        <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+          {tile === 'npc' ? (
+          <SheetSprite
+            sheet={npcVariant}
+            frameCol={npcFrame}
+            frameRow={0}
+            width={FRAME_W}
+            height={FRAME_H}
+            scale={1.45}
+            bob
+            glow="rgba(212,160,23,0.18)"
           />
+        ) : (
+            <img
+              src={cfg.object}
+              alt={tile}
+              style={{
+                width: Math.round(TILE_SIZE * (cfg.objectScale ?? 0.68)),
+                height: Math.round(TILE_SIZE * (cfg.objectScale ?? 0.68)),
+                transform: `translateY(${cfg.objectOffsetY ?? 0}px)`,
+                imageRendering: 'pixelated',
+                filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.85))',
+              }}
+            />
+          )}
         </div>
       )}
 
       {isPlayer && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={playerSprite}
-            alt="Player"
-            animate={{ y: [0, -2, 0] }}
-            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 40,
-              height: 40,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(212,160,23,0.6))',
-            }}
+        <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+          <SheetSprite
+            sheet={playerSheet}
+            frameCol={playerFrame}
+            frameRow={playerFacing}
+            width={FRAME_W}
+            height={FRAME_H}
+            scale={1.55}
+            bob={!isPlayerWalking}
+            glow="rgba(212,160,23,0.22)"
+            filter="drop-shadow(0 5px 10px rgba(0,0,0,0.92)) drop-shadow(0 0 8px rgba(212,160,23,0.55))"
           />
         </div>
       )}
 
       {isP2 && !isPlayer && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={ASSETS.partner}
-            alt="Partner"
-            animate={{ y: [0, -1, 0] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 38,
-              height: 38,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(92,194,106,0.5))',
-            }}
+        <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+          <SheetSprite
+            sheet={p2Sheet}
+            frameCol={p2Frame}
+            frameRow={p2Facing}
+            width={FRAME_W}
+            height={FRAME_H}
+            scale={1.55}
+            bob={!p2Walking}
+            glow="rgba(92,194,106,0.18)"
+            filter="drop-shadow(0 5px 10px rgba(0,0,0,0.9)) drop-shadow(0 0 7px rgba(92,194,106,0.45))"
           />
         </div>
       )}
 
       {isDrone && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={ASSETS.drone}
-            alt="Drone"
-            animate={{ opacity: [0.8, 1, 0.8], scale: [1, 1.02, 1] }}
-            transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 38,
-              height: 38,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 0 8px rgba(220,50,50,0.8)) brightness(0.8) sepia(0.5) hue-rotate(340deg)',
-            }}
-          />
-        </div>
-      )}
-
-      {tile === 'npc' && !isPlayer && !isP2 && !isDrone && (
-        <div className="absolute inset-0 flex items-end justify-center pb-1">
-          <motion.img
-            src={npcSprite}
-            alt="NPC"
-            animate={{ y: [0, npcBob, 0] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 36,
-              height: 36,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.8))',
-            }}
-          />
+          <motion.div
+            animate={{ opacity: [0.75, 1, 0.75], scale: [1, 1.05, 1], rotate: [-1, 1, -1] }}
+            transition={{ duration: 0.72, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <SheetSprite
+              sheet={droneSheet}
+              frameCol={droneFrame}
+              frameRow={0}
+              width={FRAME_W}
+              height={FRAME_H}
+              scale={1.5}
+              glow="rgba(220,50,50,0.22)"
+              filter="drop-shadow(0 0 10px rgba(220,40,40,0.88)) brightness(0.78) sepia(0.5) hue-rotate(335deg)"
+            />
+          </motion.div>
         </div>
       )}
 
       {showInteract && (
         <motion.div
           animate={{ y: [-2, 2, -2], opacity: [0.82, 1, 0.82] }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+          transition={{ duration: 0.95, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         >
           <div
-            className="rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-[0.3em] uppercase shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+            className="rounded-full px-2 py-0.5 text-[9px] font-black tracking-[0.3em] uppercase"
             style={{
-              background: 'rgba(12, 10, 7, 0.86)',
-              border: '1px solid rgba(212, 160, 23, 0.82)',
+              background: 'rgba(10,8,5,0.88)',
+              border: '1px solid rgba(212,160,23,0.85)',
               color: '#f0e0a0',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             }}
           >
             [E]
@@ -334,31 +431,77 @@ export default function MapRenderer({
   playerMoving = false,
 }: MapRendererProps) {
   const viewport = useViewportSize();
-  const [pulseTick, setPulseTick] = useState(0);
+  const idleTick = useTicker(220);
+  const fastTick = useTicker(100);
+
+  const prevPlayerPosRef = useRef(playerPos);
+  const facingRef = useRef<Facing>(0);
+  const prevP2PosRef = useRef(p2Pos);
+  const p2FacingRef = useRef<Facing>(0);
+  const [p2Moving, setP2Moving] = useState(false);
+  const p2MoveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setPulseTick(t => t + 1), 550);
-    return () => window.clearInterval(interval);
+    const prev = prevPlayerPosRef.current;
+    const dr = playerPos[0] - prev[0];
+    const dc = playerPos[1] - prev[1];
+    const nextFacing = directionFromDelta(dr, dc);
+    if (nextFacing !== null) {
+      facingRef.current = nextFacing;
+    }
+    prevPlayerPosRef.current = playerPos;
+  }, [playerPos]);
+
+  useEffect(() => {
+    if (!p2Pos) return;
+    const prev = prevP2PosRef.current;
+    if (!prev) {
+      prevP2PosRef.current = p2Pos;
+      return;
+    }
+    const dr = p2Pos[0] - prev[0];
+    const dc = p2Pos[1] - prev[1];
+    const nextFacing = directionFromDelta(dr, dc);
+    if (nextFacing !== null) {
+      p2FacingRef.current = nextFacing;
+      setP2Moving(true);
+      if (p2MoveTimerRef.current !== null) {
+        window.clearTimeout(p2MoveTimerRef.current);
+      }
+      p2MoveTimerRef.current = window.setTimeout(() => setP2Moving(false), 300);
+    }
+    prevP2PosRef.current = p2Pos;
+  }, [p2Pos]);
+
+  useEffect(() => {
+    return () => {
+      if (p2MoveTimerRef.current !== null) {
+        window.clearTimeout(p2MoveTimerRef.current);
+      }
+    };
   }, []);
 
   const rows = grid.length;
   const cols = grid[0]?.length ?? 0;
   const mapWidth = cols * TILE_SIZE;
   const mapHeight = rows * TILE_SIZE;
-  const camX = Math.round(playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - viewport.w / 2);
-  const camY = Math.round(playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - viewport.h / 2);
-  const maxCamX = Math.max(0, mapWidth - viewport.w);
-  const maxCamY = Math.max(0, mapHeight - viewport.h);
-  const clampedCamX = Math.max(0, Math.min(camX, maxCamX));
-  const clampedCamY = Math.max(0, Math.min(camY, maxCamY));
 
-  const startCol = Math.max(0, Math.floor(clampedCamX / TILE_SIZE) - 2);
-  const endCol = Math.min(cols, Math.ceil((clampedCamX + viewport.w) / TILE_SIZE) + 2);
-  const startRow = Math.max(0, Math.floor(clampedCamY / TILE_SIZE) - 2);
-  const endRow = Math.min(rows, Math.ceil((clampedCamY + viewport.h) / TILE_SIZE) + 2);
+  const camera = useMemo(() => {
+    const camX = Math.round(playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - viewport.w / 2);
+    const camY = Math.round(playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - viewport.h / 2);
+    return {
+      x: Math.max(0, Math.min(camX, Math.max(0, mapWidth - viewport.w))),
+      y: Math.max(0, Math.min(camY, Math.max(0, mapHeight - viewport.h))),
+    };
+  }, [mapWidth, mapHeight, playerPos, viewport.h, viewport.w]);
 
-  const droneSet = new Set(drones.map(([row, col]) => coordKey(row, col)));
-  const interactionTargets = new Set<string>();
+  const startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE) - 1);
+  const endCol = Math.min(cols, Math.ceil((camera.x + viewport.w) / TILE_SIZE) + 1);
+  const startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE) - 1);
+  const endRow = Math.min(rows, Math.ceil((camera.y + viewport.h) / TILE_SIZE) + 1);
+
+  const droneSet = new Set(drones.map(([row, col]) => key(row, col)));
+  const interactSet = new Set<string>();
 
   if (canInteract) {
     const [pr, pc] = playerPos;
@@ -367,21 +510,21 @@ export default function MapRenderer({
         if (row === pr && col === pc) continue;
         const tile = grid[row]?.[col];
         if (tile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(tile)) {
-          interactionTargets.add(coordKey(row, col));
+          interactSet.add(key(row, col));
         }
       }
     }
     const currentTile = grid[pr]?.[pc];
     if (currentTile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(currentTile)) {
-      interactionTargets.add(coordKey(pr, pc));
+      interactSet.add(key(pr, pc));
     }
   }
 
-  const accent = accentForZone(zoneId);
+  const accent = zoneAccent(zoneId);
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden bg-black text-[#f4e6c4]"
+      className="fixed inset-0 overflow-hidden text-[#f4e6c4]"
       style={{
         background: [
           'radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 46%)',
@@ -390,26 +533,16 @@ export default function MapRenderer({
         ].join(', '),
       }}
     >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at center, transparent 34%, rgba(5, 3, 2, 0.92) 100%)`,
-        }}
-      />
-
       <motion.div
         className="absolute"
-        animate={{ x: -clampedCamX, y: -clampedCamY }}
+        animate={{ x: -camera.x, y: -camera.y }}
         transition={{ type: 'tween', duration: 0.08, ease: 'linear' }}
-        style={{
-          width: mapWidth,
-          height: mapHeight,
-        }}
+        style={{ width: mapWidth, height: mapHeight }}
       >
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 pointer-events-none"
           style={{
-            background: `linear-gradient(135deg, rgba(181,135,74,0.06), rgba(139,32,32,0.03))`,
+            background: 'radial-gradient(ellipse at 50% 40%, rgba(181,135,74,0.06) 0%, rgba(139,32,32,0.03) 60%, transparent 100%)',
           }}
         />
 
@@ -419,22 +552,26 @@ export default function MapRenderer({
             const colIndex = startCol + colOffset;
             const isPlayer = playerPos[0] === rowIndex && playerPos[1] === colIndex;
             const isP2 = !!p2Pos && p2Pos[0] === rowIndex && p2Pos[1] === colIndex;
-            const isDrone = droneSet.has(coordKey(rowIndex, colIndex));
-            const showInteract = interactionTargets.has(coordKey(rowIndex, colIndex));
+            const isDrone = droneSet.has(key(rowIndex, colIndex));
+            const showInteract = interactSet.has(key(rowIndex, colIndex));
 
             return (
-              <div key={coordKey(rowIndex, colIndex)}>
+              <div key={key(rowIndex, colIndex)}>
                 <TileCell
                   tile={tile}
                   row={rowIndex}
                   col={colIndex}
-                isPlayer={isPlayer}
-                isPlayerMoving={playerMoving}
-                isP2={isP2}
-                isDrone={isDrone}
-                showInteract={showInteract}
-                tick={pulseTick}
-              />
+                  isPlayer={isPlayer}
+                  isPlayerWalking={playerMoving}
+                  playerFacing={facingRef.current}
+                  isP2={isP2}
+                  p2Walking={p2Moving}
+                  p2Facing={p2FacingRef.current}
+                  isDrone={isDrone}
+                  showInteract={showInteract}
+                  idleTick={idleTick}
+                  fastTick={fastTick}
+                />
               </div>
             );
           });
@@ -447,7 +584,7 @@ export default function MapRenderer({
             top: playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - 140,
             width: 280,
             height: 280,
-            background: `radial-gradient(circle, rgba(212,160,23,0.15) 0%, rgba(212,160,23,0.06) 34%, transparent 72%)`,
+            background: 'radial-gradient(circle, rgba(212,160,23,0.16) 0%, rgba(212,160,23,0.06) 34%, transparent 72%)',
           }}
         />
       </motion.div>
@@ -455,7 +592,7 @@ export default function MapRenderer({
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.48), inset 0 0 160px rgba(0,0,0,0.68)`,
+          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.48), inset 0 0 160px rgba(0,0,0,0.68)',
         }}
       />
 
@@ -520,8 +657,8 @@ export default function MapRenderer({
             { key: 'I', label: 'Inventory' },
             { key: 'N', label: 'Notebook' },
             { key: 'ESC', label: 'Close' },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-2">
+          ].map(({ key: shortcut, label }) => (
+            <div key={shortcut} className="flex items-center gap-2">
               <kbd
                 className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.35em]"
                 style={{
@@ -530,7 +667,7 @@ export default function MapRenderer({
                   border: '1px solid rgba(212,160,23,0.32)',
                 }}
               >
-                {key}
+                {shortcut}
               </kbd>
               <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#7a6040]">
                 {label}
