@@ -1,86 +1,234 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { TileType, ZoneId } from '../../data/campaignData';
 
-const TILE_SIZE = 48;
+const TILE = 48; // Updated TILE size to 48 or 56 depending on how the map scales, let's stick to 48 as base
 
-const PEOPLE = '/assets/people and map/PNG';
-const MAP_WALLS = '/assets/map/Tiles/PNG/Walls';
-const MAP_ROOF = '/assets/map/Tiles/PNG/Roof';
-const MAP_OBJECTS = '/assets/map/Objects/PNG';
-
-const ASSETS = {
-  floor: `${MAP_WALLS}/walls_0002_Layer-3.png`,
-  floorAlt: `${MAP_WALLS}/walls_0007_Layer-8.png`,
-  wall: `${MAP_WALLS}/walls_0051_Layer-0.png`,
-  roof: `${MAP_ROOF}/roof_0036_Layer-0.png`,
-  door: `${MAP_WALLS}/walls_0040_Layer-41.png`,
-  terminal: `${MAP_OBJECTS}/objects_house_0007_Layer-8.png`,
-  evidence: `${MAP_OBJECTS}/objects_house_0017_Layer-18.png`,
-  decor: `${PEOPLE}/Decorative_cracks.png`,
-  playerIdle: `${PEOPLE}/Citizen1_Idle.png`,
-  playerWalk: `${PEOPLE}/Citizen1_Walk.png`,
-  partner: `${PEOPLE}/Citizen2_Idle.png`,
-  npc1: `${PEOPLE}/Talking_person1.png`,
-  npc2: `${PEOPLE}/Talking_person2.png`,
-  drone: `${PEOPLE}/Fighter2_Idle.png`,
+// ── Asset Definitions ──────────────────────────────────────────────────────────
+// We define sprite sheet objects for characters, which have rows/cols
+type SpriteSheet = {
+  src: string;
+  cols: number;
+  rows: number;
 };
 
-type TileAssetConfig = {
+const SP = {
+  playerIdle: { src: '/assets/people and map/PNG/Citizen1_Idle.png',   cols: 4, rows: 4 },
+  playerWalk: { src: '/assets/people and map/PNG/Citizen1_Walk.png',   cols: 9, rows: 4 },
+  partner:    { src: '/assets/people and map/PNG/Citizen2_Idle.png',   cols: 4, rows: 4 },
+  npc1:       { src: '/assets/people and map/PNG/Talking_person1.png', cols: 4, rows: 1 },
+  npc2:       { src: '/assets/people and map/PNG/Talking_person2.png', cols: 4, rows: 1 },
+  fighter:    { src: '/assets/people and map/PNG/Fighter2_Idle.png',   cols: 9, rows: 4 },
+};
+
+const OBJ = {
+  evidence: '/assets/map/Objects/PNG/objects_house_0017_Layer-18.png',
+};
+
+// ── Theme Definitions ──────────────────────────────────────────────────────────
+type ZoneTheme = {
   floor: string;
-  object?: string;
-  overlay?: string;
-  objectScale?: number;
-  objectOffsetY?: number;
-  glow?: string;
-  dark?: boolean;
+  floorAlt: string;
+  wall: string;
+  wallTop: string;
+  ambient: string;
+  accent: string;
 };
 
-const TILE_CONFIG: Record<TileType, TileAssetConfig> = {
-  walkable: {
-    floor: ASSETS.floor,
-    overlay: ASSETS.decor,
+const ZONE_THEME: Record<ZoneId, ZoneTheme> = {
+  cafeteria: {
+    floor: '#2c2520', floorAlt: '#26201b',
+    wall: '#1f1b16', wallTop: '#352d24',
+    ambient: 'rgba(212,160,23,0.08)',
+    accent: '#d4a017',
   },
-  wall: {
-    floor: ASSETS.wall,
-    overlay: ASSETS.roof,
-    dark: true,
+  library: {
+    floor: '#1e261f', floorAlt: '#1a201b',
+    wall: '#141a15', wallTop: '#243026',
+    ambient: 'rgba(90,122,74,0.08)',
+    accent: '#5a7a4a',
   },
-  npc: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.npc1,
-    objectScale: 0.76,
-    objectOffsetY: 3,
-    glow: 'rgba(212, 160, 23, 0.32)',
+  maintenance: {
+    floor: '#252525', floorAlt: '#222222',
+    wall: '#1a1a1a', wallTop: '#2e2e2e',
+    ambient: 'rgba(122,90,58,0.1)',
+    accent: '#7a5a3a',
   },
-  terminal: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.terminal,
-    objectScale: 0.72,
-    objectOffsetY: 4,
-    glow: 'rgba(124, 200, 255, 0.22)',
-  },
-  item: {
-    floor: ASSETS.floorAlt,
-    object: ASSETS.evidence,
-    objectScale: 0.76,
-    objectOffsetY: 4,
-    glow: 'rgba(236, 208, 88, 0.32)',
-  },
-  gate: {
-    floor: ASSETS.door,
-    objectScale: 0.78,
-    objectOffsetY: 0,
-    glow: 'rgba(212, 160, 23, 0.24)',
-  },
-  exit: {
-    floor: ASSETS.door,
-    objectScale: 0.78,
-    objectOffsetY: 0,
-    glow: 'rgba(92, 194, 106, 0.30)',
+  admin_core: {
+    floor: '#261b1b', floorAlt: '#201616',
+    wall: '#1a1212', wallTop: '#362222',
+    ambient: 'rgba(139,32,32,0.12)',
+    accent: '#8b2020',
   },
 };
 
+// ─── Sprite Component ────────────────────────────────────────────────────────
+const CHAR_W = 32;
+const CHAR_H = 48;
+
+function Sprite({
+  sheet, frameCol, frameRow, filter, bounce
+}: {
+  sheet: SpriteSheet; frameCol: number; frameRow: number;
+  filter?: string; bounce?: boolean;
+}) {
+  const [bgSize, setBgSize] = useState('auto');
+  
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const w = (img.naturalWidth / sheet.cols) * (CHAR_H / (img.naturalHeight / sheet.rows));
+    setBgSize(`${w * sheet.cols}px auto`);
+  };
+
+  const xPos = (frameCol / (sheet.cols - 1 || 1)) * 100;
+  const yPos = (frameRow / (sheet.rows - 1 || 1)) * 100;
+
+  return (
+    <div style={{ width: CHAR_W, height: CHAR_H, position: 'relative' }}>
+      <img src={sheet.src} onLoad={handleLoad} style={{ display: 'none' }} alt="" />
+      <motion.div
+        animate={bounce ? { y: [0, -2, 0] } : { y: 0 }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          width: '100%', height: '100%',
+          backgroundImage: `url('${sheet.src}')`,
+          backgroundSize: bgSize,
+          backgroundPosition: `${xPos}% ${yPos}%`,
+          imageRendering: 'pixelated',
+          filter,
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── TileCell ────────────────────────────────────────────────────────────────
+function TileCell({
+  tile, row, col,
+  theme, isPlayer, isPlayerWalking, isP2, isDrone, isNpc, showInteract, tick,
+  fastTick, playerFacingRow = 0,
+}: {
+  tile: TileType; row: number; col: number;
+  theme: ZoneTheme;
+  isPlayer: boolean; isPlayerWalking: boolean;
+  isP2: boolean; isDrone: boolean; isNpc: boolean;
+  showInteract: boolean; tick: number;
+  fastTick: number; playerFacingRow?: number;
+}) {
+  const isWall = tile === 'wall';
+  const isAlt  = (row + col) % 2 === 0;
+
+  const bgColor = isWall
+    ? theme.wall
+    : tile === 'gate' || tile === 'exit'
+    ? (tile === 'exit' ? '#1a3020' : '#2a2010')
+    : isAlt ? theme.floor : theme.floorAlt;
+
+  const glowColor =
+    tile === 'terminal' ? 'rgba(80,160,255,0.35)' :
+    tile === 'item'     ? 'rgba(240,200,60,0.40)' :
+    tile === 'gate'     ? 'rgba(200,140,20,0.30)' :
+    tile === 'exit'     ? 'rgba(60,200,100,0.35)' :
+    tile === 'npc'      ? 'rgba(212,160,23,0.28)' : null;
+
+  return (
+    <div className="absolute select-none" style={{ left: col * TILE, top: row * TILE, width: TILE, height: TILE }}>
+      {/* Base tile */}
+      <div className="absolute inset-0"
+        style={{
+          backgroundColor: bgColor,
+          borderTop: isWall ? `3px solid ${theme.wallTop}` : undefined,
+          boxShadow: !isWall ? 'inset 0 0 0 0.5px rgba(0,0,0,0.18)' : `inset 0 0 0 1px rgba(0,0,0,0.5)`,
+        }}
+      />
+
+      {/* Glow overlay */}
+      {glowColor && (
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at center, ${glowColor} 0%, transparent 80%)` }} />
+      )}
+      {tile === 'exit' && (
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg,transparent 20%,rgba(60,200,100,0.15) 100%)' }} />
+      )}
+
+      {/* ── Objects ── */}
+      {!isPlayer && !isP2 && !isDrone && !isNpc && (
+        <>
+          {tile === 'terminal' && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div style={{ position: 'relative', width: 32, height: 26 }}>
+                <div style={{
+                  width: 32, height: 22,
+                  background: 'linear-gradient(160deg,#1a2a3a 0%,#0a1520 100%)',
+                  border: '2px solid #304060', borderRadius: 3,
+                  boxShadow: '0 0 8px rgba(80,160,255,0.55), inset 0 0 6px rgba(40,120,220,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                }}>
+                  <div style={{ position:'absolute', inset:0, backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(80,180,255,0.07) 2px,rgba(80,180,255,0.07) 3px)' }}/>
+                  <div style={{ width: 14, height: 2, background: 'rgba(100,200,255,0.9)', borderRadius: 1, boxShadow: '0 0 4px rgba(80,180,255,0.9)', position:'relative', zIndex:1 }}/>
+                </div>
+                <div style={{ width: 8, height: 4, background: '#1c2c3c', margin: '0 auto', borderRadius: '0 0 2px 2px', borderTop: '1px solid #304060' }}/>
+              </div>
+            </div>
+          )}
+          {tile === 'item' && (
+             <div className="absolute inset-0 flex items-center justify-center">
+               <img src={OBJ.evidence} alt="item" style={{ width: 36, height: 36, imageRendering: 'pixelated', filter: 'drop-shadow(0 3px 5px rgba(0,0,0,0.9))' }} />
+             </div>
+          )}
+          {tile === 'gate' && <div className="absolute inset-0 flex items-center justify-center text-2xl" style={{ fontSize: 26 }}>🚪</div>}
+          {tile === 'exit' && <div className="absolute inset-0 flex items-center justify-center text-2xl" style={{ fontSize: 22 }}>⬆️</div>}
+        </>
+      )}
+
+      {/* ── Characters ── */}
+      {isNpc && !isPlayer && !isP2 && !isDrone && (
+        <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
+          <Sprite sheet={tick % 2 === 0 ? SP.npc1 : SP.npc2} frameCol={0} frameRow={0} bounce />
+        </div>
+      )}
+
+      {isPlayer && (
+        <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
+          <Sprite
+            sheet={isPlayerWalking ? SP.playerWalk : SP.playerIdle}
+            frameCol={isPlayerWalking ? (fastTick % SP.playerWalk.cols) : 0}
+            frameRow={playerFacingRow}
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 8px rgba(212,160,23,0.7))"
+            bounce={!isPlayerWalking}
+          />
+        </div>
+      )}
+
+      {isP2 && !isPlayer && (
+        <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
+          <Sprite sheet={SP.partner} frameCol={0} frameRow={0} filter="drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 6px rgba(92,194,106,0.6))" bounce />
+        </div>
+      )}
+
+      {isDrone && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div animate={{ opacity: [0.75, 1, 0.75], scale: [1, 1.06, 1] }} transition={{ duration: 0.65, repeat: Infinity }}>
+            <Sprite
+              sheet={SP.fighter}
+              frameCol={fastTick % SP.fighter.cols}
+              frameRow={0}
+              filter="drop-shadow(0 0 10px rgba(220,40,40,0.9)) brightness(0.7) sepia(0.6) hue-rotate(330deg)"
+            />
+          </motion.div>
+        </div>
+      )}
+
+      {/* Interact Prompt Indicator */}
+      {showInteract && (
+        <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.9, repeat: Infinity }} className="absolute -top-7 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="rounded-full px-2 py-0.5 text-[9px] font-black tracking-[0.3em] uppercase" style={{ background: 'rgba(10,8,5,0.88)', border: '1px solid rgba(212,160,23,0.85)', color: '#f0e0a0', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>[E]</div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 interface MapRendererProps {
   grid: TileType[][];
   playerPos: [number, number];
@@ -93,467 +241,147 @@ interface MapRendererProps {
   playerMoving?: boolean;
 }
 
-function useViewportSize() {
-  const [viewport, setViewport] = useState(() => ({
-    w: typeof window === 'undefined' ? 0 : window.innerWidth,
-    h: typeof window === 'undefined' ? 0 : window.innerHeight,
-  }));
-
+function useViewport() {
+  const [vp, setVp] = useState({ w: typeof window !== 'undefined' ? window.innerWidth : 800, h: typeof window !== 'undefined' ? window.innerHeight : 600 });
   useEffect(() => {
-    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
-    onResize();
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const fn = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
   }, []);
-
-  return viewport;
+  return vp;
 }
 
-function coordKey(row: number, col: number) {
-  return `${row},${col}`;
-}
-
-function accentForZone(zoneId: ZoneId) {
-  switch (zoneId) {
-    case 'cafeteria':
-      return '#b5874a';
-    case 'library':
-      return '#5a7a4a';
-    case 'maintenance':
-      return '#7a5a3a';
-    case 'admin_core':
-      return '#8B2020';
-    default:
-      return '#d4a017';
-  }
-}
-
-function TileCell({
-  tile,
-  row,
-  col,
-  isPlayer,
-  isPlayerMoving,
-  isP2,
-  isDrone,
-  showInteract,
-  tick,
-}: {
-  tile: TileType;
-  row: number;
-  col: number;
-  isPlayer: boolean;
-  isPlayerMoving: boolean;
-  isP2: boolean;
-  isDrone: boolean;
-  showInteract: boolean;
-  tick: number;
-}) {
-  const cfg = TILE_CONFIG[tile];
-  const playerSprite = isPlayerMoving ? ASSETS.playerWalk : ASSETS.playerIdle;
-  const npcSprite = tick % 2 === 0 ? ASSETS.npc1 : ASSETS.npc2;
-  const npcBob = tick % 2 === 0 ? 0 : -1;
-  const objectScale = cfg.objectScale ?? 0.75;
-  const objectOffsetY = cfg.objectOffsetY ?? 0;
-  const crackShift = ((row * 13 + col * 17) % 96) / 2;
-
-  return (
-    <div
-      className="absolute overflow-hidden select-none"
-      style={{
-        left: col * TILE_SIZE,
-        top: row * TILE_SIZE,
-        width: TILE_SIZE,
-        height: TILE_SIZE,
-        imageRendering: 'pixelated',
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: `url("${cfg.floor}")`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          filter: cfg.dark ? 'brightness(0.66) saturate(0.72)' : 'none',
-        }}
-      />
-
-      {cfg.overlay && (
-        <div
-          className="absolute inset-0 opacity-70"
-          style={{
-            backgroundImage: `url("${cfg.overlay}")`,
-            backgroundSize: '96px 96px',
-            backgroundRepeat: 'repeat',
-            backgroundPosition: `${crackShift}px ${crackShift / 3}px`,
-            mixBlendMode: tile === 'wall' ? 'screen' : 'soft-light',
-          }}
-        />
-      )}
-
-      {cfg.glow && (
-        <div
-          className="absolute inset-0"
-          style={{
-            boxShadow: `inset 0 0 16px 4px ${cfg.glow}`,
-          }}
-        />
-      )}
-
-      {tile === 'exit' && (
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(180deg, transparent 12%, rgba(92,194,106,0.08) 100%)',
-          }}
-        />
-      )}
-
-      {!isPlayer && !isP2 && !isDrone && cfg.object && (
-        <div
-          className="absolute inset-0 flex items-end justify-center"
-          style={{ transform: `translateY(${objectOffsetY}px)` }}
-        >
-          <img
-            src={cfg.object}
-            alt={tile}
-            className="select-none object-contain"
-            style={{
-              width: `${Math.round(TILE_SIZE * objectScale)}px`,
-              height: `${Math.round(TILE_SIZE * objectScale)}px`,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.78))',
-            }}
-          />
-        </div>
-      )}
-
-      {isPlayer && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={playerSprite}
-            alt="Player"
-            animate={{ y: [0, -2, 0] }}
-            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 40,
-              height: 40,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(212,160,23,0.6))',
-            }}
-          />
-        </div>
-      )}
-
-      {isP2 && !isPlayer && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={ASSETS.partner}
-            alt="Partner"
-            animate={{ y: [0, -1, 0] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 38,
-              height: 38,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(92,194,106,0.5))',
-            }}
-          />
-        </div>
-      )}
-
-      {isDrone && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.img
-            src={ASSETS.drone}
-            alt="Drone"
-            animate={{ opacity: [0.8, 1, 0.8], scale: [1, 1.02, 1] }}
-            transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 38,
-              height: 38,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 0 8px rgba(220,50,50,0.8)) brightness(0.8) sepia(0.5) hue-rotate(340deg)',
-            }}
-          />
-        </div>
-      )}
-
-      {tile === 'npc' && !isPlayer && !isP2 && !isDrone && (
-        <div className="absolute inset-0 flex items-end justify-center pb-1">
-          <motion.img
-            src={npcSprite}
-            alt="NPC"
-            animate={{ y: [0, npcBob, 0] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-            className="select-none object-contain"
-            style={{
-              width: 36,
-              height: 36,
-              imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.8))',
-            }}
-          />
-        </div>
-      )}
-
-      {showInteract && (
-        <motion.div
-          animate={{ y: [-2, 2, -2], opacity: [0.82, 1, 0.82] }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-        >
-          <div
-            className="rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-[0.3em] uppercase shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
-            style={{
-              background: 'rgba(12, 10, 7, 0.86)',
-              border: '1px solid rgba(212, 160, 23, 0.82)',
-              color: '#f0e0a0',
-            }}
-          >
-            [E]
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-}
+function key(r: number, c: number) { return `${r},${c}`; }
 
 export default function MapRenderer({
-  grid,
-  playerPos,
-  p2Pos,
-  zoneId,
-  zoneName,
-  objective,
-  drones = [],
-  canInteract = false,
-  playerMoving = false,
+  grid, playerPos, p2Pos, zoneId, zoneName, objective,
+  drones = [], canInteract = false, playerMoving = false,
 }: MapRendererProps) {
-  const viewport = useViewportSize();
-  const [pulseTick, setPulseTick] = useState(0);
+  const vp    = useViewport();
+  const theme = ZONE_THEME[zoneId];
+  const [tick, setTick] = useState(0);
+  const [fastTick, setFastTick] = useState(0);
+  const [playerFacingRow, setPlayerFacingRow] = useState(0);
+  const prevPosRef = useRef(playerPos);
+  const tickRef = useRef(0);
+  const fastTickRef = useRef(0);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setPulseTick(t => t + 1), 550);
-    return () => window.clearInterval(interval);
+    const id = setInterval(() => { tickRef.current += 1; setTick(tickRef.current); }, 500);
+    const idFast = setInterval(() => { fastTickRef.current += 1; setFastTick(fastTickRef.current); }, 100);
+    return () => { clearInterval(id); clearInterval(idFast); };
   }, []);
 
-  const rows = grid.length;
-  const cols = grid[0]?.length ?? 0;
-  const mapWidth = cols * TILE_SIZE;
-  const mapHeight = rows * TILE_SIZE;
-  const camX = Math.round(playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - viewport.w / 2);
-  const camY = Math.round(playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - viewport.h / 2);
-  const maxCamX = Math.max(0, mapWidth - viewport.w);
-  const maxCamY = Math.max(0, mapHeight - viewport.h);
-  const clampedCamX = Math.max(0, Math.min(camX, maxCamX));
-  const clampedCamY = Math.max(0, Math.min(camY, maxCamY));
+  useEffect(() => {
+    const [pr, pc] = prevPosRef.current;
+    const [nr, nc] = playerPos;
+    if (nr > pr) setPlayerFacingRow(0);
+    else if (nr < pr) setPlayerFacingRow(3);
+    else if (nc < pc) setPlayerFacingRow(1);
+    else if (nc > pc) setPlayerFacingRow(2);
+    prevPosRef.current = playerPos;
+  }, [playerPos]);
 
-  const startCol = Math.max(0, Math.floor(clampedCamX / TILE_SIZE) - 2);
-  const endCol = Math.min(cols, Math.ceil((clampedCamX + viewport.w) / TILE_SIZE) + 2);
-  const startRow = Math.max(0, Math.floor(clampedCamY / TILE_SIZE) - 2);
-  const endRow = Math.min(rows, Math.ceil((clampedCamY + viewport.h) / TILE_SIZE) + 2);
+  const rows    = grid.length;
+  const cols    = grid[0]?.length ?? 0;
+  const mapW    = cols * TILE;
+  const mapH    = rows * TILE;
 
-  const droneSet = new Set(drones.map(([row, col]) => coordKey(row, col)));
-  const interactionTargets = new Set<string>();
+  // Center camera on player
+  const targetX = playerPos[1] * TILE + TILE / 2 - vp.w / 2;
+  const targetY = playerPos[0] * TILE + TILE / 2 - vp.h / 2;
+  const camX    = Math.max(0, Math.min(targetX, mapW - vp.w));
+  const camY    = Math.max(0, Math.min(targetY, mapH - vp.h));
 
+  // Viewport culling
+  const c0 = Math.max(0, Math.floor(camX / TILE) - 1);
+  const c1 = Math.min(cols, Math.ceil((camX + vp.w) / TILE) + 1);
+  const r0 = Math.max(0, Math.floor(camY / TILE) - 1);
+  const r1 = Math.min(rows, Math.ceil((camY + vp.h) / TILE) + 1);
+
+  const droneSet = new Set(drones.map(([r, c]) => key(r, c)));
+
+  const interactSet = new Set<string>();
   if (canInteract) {
     const [pr, pc] = playerPos;
-    for (let row = Math.max(0, pr - 1); row <= Math.min(rows - 1, pr + 1); row += 1) {
-      for (let col = Math.max(0, pc - 1); col <= Math.min(cols - 1, pc + 1); col += 1) {
-        if (row === pr && col === pc) continue;
-        const tile = grid[row]?.[col];
-        if (tile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(tile)) {
-          interactionTargets.add(coordKey(row, col));
-        }
-      }
+    for (let r = pr - 1; r <= pr + 1; r++) for (let c = pc - 1; c <= pc + 1; c++) {
+      if (r === pr && c === pc) continue;
+      const t = grid[r]?.[c];
+      if (t && ['npc','terminal','item','gate','exit'].includes(t)) interactSet.add(key(r, c));
     }
-    const currentTile = grid[pr]?.[pc];
-    if (currentTile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(currentTile)) {
-      interactionTargets.add(coordKey(pr, pc));
-    }
+    const cur = grid[pr]?.[pc];
+    if (cur && ['npc','terminal','item','gate','exit'].includes(cur)) interactSet.add(key(pr, pc));
   }
 
-  const accent = accentForZone(zoneId);
-
   return (
-    <div
-      className="fixed inset-0 overflow-hidden bg-black text-[#f4e6c4]"
-      style={{
-        background: [
-          'radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 46%)',
-          'radial-gradient(ellipse at center, rgba(0,0,0,0) 20%, rgba(5,3,2,0.92) 100%)',
-          'linear-gradient(180deg, #1b130b 0%, #0c0906 100%)',
-        ].join(', '),
-      }}
-    >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at center, transparent 34%, rgba(5, 3, 2, 0.92) 100%)`,
-        }}
-      />
+    <div className="fixed inset-0 overflow-hidden" style={{ background: '#0a0806' }}>
+      <motion.div className="absolute" animate={{ x: -camX, y: -camY }} transition={{ type: 'tween', duration: 0.07, ease: 'linear' }} style={{ width: mapW, height: mapH }}>
+        {/* Ambient overlay */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 50% 40%, ${theme.ambient} 0%, transparent 70%)` }} />
 
-      <motion.div
-        className="absolute"
-        animate={{ x: -clampedCamX, y: -clampedCamY }}
-        transition={{ type: 'tween', duration: 0.08, ease: 'linear' }}
-        style={{
-          width: mapWidth,
-          height: mapHeight,
-        }}
-      >
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(135deg, rgba(181,135,74,0.06), rgba(139,32,32,0.03))`,
-          }}
-        />
-
-        {grid.slice(startRow, endRow).map((row, rowOffset) => {
-          const rowIndex = startRow + rowOffset;
-          return row.slice(startCol, endCol).map((tile, colOffset) => {
-            const colIndex = startCol + colOffset;
-            const isPlayer = playerPos[0] === rowIndex && playerPos[1] === colIndex;
-            const isP2 = !!p2Pos && p2Pos[0] === rowIndex && p2Pos[1] === colIndex;
-            const isDrone = droneSet.has(coordKey(rowIndex, colIndex));
-            const showInteract = interactionTargets.has(coordKey(rowIndex, colIndex));
-
+        {/* Grid Cells */}
+        {grid.slice(r0, r1).map((row, rOff) => {
+          const ri = r0 + rOff;
+          return row.slice(c0, c1).map((tile, cOff) => {
+            const ci = c0 + cOff;
+            const k  = key(ri, ci);
             return (
-              <div key={coordKey(rowIndex, colIndex)}>
-                <TileCell
-                  tile={tile}
-                  row={rowIndex}
-                  col={colIndex}
-                isPlayer={isPlayer}
-                isPlayerMoving={playerMoving}
-                isP2={isP2}
-                isDrone={isDrone}
-                showInteract={showInteract}
-                tick={pulseTick}
+              <TileCell
+                key={k} tile={tile} row={ri} col={ci} theme={theme}
+                isPlayer={playerPos[0] === ri && playerPos[1] === ci}
+                isPlayerWalking={playerMoving}
+                isP2={!!p2Pos && p2Pos[0] === ri && p2Pos[1] === ci}
+                isDrone={droneSet.has(k)}
+                isNpc={tile === 'npc'}
+                showInteract={interactSet.has(k)}
+                tick={tick} fastTick={fastTick} playerFacingRow={playerFacingRow}
               />
-              </div>
             );
           });
         })}
 
-        <div
-          className="absolute pointer-events-none rounded-full"
-          style={{
-            left: playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - 140,
-            top: playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - 140,
-            width: 280,
-            height: 280,
-            background: `radial-gradient(circle, rgba(212,160,23,0.15) 0%, rgba(212,160,23,0.06) 34%, transparent 72%)`,
-          }}
-        />
+        {/* Player Light Halo */}
+        <div className="absolute pointer-events-none rounded-full" style={{ left: playerPos[1] * TILE + TILE / 2 - 120, top: playerPos[0] * TILE + TILE / 2 - 120, width: 240, height: 240, background: `radial-gradient(circle, rgba(212,160,23,0.18) 0%, rgba(212,160,23,0.06) 40%, transparent 70%)` }} />
       </motion.div>
 
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.48), inset 0 0 160px rgba(0,0,0,0.68)`,
-        }}
-      />
+      {/* Vignette */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.82) 100%)' }} />
 
+      {/* Scanline */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{ backgroundImage: 'repeating-linear-gradient(0deg,rgba(255,255,255,0.6) 0px,rgba(255,255,255,0.6) 1px,transparent 1px,transparent 3px)' }} />
+
+      {/* Zone badge */}
       <div className="absolute top-4 left-4 z-30 pointer-events-none">
-        <div
-          className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md"
-          style={{
-            background: 'rgba(12, 10, 7, 0.62)',
-            border: `1px solid ${accent}55`,
-          }}
-        >
-          <span className="text-[9px] font-black tracking-[0.45em] uppercase" style={{ color: accent }}>
-            ◆
-          </span>
-          <span className="text-[11px] font-black tracking-[0.3em] uppercase text-[#f4e6c4]">
-            {zoneName}
-          </span>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md" style={{ background: 'rgba(10,8,5,0.65)', border: `1px solid ${theme.accent}55` }}>
+          <span className="text-[9px] font-black tracking-[0.45em] uppercase" style={{ color: theme.accent }}>◆</span>
+          <span className="text-[11px] font-black tracking-[0.28em] uppercase text-[#f4e6c4]">{zoneName}</span>
         </div>
       </div>
 
-      <motion.div
-        key={objective}
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[min(860px,calc(100vw-4rem))]"
-      >
-        <div
-          className="overflow-hidden rounded-full backdrop-blur-md"
-          style={{
-            background: 'rgba(10, 8, 5, 0.55)',
-            border: '1px solid rgba(212,160,23,0.2)',
-          }}
-        >
-          <div
-            className="h-0.5"
-            style={{
-              background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-            }}
-          />
-          <div className="flex items-center gap-3 px-4 py-2">
-            <span className="text-[8px] font-black uppercase tracking-[0.5em] text-[#a07830]">
-              Objective
-            </span>
-            <span className="text-[11px] font-medium leading-snug text-[#f4e6c4] truncate">
-              {objective}
-            </span>
+      {/* Objective */}
+      <motion.div key={objective} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[min(800px,calc(100vw-8rem))]">
+        <div className="rounded-full backdrop-blur-md overflow-hidden" style={{ background: 'rgba(10,8,5,0.6)', border: `1px solid ${theme.accent}33` }}>
+          <div className="h-px" style={{ background: `linear-gradient(90deg,transparent,${theme.accent},transparent)` }} />
+          <div className="flex items-center gap-3 px-5 py-2">
+            <span className="text-[8px] font-black uppercase tracking-[0.5em] shrink-0" style={{ color: theme.accent }}>Objective</span>
+            <span className="text-[11px] font-medium text-[#f4e6c4] truncate">{objective}</span>
           </div>
         </div>
       </motion.div>
 
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[min(1040px,calc(100vw-2rem))]">
-        <div
-          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-2xl px-5 py-3 backdrop-blur-md"
-          style={{
-            background: 'rgba(10, 8, 5, 0.74)',
-            border: '1px solid rgba(212,160,23,0.18)',
-          }}
-        >
+      {/* Controls */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <div className="flex items-center gap-5 px-5 py-2.5 rounded-2xl backdrop-blur-md" style={{ background: 'rgba(10,8,5,0.75)', border: `1px solid ${theme.accent}22` }}>
           {[
-            { key: 'WASD / Arrows', label: 'Move' },
-            { key: 'E', label: 'Interact' },
-            { key: 'I', label: 'Inventory' },
-            { key: 'N', label: 'Notebook' },
-            { key: 'ESC', label: 'Close' },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex items-center gap-2">
-              <kbd
-                className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.35em]"
-                style={{
-                  color: accent,
-                  background: 'rgba(212,160,23,0.08)',
-                  border: '1px solid rgba(212,160,23,0.32)',
-                }}
-              >
-                {key}
-              </kbd>
-              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#7a6040]">
-                {label}
-              </span>
+            { k: 'WASD', l: 'Move' }, { k: 'E', l: 'Interact' }, { k: 'I', l: 'Inventory' }, { k: 'N', l: 'Notebook' }, { k: 'ESC', l: 'Close' },
+          ].map(({ k: kb, l }) => (
+            <div key={kb} className="flex items-center gap-1.5">
+              <kbd className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest" style={{ color: theme.accent, background: `${theme.accent}14`, border: `1px solid ${theme.accent}44` }}>{kb}</kbd>
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#6a5030]">{l}</span>
             </div>
           ))}
         </div>
       </div>
-
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-screen"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 1px, transparent 1px, transparent 3px)',
-        }}
-      />
-
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle at center, transparent 52%, rgba(0,0,0,0.75) 100%)',
-        }}
-      />
     </div>
   );
 }
