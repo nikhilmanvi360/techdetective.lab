@@ -924,6 +924,42 @@ async function startServer() {
     }
   });
 
+  // --- Round 1: The Living Crime Scene ---
+  protectedRouter.get('/r1/status', async (req: any, res: any) => {
+    try {
+      const { data: state } = await supabase.from('round1_state').select('*').eq('id', 1).single();
+      const { data: codes } = await supabase.from('evidence_codes').select('id, claimed_by_team_id');
+      const total = codes?.length || 0;
+      const claimed = codes?.filter(c => c.claimed_by_team_id !== null).length || 0;
+      res.json({ is_active: state?.is_active || false, total, claimed, remaining: total - claimed });
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+  });
+
+  protectedRouter.post('/r1/claim', submissionLimiter, async (req: any, res: any) => {
+    const { code } = req.body;
+    try {
+      const { data: state } = await supabase.from('round1_state').select('is_active').eq('id', 1).single();
+      if (!state?.is_active) return res.status(403).json({ status: 'not_started' });
+      const { data: evCode, error } = await supabase.from('evidence_codes').select('*, teams(name)').eq('code', code.trim().toUpperCase()).single();
+      if (error || !evCode) return res.status(404).json({ status: 'invalid' });
+      if (evCode.claimed_by_team_id) {
+        if (evCode.claimed_by_team_id === req.user.id) return res.json({ status: 'claimed_by_you', evidence: evCode });
+        return res.status(409).json({ status: 'already_taken', claimer: (evCode.teams as any)?.name });
+      }
+      const { data: updateData } = await supabase.from('evidence_codes').update({ claimed_by_team_id: req.user.id, claimed_at: new Date().toISOString() }).eq('code', code.trim().toUpperCase()).is('claimed_by_team_id', null).select().single();
+      if (!updateData) return res.status(409).json({ status: 'already_taken' });
+      await eventStore.appendEvent({ teamId: req.user.id, eventType: 'r1_claim', basePoints: evCode.points_value, metadata: { code: evCode.code, title: evCode.title } });
+      emitLiveEvent(`${req.user.name} secured Round 1 Evidence: ${evCode.title}!`, 'badge');
+      res.json({ status: 'claimed_by_you', evidence: updateData });
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+  });
+
+  protectedRouter.get('/r1/my-evidence', async (req: any, res: any) => {
+    const { data, error } = await supabase.from('evidence_codes').select('*').eq('claimed_by_team_id', req.user.id);
+    if (error) return res.status(500).json({ error: 'Failed' });
+    res.json(data);
+  });
+
   app.use('/api', protectedRouter);
 
   // =========================================================
@@ -931,6 +967,39 @@ async function startServer() {
   // =========================================================
   const adminRouter = express.Router();
   adminRouter.use(authenticateToken, requireAdmin);
+
+  // Round 1 Admin
+  adminRouter.get('/r1/codes', async (req, res) => {
+    const { data } = await supabase.from('evidence_codes').select('*, teams(name)').order('id', { ascending: true });
+    res.json(data?.map(c => ({ ...c, claimer_name: (c.teams as any)?.name })) || []);
+  });
+
+  adminRouter.post('/r1/codes', async (req, res) => {
+    const { code, title, content, category, points_value, flavor_text, reveal_delay_seconds } = req.body;
+    const { data, error } = await supabase.from('evidence_codes').insert([{
+      code: code.trim().toUpperCase(),
+      title, content, category,
+      points_value: points_value || 100,
+      flavor_text,
+      reveal_delay_seconds: reveal_delay_seconds || 3
+    }]).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  });
+
+  adminRouter.post('/r1/toggle', async (req, res) => {
+    const { action } = req.body;
+    const is_active = action === 'start';
+    await supabase.from('round1_state').update({ is_active, started_at: is_active ? new Date().toISOString() : undefined }).eq('id', 1);
+    emitLiveEvent(is_active ? 'ROUND 1 IS NOW LIVE' : 'ROUND 1 HAS ENDED', 'case');
+    res.json({ success: true });
+  });
+
+  adminRouter.post('/r1/reset', async (req, res) => {
+    await supabase.from('evidence_codes').update({ claimed_by_team_id: null, claimed_at: null });
+    await supabase.from('round1_state').update({ is_active: false, started_at: null, ended_at: null }).eq('id', 1);
+    res.json({ success: true });
+  });
 
   // Teams
   adminRouter.get('/teams', async (req: any, res: any) => {
@@ -1017,85 +1086,6 @@ async function startServer() {
     await supabase.from('teams').update({ token_version: newVersion }).eq('id', teamId);
     teamTokenVersions.set(teamId, newVersion);
     res.json({ success: true, newVersion });
-  });
-
-  // --- MULTIPLAYER ROOMS (SUPABASE BACKED WITH MEMORY FALLBACK) ---
-  protectedRouter.post('/rooms/create', async (req: any, res: any) => {
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newRoom = {
-      room_code: roomCode,
-      host_id: req.user.id,
-      status: 'waiting',
-      host: { name: req.user.name }
-    };
-
-    try {
-      const { data, error } = await supabase
-        .from('game_rooms')
-        .insert([{ room_code: roomCode, host_id: req.user.id, status: 'waiting' }])
-        .select().single();
-
-      if (error) throw error;
-      res.json(data);
-    } catch (err: any) {
-      // Fallback to memory store
-      memoryRooms.set(roomCode, newRoom);
-      res.json(newRoom);
-    }
-  });
-
-  protectedRouter.post('/rooms/join', async (req: any, res: any) => {
-    const { roomCode } = req.body;
-
-    // Check memory first
-    if (memoryRooms.has(roomCode)) {
-      return res.json(memoryRooms.get(roomCode));
-    }
-
-    try {
-      const { data: room, error } = await supabase
-        .from('game_rooms')
-        .select('*')
-        .eq('room_code', roomCode)
-        .single();
-
-      if (error || !room) return res.status(404).json({ error: 'Investigation room not found.' });
-      res.json(room);
-    } catch (err: any) {
-      res.status(500).json({ error: 'Failed to join investigation.' });
-    }
-  });
-
-  protectedRouter.get('/rooms/active', async (req: any, res: any) => {
-    try {
-      const { data: rooms, error } = await supabase
-        .from('game_rooms')
-        .select('*, host:teams(name)')
-        .eq('status', 'waiting');
-
-      if (error) throw error;
-      res.json(rooms || []);
-    } catch (err: any) {
-      // Return memory rooms as fallback
-      res.json(Array.from(memoryRooms.values()).filter(r => r.status === 'waiting'));
-    }
-  });
-
-  protectedRouter.post('/rooms/:code/transition', async (req: any, res: any) => {
-    const { code } = req.params;
-    const { nextState } = req.body;
-    try {
-      await GameStateManager.transition(code, nextState as GameState);
-      res.json({ success: true, state: nextState });
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  });
-
-  protectedRouter.get('/rooms/:code/state', async (req: any, res: any) => {
-    const { code } = req.params;
-    const state = await GameStateManager.getRoomState(code);
-    res.json(state);
   });
 
   // Recompute & Snapshots (#4, #5)

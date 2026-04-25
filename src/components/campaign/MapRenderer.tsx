@@ -1,9 +1,85 @@
-import { useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { DoorOpen, FileText, Package, ShieldAlert, UserRound } from 'lucide-react';
-
 import { TileType, ZoneId } from '../../data/campaignData';
+
+const TILE_SIZE = 48;
+
+const PEOPLE = '/assets/people and map/PNG';
+const MAP_WALLS = '/assets/map/Tiles/PNG/Walls';
+const MAP_ROOF = '/assets/map/Tiles/PNG/Roof';
+const MAP_OBJECTS = '/assets/map/Objects/PNG';
+
+const ASSETS = {
+  floor: `${MAP_WALLS}/walls_0002_Layer-3.png`,
+  floorAlt: `${MAP_WALLS}/walls_0007_Layer-8.png`,
+  wall: `${MAP_WALLS}/walls_0051_Layer-0.png`,
+  roof: `${MAP_ROOF}/roof_0036_Layer-0.png`,
+  door: `${MAP_WALLS}/walls_0040_Layer-41.png`,
+  terminal: `${MAP_OBJECTS}/objects_house_0007_Layer-8.png`,
+  evidence: `${MAP_OBJECTS}/objects_house_0017_Layer-18.png`,
+  decor: `${PEOPLE}/Decorative_cracks.png`,
+  playerIdle: `${PEOPLE}/Citizen1_Idle.png`,
+  playerWalk: `${PEOPLE}/Citizen1_Walk.png`,
+  partner: `${PEOPLE}/Citizen2_Idle.png`,
+  npc1: `${PEOPLE}/Talking_person1.png`,
+  npc2: `${PEOPLE}/Talking_person2.png`,
+  drone: `${PEOPLE}/Fighter2_Idle.png`,
+};
+
+type TileAssetConfig = {
+  floor: string;
+  object?: string;
+  overlay?: string;
+  objectScale?: number;
+  objectOffsetY?: number;
+  glow?: string;
+  dark?: boolean;
+};
+
+const TILE_CONFIG: Record<TileType, TileAssetConfig> = {
+  walkable: {
+    floor: ASSETS.floor,
+    overlay: ASSETS.decor,
+  },
+  wall: {
+    floor: ASSETS.wall,
+    overlay: ASSETS.roof,
+    dark: true,
+  },
+  npc: {
+    floor: ASSETS.floorAlt,
+    object: ASSETS.npc1,
+    objectScale: 0.76,
+    objectOffsetY: 3,
+    glow: 'rgba(212, 160, 23, 0.32)',
+  },
+  terminal: {
+    floor: ASSETS.floorAlt,
+    object: ASSETS.terminal,
+    objectScale: 0.72,
+    objectOffsetY: 4,
+    glow: 'rgba(124, 200, 255, 0.22)',
+  },
+  item: {
+    floor: ASSETS.floorAlt,
+    object: ASSETS.evidence,
+    objectScale: 0.76,
+    objectOffsetY: 4,
+    glow: 'rgba(236, 208, 88, 0.32)',
+  },
+  gate: {
+    floor: ASSETS.door,
+    objectScale: 0.78,
+    objectOffsetY: 0,
+    glow: 'rgba(212, 160, 23, 0.24)',
+  },
+  exit: {
+    floor: ASSETS.door,
+    objectScale: 0.78,
+    objectOffsetY: 0,
+    glow: 'rgba(92, 194, 106, 0.30)',
+  },
+};
 
 interface MapRendererProps {
   grid: TileType[][];
@@ -11,126 +87,238 @@ interface MapRendererProps {
   p2Pos?: [number, number];
   zoneId: ZoneId;
   zoneName: string;
-  zoneDescription: string;
   objective: string;
   drones?: [number, number][];
+  canInteract?: boolean;
+  playerMoving?: boolean;
 }
 
-const ASSET_ROOT = '/assets/kenney_retro-textures-fantasy/PNG';
+function useViewportSize() {
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window === 'undefined' ? 0 : window.innerWidth,
+    h: typeof window === 'undefined' ? 0 : window.innerHeight,
+  }));
 
-const TILE_META: Record<TileType, { label: string; symbol: string; accent: string; hint: string }> = {
-  walkable: { label: 'Floor', symbol: '', accent: 'text-[#8a6b44]', hint: 'Move through the area' },
-  wall: { label: 'Wall', symbol: '', accent: 'text-[#6f5532]', hint: 'Blocked by the structure' },
-  npc: { label: 'Witness', symbol: '@', accent: 'text-[#8c5f22]', hint: 'Press E to interview' },
-  terminal: { label: 'Terminal', symbol: '#', accent: 'text-[#7a6540]', hint: 'Press E to inspect' },
-  item: { label: 'Evidence', symbol: '*', accent: 'text-[#7a6a45]', hint: 'Press E to collect' },
-  gate: { label: 'Door', symbol: '>', accent: 'text-[#8b6b57]', hint: 'May require clearance' },
-  exit: { label: 'Exit', symbol: '^', accent: 'text-[#55724a]', hint: 'Advances the investigation' },
-};
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-const ZONE_BORDER: Record<ZoneId, string> = {
-  cafeteria: 'border-[#b5874a]',
-  library: 'border-[#7a6a45]',
-  maintenance: 'border-[#8a6c4d]',
-  admin_core: 'border-[#8b6b57]',
-};
-
-const ZONE_THEME: Record<ZoneId, {
-  glow: string;
-  stamp: string;
-  boardLine: string;
-  accent: string;
-  textureHint: string;
-}> = {
-  cafeteria: {
-    glow: 'from-[#d39a4a]/20 via-[#f1d0a1]/10 to-transparent',
-    stamp: 'CAFE TERRITORY',
-    boardLine: 'rgba(181,135,74,0.18)',
-    accent: '#b5874a',
-    textureHint: 'steam, paper, and spill marks',
-  },
-  library: {
-    glow: 'from-[#6a8c5a]/18 via-[#9bb084]/10 to-transparent',
-    stamp: 'ARCHIVE STACK',
-    boardLine: 'rgba(122,106,69,0.18)',
-    accent: '#7a6a45',
-    textureHint: 'catalog lanes and archive dust',
-  },
-  maintenance: {
-    glow: 'from-[#9b7448]/22 via-[#bea07a]/10 to-transparent',
-    stamp: 'SERVICE TUNNELS',
-    boardLine: 'rgba(138,108,77,0.18)',
-    accent: '#8a6c4d',
-    textureHint: 'pipes, grease, and hazard tape',
-  },
-  admin_core: {
-    glow: 'from-[#b54a3c]/22 via-[#8b6b57]/10 to-transparent',
-    stamp: 'LOCKED CORE',
-    boardLine: 'rgba(139,107,87,0.18)',
-    accent: '#8b6b57',
-    textureHint: 'security glass and firewall grids',
-  },
-};
-
-const ZONE_FLOOR: Record<ZoneId, string> = {
-  cafeteria: `${ASSET_ROOT}/floor_tiles_sand_large.png`,
-  library: `${ASSET_ROOT}/floor_stone_pattern.png`,
-  maintenance: `${ASSET_ROOT}/floor_wood_planks.png`,
-  admin_core: `${ASSET_ROOT}/floor_stone_pattern_small_depth.png`,
-};
-
-const TILE_TEXTURE: Record<Exclude<TileType, 'walkable'>, string> = {
-  wall: `${ASSET_ROOT}/wall_stone.png`,
-  npc: `${ASSET_ROOT}/floor_tiles_tan_small.png`,
-  terminal: `${ASSET_ROOT}/floor_tiles_blue_small.png`,
-  item: `${ASSET_ROOT}/floor_tiles_tan_small_damaged.png`,
-  gate: `${ASSET_ROOT}/door_wood.png`,
-  exit: `${ASSET_ROOT}/door_metal_gate.png`,
-};
-
-function getTileTexture(tile: TileType, zoneId: ZoneId): string {
-  return tile === 'walkable' ? ZONE_FLOOR[zoneId] : TILE_TEXTURE[tile];
+  return viewport;
 }
 
-function AnimatedSprite({
-  src,
-  alt,
-  className = '',
-  imageClassName = '',
-  delay = 0,
-  bob = 1.5,
-  tilt = 0.35,
-  ringClassName = '',
-  imageStyle,
+function coordKey(row: number, col: number) {
+  return `${row},${col}`;
+}
+
+function accentForZone(zoneId: ZoneId) {
+  switch (zoneId) {
+    case 'cafeteria':
+      return '#b5874a';
+    case 'library':
+      return '#5a7a4a';
+    case 'maintenance':
+      return '#7a5a3a';
+    case 'admin_core':
+      return '#8B2020';
+    default:
+      return '#d4a017';
+  }
+}
+
+function TileCell({
+  tile,
+  row,
+  col,
+  isPlayer,
+  isPlayerMoving,
+  isP2,
+  isDrone,
+  showInteract,
+  tick,
 }: {
-  src: string;
-  alt: string;
-  className?: string;
-  imageClassName?: string;
-  delay?: number;
-  bob?: number;
-  tilt?: number;
-  ringClassName?: string;
-  imageStyle?: CSSProperties;
+  tile: TileType;
+  row: number;
+  col: number;
+  isPlayer: boolean;
+  isPlayerMoving: boolean;
+  isP2: boolean;
+  isDrone: boolean;
+  showInteract: boolean;
+  tick: number;
 }) {
+  const cfg = TILE_CONFIG[tile];
+  const playerSprite = isPlayerMoving ? ASSETS.playerWalk : ASSETS.playerIdle;
+  const npcSprite = tick % 2 === 0 ? ASSETS.npc1 : ASSETS.npc2;
+  const npcBob = tick % 2 === 0 ? 0 : -1;
+  const objectScale = cfg.objectScale ?? 0.75;
+  const objectOffsetY = cfg.objectOffsetY ?? 0;
+  const crackShift = ((row * 13 + col * 17) % 96) / 2;
+
   return (
-    <motion.div
-      animate={{ y: [0, -bob, 0], rotate: [0, tilt, 0] }}
-      transition={{
-        duration: 1.8,
-        repeat: Infinity,
-        ease: 'easeInOut',
-        delay,
+    <div
+      className="absolute overflow-hidden select-none"
+      style={{
+        left: col * TILE_SIZE,
+        top: row * TILE_SIZE,
+        width: TILE_SIZE,
+        height: TILE_SIZE,
+        imageRendering: 'pixelated',
       }}
-      className={`${className} ${ringClassName}`}
     >
-      <img
-        src={src}
-        alt={alt}
-        className={imageClassName}
-        style={{ imageRendering: 'pixelated', ...imageStyle }}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `url("${cfg.floor}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: cfg.dark ? 'brightness(0.66) saturate(0.72)' : 'none',
+        }}
       />
-    </motion.div>
+
+      {cfg.overlay && (
+        <div
+          className="absolute inset-0 opacity-70"
+          style={{
+            backgroundImage: `url("${cfg.overlay}")`,
+            backgroundSize: '96px 96px',
+            backgroundRepeat: 'repeat',
+            backgroundPosition: `${crackShift}px ${crackShift / 3}px`,
+            mixBlendMode: tile === 'wall' ? 'screen' : 'soft-light',
+          }}
+        />
+      )}
+
+      {cfg.glow && (
+        <div
+          className="absolute inset-0"
+          style={{
+            boxShadow: `inset 0 0 16px 4px ${cfg.glow}`,
+          }}
+        />
+      )}
+
+      {tile === 'exit' && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(180deg, transparent 12%, rgba(92,194,106,0.08) 100%)',
+          }}
+        />
+      )}
+
+      {!isPlayer && !isP2 && !isDrone && cfg.object && (
+        <div
+          className="absolute inset-0 flex items-end justify-center"
+          style={{ transform: `translateY(${objectOffsetY}px)` }}
+        >
+          <img
+            src={cfg.object}
+            alt={tile}
+            className="select-none object-contain"
+            style={{
+              width: `${Math.round(TILE_SIZE * objectScale)}px`,
+              height: `${Math.round(TILE_SIZE * objectScale)}px`,
+              imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.78))',
+            }}
+          />
+        </div>
+      )}
+
+      {isPlayer && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.img
+            src={playerSprite}
+            alt="Player"
+            animate={{ y: [0, -2, 0] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+            className="select-none object-contain"
+            style={{
+              width: 40,
+              height: 40,
+              imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.9)) drop-shadow(0 0 6px rgba(212,160,23,0.6))',
+            }}
+          />
+        </div>
+      )}
+
+      {isP2 && !isPlayer && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.img
+            src={ASSETS.partner}
+            alt="Partner"
+            animate={{ y: [0, -1, 0] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+            className="select-none object-contain"
+            style={{
+              width: 38,
+              height: 38,
+              imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(92,194,106,0.5))',
+            }}
+          />
+        </div>
+      )}
+
+      {isDrone && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.img
+            src={ASSETS.drone}
+            alt="Drone"
+            animate={{ opacity: [0.8, 1, 0.8], scale: [1, 1.02, 1] }}
+            transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
+            className="select-none object-contain"
+            style={{
+              width: 38,
+              height: 38,
+              imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 0 8px rgba(220,50,50,0.8)) brightness(0.8) sepia(0.5) hue-rotate(340deg)',
+            }}
+          />
+        </div>
+      )}
+
+      {tile === 'npc' && !isPlayer && !isP2 && !isDrone && (
+        <div className="absolute inset-0 flex items-end justify-center pb-1">
+          <motion.img
+            src={npcSprite}
+            alt="NPC"
+            animate={{ y: [0, npcBob, 0] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+            className="select-none object-contain"
+            style={{
+              width: 36,
+              height: 36,
+              imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.8))',
+            }}
+          />
+        </div>
+      )}
+
+      {showInteract && (
+        <motion.div
+          animate={{ y: [-2, 2, -2], opacity: [0.82, 1, 0.82] }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+        >
+          <div
+            className="rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-[0.3em] uppercase shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
+            style={{
+              background: 'rgba(12, 10, 7, 0.86)',
+              border: '1px solid rgba(212, 160, 23, 0.82)',
+              color: '#f0e0a0',
+            }}
+          >
+            [E]
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }
 
@@ -140,269 +328,232 @@ export default function MapRenderer({
   p2Pos,
   zoneId,
   zoneName,
-  zoneDescription,
   objective,
   drones = [],
+  canInteract = false,
+  playerMoving = false,
 }: MapRendererProps) {
-  const [hoveredTile, setHoveredTile] = useState<{ row: number; col: number; tile: TileType } | null>(null);
-  const cellPx = grid.length > 24 ? 24 : 32;
-  const boardWidth = (grid[0]?.length || 0) * cellPx;
-  const hoveredMeta = hoveredTile ? TILE_META[hoveredTile.tile] : null;
-  const activeDroneCount = drones.length;
-  const theme = ZONE_THEME[zoneId];
+  const viewport = useViewportSize();
+  const [pulseTick, setPulseTick] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setPulseTick(t => t + 1), 550);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const rows = grid.length;
+  const cols = grid[0]?.length ?? 0;
+  const mapWidth = cols * TILE_SIZE;
+  const mapHeight = rows * TILE_SIZE;
+  const camX = Math.round(playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - viewport.w / 2);
+  const camY = Math.round(playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - viewport.h / 2);
+  const maxCamX = Math.max(0, mapWidth - viewport.w);
+  const maxCamY = Math.max(0, mapHeight - viewport.h);
+  const clampedCamX = Math.max(0, Math.min(camX, maxCamX));
+  const clampedCamY = Math.max(0, Math.min(camY, maxCamY));
+
+  const startCol = Math.max(0, Math.floor(clampedCamX / TILE_SIZE) - 2);
+  const endCol = Math.min(cols, Math.ceil((clampedCamX + viewport.w) / TILE_SIZE) + 2);
+  const startRow = Math.max(0, Math.floor(clampedCamY / TILE_SIZE) - 2);
+  const endRow = Math.min(rows, Math.ceil((clampedCamY + viewport.h) / TILE_SIZE) + 2);
+
+  const droneSet = new Set(drones.map(([row, col]) => coordKey(row, col)));
+  const interactionTargets = new Set<string>();
+
+  if (canInteract) {
+    const [pr, pc] = playerPos;
+    for (let row = Math.max(0, pr - 1); row <= Math.min(rows - 1, pr + 1); row += 1) {
+      for (let col = Math.max(0, pc - 1); col <= Math.min(cols - 1, pc + 1); col += 1) {
+        if (row === pr && col === pc) continue;
+        const tile = grid[row]?.[col];
+        if (tile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(tile)) {
+          interactionTargets.add(coordKey(row, col));
+        }
+      }
+    }
+    const currentTile = grid[pr]?.[pc];
+    if (currentTile && ['npc', 'terminal', 'item', 'gate', 'exit'].includes(currentTile)) {
+      interactionTargets.add(coordKey(pr, pc));
+    }
+  }
+
+  const accent = accentForZone(zoneId);
 
   return (
-    <div className="relative w-full max-w-[1280px] mx-auto">
+    <div
+      className="fixed inset-0 overflow-hidden bg-black text-[#f4e6c4]"
+      style={{
+        background: [
+          'radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 46%)',
+          'radial-gradient(ellipse at center, rgba(0,0,0,0) 20%, rgba(5,3,2,0.92) 100%)',
+          'linear-gradient(180deg, #1b130b 0%, #0c0906 100%)',
+        ].join(', '),
+      }}
+    >
       <div
-        className={`
-          relative overflow-hidden rounded-[2rem] border ${ZONE_BORDER[zoneId]} bg-[#eadbb8]
-          shadow-[0_30px_90px_rgba(57,39,18,0.28)] ring-1 ring-[#f8edd7]/60
-          p-3 md:p-4
-        `}
+        className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: [
-            'radial-gradient(circle at top, rgba(255,255,255,0.34), transparent 38%)',
-            'linear-gradient(180deg, rgba(248,237,215,0.36), rgba(248,237,215,0.04))',
-            'url("https://www.transparenttextures.com/patterns/old-paper.png")',
-          ].join(', '),
+          background: `radial-gradient(circle at center, transparent 34%, rgba(5, 3, 2, 0.92) 100%)`,
+        }}
+      />
+
+      <motion.div
+        className="absolute"
+        animate={{ x: -clampedCamX, y: -clampedCamY }}
+        transition={{ type: 'tween', duration: 0.08, ease: 'linear' }}
+        style={{
+          width: mapWidth,
+          height: mapHeight,
         }}
       >
-        <div className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${theme.glow}`} />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(42,26,10,0.05),transparent_58%)]" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/20 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#3c2613]/18 to-transparent" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(135deg, rgba(181,135,74,0.06), rgba(139,32,32,0.03))`,
+          }}
+        />
 
-        <div className="relative flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-3xl">
-            <div className="text-[9px] uppercase tracking-[0.45em] font-black text-[#8a6b44]">Campaign Board</div>
-            <div className="mt-1 text-2xl md:text-3xl font-black text-[#2a1a0a] uppercase tracking-tight">
-              {zoneName}
-            </div>
-            <p className="mt-1 max-w-2xl text-xs md:text-sm leading-relaxed text-[#5e4a2f]">
-              {zoneDescription}
-            </p>
-          </div>
+        {grid.slice(startRow, endRow).map((row, rowOffset) => {
+          const rowIndex = startRow + rowOffset;
+          return row.slice(startCol, endCol).map((tile, colOffset) => {
+            const colIndex = startCol + colOffset;
+            const isPlayer = playerPos[0] === rowIndex && playerPos[1] === colIndex;
+            const isP2 = !!p2Pos && p2Pos[0] === rowIndex && p2Pos[1] === colIndex;
+            const isDrone = droneSet.has(coordKey(rowIndex, colIndex));
+            const showInteract = interactionTargets.has(coordKey(rowIndex, colIndex));
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 xl:min-w-[17rem]">
-            <div className="rounded-2xl border border-[#b58a53] bg-[#f5ead0]/95 px-4 py-3 shadow-[0_10px_24px_rgba(42,26,10,0.08)]">
-              <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Live Objective</div>
-              <div className="mt-1 text-sm font-serif italic text-[#2a1a0a] leading-snug">
-                {objective}
+            return (
+              <div key={coordKey(rowIndex, colIndex)}>
+                <TileCell
+                  tile={tile}
+                  row={rowIndex}
+                  col={colIndex}
+                isPlayer={isPlayer}
+                isPlayerMoving={playerMoving}
+                isP2={isP2}
+                isDrone={isDrone}
+                showInteract={showInteract}
+                tick={pulseTick}
+              />
               </div>
-            </div>
-            <div className="rounded-2xl border border-[#8f744f] bg-[#f5ead0]/95 px-4 py-3 shadow-[0_10px_24px_rgba(42,26,10,0.08)]">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Signal</div>
-                  <div className="mt-1 text-xs font-black uppercase tracking-widest text-[#2a1a0a]">
-                    {activeDroneCount > 0 ? 'Hostile movement detected' : 'Area clear'}
-                  </div>
-                </div>
-                <div className={`h-3 w-3 rounded-full ${activeDroneCount > 0 ? 'bg-[#b44a3c] animate-pulse' : 'bg-[#67845c]'}`} />
-              </div>
-            </div>
-          </div>
-        </div>
+            );
+          });
+        })}
 
-        <div className="relative mt-4 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full border border-[#b59360] bg-[#f5ead0] px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] font-black text-[#7a6040]">
-            <span className="w-2 h-2 rounded-full bg-[#b5874a]" /> You
+        <div
+          className="absolute pointer-events-none rounded-full"
+          style={{
+            left: playerPos[1] * TILE_SIZE + TILE_SIZE / 2 - 140,
+            top: playerPos[0] * TILE_SIZE + TILE_SIZE / 2 - 140,
+            width: 280,
+            height: 280,
+            background: `radial-gradient(circle, rgba(212,160,23,0.15) 0%, rgba(212,160,23,0.06) 34%, transparent 72%)`,
+          }}
+        />
+      </motion.div>
+
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.48), inset 0 0 160px rgba(0,0,0,0.68)`,
+        }}
+      />
+
+      <div className="absolute top-4 left-4 z-30 pointer-events-none">
+        <div
+          className="flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md"
+          style={{
+            background: 'rgba(12, 10, 7, 0.62)',
+            border: `1px solid ${accent}55`,
+          }}
+        >
+          <span className="text-[9px] font-black tracking-[0.45em] uppercase" style={{ color: accent }}>
+            ◆
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[#8c7a53] bg-[#f5ead0] px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] font-black text-[#7a6040]">
-            <span className="w-2 h-2 rounded-full bg-[#6f8b5b]" /> Partner
+          <span className="text-[11px] font-black tracking-[0.3em] uppercase text-[#f4e6c4]">
+            {zoneName}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[#8b6b57] bg-[#f5ead0] px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] font-black text-[#7a6040]">
-            <span className="w-2 h-2 rounded-full bg-[#8b6b57]" /> {activeDroneCount} Drone{activeDroneCount === 1 ? '' : 's'}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[#8a6b44] bg-[#f5ead0] px-3 py-1.5 text-[9px] uppercase tracking-[0.3em] font-black text-[#7a6040]">
-            Hover tiles for intel
-          </span>
-        </div>
-
-        <div className="relative mt-4 overflow-hidden rounded-[1.5rem] border border-[#97754e] bg-[#eadbb8]">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(42,26,10,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(42,26,10,0.03)_1px,transparent_1px)] bg-[size:24px_24px] opacity-55" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,237,215,0.1),transparent_65%)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-3 border-b border-white/20 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)]" />
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-3 border-r border-white/15 bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.18),transparent)]" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3 border-t border-black/10 bg-[linear-gradient(90deg,transparent,rgba(42,26,10,0.18),transparent)]" />
-          <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-[rgba(255,255,255,0.28)] bg-[#f5ead0]/85 px-3 py-1 text-[8px] font-black uppercase tracking-[0.35em] text-[#6e5535] shadow-[0_8px_20px_rgba(42,26,10,0.10)]">
-            {theme.stamp}
-          </div>
-
-          <div className="relative overflow-auto">
-            <div style={{ width: boardWidth }}>
-              {(grid || []).map((row, r) => (
-                <div key={r} className="flex">
-                  {row.map((tile, c) => {
-                    const meta = TILE_META[tile];
-                    const isPlayer = playerPos[0] === r && playerPos[1] === c;
-                    const isP2 = p2Pos && p2Pos[0] === r && p2Pos[1] === c;
-                    const isDrone = drones.some(d => d[0] === r && d[1] === c);
-                    const showDualMarker = isPlayer && isP2;
-                    const tileTexture = getTileTexture(tile, zoneId);
-                    const isHovered = hoveredTile?.row === r && hoveredTile?.col === c;
-
-                    return (
-                      <div
-                        key={c}
-                        title={meta.label}
-                        onMouseEnter={() => setHoveredTile({ row: r, col: c, tile })}
-                        onMouseLeave={() => setHoveredTile(null)}
-                        className={`
-                          group relative flex items-center justify-center overflow-hidden transition-all duration-150
-                          ${tile === 'wall' ? '' : 'border border-[#8f744f]/28'}
-                          ${isDrone ? 'bg-[#b44a3c]' : 'bg-[#eadbb8]'}
-                          ${isHovered ? 'z-10 scale-[1.04] ring-2 ring-[#c79a58] ring-inset' : ''}
-                        `}
-                        style={{
-                          width: cellPx,
-                          height: cellPx,
-                          backgroundImage: [
-                            'linear-gradient(180deg, rgba(255,248,231,0.08), rgba(34,20,7,0.12))',
-                            `url("${tileTexture}")`,
-                          ].join(', '),
-                          backgroundSize: 'cover, cover',
-                          backgroundPosition: 'center, center',
-                          backgroundBlendMode: 'soft-light, normal',
-                          filter: isDrone ? 'saturate(0.85) brightness(0.78)' : undefined,
-                          boxShadow: isHovered ? `0 0 0 1px ${theme.accent} inset` : undefined,
-                        }}
-                      >
-                        <div
-                          className="absolute inset-0 opacity-[0.07]"
-                          style={{
-                            backgroundImage:
-                              'linear-gradient(135deg, rgba(42,26,10,0.15) 25%, transparent 25%, transparent 50%, rgba(42,26,10,0.15) 50%, rgba(42,26,10,0.15) 75%, transparent 75%, transparent)',
-                            backgroundSize: '8px 8px',
-                          }}
-                        />
-
-                        {!isPlayer && !isP2 && !isDrone && tile !== 'wall' && (
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,237,215,0.16),transparent_65%)]" />
-                        )}
-
-                        {!isPlayer && !isP2 && !isDrone && tile !== 'walkable' && tile !== 'wall' && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="rounded-full bg-[#f8edd7]/90 border border-[#b58a53] px-1 py-0.5 shadow-sm backdrop-blur-[1px]">
-                              <span className={`block text-[9px] font-black leading-none ${meta.accent}`}>{meta.symbol}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {!isPlayer && !isP2 && !isDrone && tile === 'wall' && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <ShieldAlert className="w-3 h-3 text-[#f8edd7]/55" />
-                          </div>
-                        )}
-
-                        {showDualMarker ? (
-                          <div className="relative w-full h-full">
-                            <span className="absolute left-0.5 top-0.5 rounded-full bg-[#f8edd7]/95 px-1 py-0.5 text-[8px] text-[#8c5f22] font-black leading-none z-20 shadow-sm">
-                              YOU
-                            </span>
-                            <span className="absolute right-0.5 bottom-0.5 rounded-full bg-[#f8edd7]/95 px-1 py-0.5 text-[8px] text-[#55724a] font-black leading-none z-20 shadow-sm">
-                              P2
-                            </span>
-                            <AnimatedSprite
-                              src="/assets/noir_sprite_mc.png"
-                              alt="Player one"
-                              delay={0}
-                              bob={1.7}
-                              tilt={0.42}
-                              ringClassName="absolute inset-0 w-full h-full rounded-md border border-[#b5874a]/60 bg-[#f8edd7]/18 shadow-[0_0_0_1px_rgba(42,26,10,0.14)]"
-                              className="absolute inset-0 w-full h-full"
-                              imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
-                              imageStyle={{ filter: 'saturate(1.1) contrast(1.08)' }}
-                            />
-                            <AnimatedSprite
-                              src="/assets/noir_sprite_partner.png"
-                              alt="Player two"
-                              delay={0.3}
-                              bob={1.1}
-                              tilt={0.18}
-                              ringClassName="absolute inset-0 w-full h-full rounded-md border border-[#6f8b5b]/65 bg-[#e7f3dd]/22 shadow-[0_0_0_1px_rgba(42,26,10,0.10)]"
-                              className="absolute inset-0 w-full h-full"
-                              imageClassName="w-full h-full object-contain p-0.5 translate-x-[2px] translate-y-[2px] opacity-95 mix-blend-normal"
-                              imageStyle={{ filter: 'hue-rotate(92deg) saturate(1.35) brightness(1.05)', transform: 'scaleX(-1)' }}
-                            />
-                          </div>
-                        ) : isPlayer ? (
-                          <AnimatedSprite
-                            src="/assets/noir_sprite_mc.png"
-                            alt="Player"
-                            bob={1.7}
-                            tilt={0.42}
-                            ringClassName="w-full h-full rounded-md border border-[#b5874a]/60 bg-[#f8edd7]/18 shadow-[0_0_0_1px_rgba(42,26,10,0.14)]"
-                            className="w-full h-full"
-                            imageClassName="w-full h-full object-contain p-0.5 drop-shadow-[0_3px_6px_rgba(42,26,10,0.38)]"
-                            imageStyle={{ filter: 'saturate(1.1) contrast(1.08)' }}
-                          />
-                        ) : isP2 ? (
-                          <AnimatedSprite
-                            src="/assets/noir_sprite_partner.png"
-                            alt="Teammate"
-                            delay={0.3}
-                            bob={1.1}
-                            tilt={0.18}
-                            ringClassName="w-full h-full rounded-md border border-[#6f8b5b]/65 bg-[#e7f3dd]/22 shadow-[0_0_0_1px_rgba(42,26,10,0.10)]"
-                            className="w-full h-full"
-                            imageClassName="w-full h-full object-contain p-0.5 opacity-95"
-                            imageStyle={{ filter: 'hue-rotate(92deg) saturate(1.35) brightness(1.05)', transform: 'scaleX(-1)' }}
-                          />
-                        ) : isDrone ? (
-                          <div className="flex flex-col items-center justify-center leading-none rounded-sm bg-[#7d2d25]/70 border border-[#f1c7aa]/40 p-0.5 shadow-[0_0_0_1px_rgba(42,26,10,0.12)]">
-                            <ShieldAlert className="w-3.5 h-3.5 text-[#f8edd7]" />
-                            <span className="text-[7px] font-black text-[#f8edd7] uppercase">Watch</span>
-                          </div>
-                        ) : (
-                          <span className="opacity-0">.</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: hoveredMeta ? 1 : 0, y: hoveredMeta ? 0 : 6 }}
-              className="pointer-events-none absolute right-3 top-3 w-52 rounded-2xl border border-[#b58a53] bg-[#f5ead0]/96 p-3 text-left shadow-[0_16px_36px_rgba(42,26,10,0.16)] backdrop-blur-sm"
-            >
-              <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Tile Intel</div>
-              <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">
-                {hoveredMeta?.label || 'Hover a tile'}
-              </div>
-              <div className="mt-1 text-xs leading-snug text-[#5e4a2f]">
-                {hoveredMeta?.hint || 'Move your cursor across the board to inspect the zone.'}
-              </div>
-              {hoveredTile && (
-                <div className="mt-2 text-[9px] font-black uppercase tracking-[0.25em] text-[#8a6b44]">
-                  Row {hoveredTile.row + 1} / Col {hoveredTile.col + 1}
-                </div>
-              )}
-              <div className="mt-2 text-[9px] uppercase tracking-[0.25em] text-[#7a6040]">
-                Zone texture: {theme.textureHint}
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] uppercase tracking-[0.25em] font-black text-[#7a6040] md:grid-cols-4">
-          <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-3 py-2">
-            <DoorOpen className="w-3 h-3 text-[#8b6b57]" /> Door
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-3 py-2">
-            <FileText className="w-3 h-3 text-[#7a6540]" /> Terminal
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-3 py-2">
-            <Package className="w-3 h-3 text-[#7a6a45]" /> Evidence
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-[#b58a53] bg-[#f5ead0] px-3 py-2">
-            <UserRound className="w-3 h-3 text-[#8c5f22]" /> NPC
-          </div>
         </div>
       </div>
+
+      <motion.div
+        key={objective}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[min(860px,calc(100vw-4rem))]"
+      >
+        <div
+          className="overflow-hidden rounded-full backdrop-blur-md"
+          style={{
+            background: 'rgba(10, 8, 5, 0.55)',
+            border: '1px solid rgba(212,160,23,0.2)',
+          }}
+        >
+          <div
+            className="h-0.5"
+            style={{
+              background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+            }}
+          />
+          <div className="flex items-center gap-3 px-4 py-2">
+            <span className="text-[8px] font-black uppercase tracking-[0.5em] text-[#a07830]">
+              Objective
+            </span>
+            <span className="text-[11px] font-medium leading-snug text-[#f4e6c4] truncate">
+              {objective}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-[min(1040px,calc(100vw-2rem))]">
+        <div
+          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-2xl px-5 py-3 backdrop-blur-md"
+          style={{
+            background: 'rgba(10, 8, 5, 0.74)',
+            border: '1px solid rgba(212,160,23,0.18)',
+          }}
+        >
+          {[
+            { key: 'WASD / Arrows', label: 'Move' },
+            { key: 'E', label: 'Interact' },
+            { key: 'I', label: 'Inventory' },
+            { key: 'N', label: 'Notebook' },
+            { key: 'ESC', label: 'Close' },
+          ].map(({ key, label }) => (
+            <div key={key} className="flex items-center gap-2">
+              <kbd
+                className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.35em]"
+                style={{
+                  color: accent,
+                  background: 'rgba(212,160,23,0.08)',
+                  border: '1px solid rgba(212,160,23,0.32)',
+                }}
+              >
+                {key}
+              </kbd>
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[#7a6040]">
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-screen"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(0deg, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 1px, transparent 1px, transparent 3px)',
+        }}
+      />
+
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle at center, transparent 52%, rgba(0,0,0,0.75) 100%)',
+        }}
+      />
     </div>
   );
 }

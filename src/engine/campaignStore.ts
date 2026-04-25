@@ -20,6 +20,7 @@ export interface CampaignState {
   teamRoles: { p1: string; p2: string } | null;
   dynamicCode: string; // Randomized per session
   p2Pos: [number, number] | null; // Other player's position
+  r1Evidence: any[]; // Evidence scavenged in Round 1
 }
 
 export type CampaignAction =
@@ -39,7 +40,8 @@ export type CampaignAction =
   | { type: 'RECORD_NPC_VISIT'; npcId: string }
   | { type: 'SET_ROLES'; roles: { p1: string; p2: string } }
   | { type: 'SET_P2_POS'; pos: [number, number] | null }
-  | { type: 'UPDATE_REPUTATION'; delta: number };
+  | { type: 'UPDATE_REPUTATION'; delta: number }
+  | { type: 'SET_R1_EVIDENCE'; evidence: any[] };
 
 function createInitialState(): CampaignState {
   return {
@@ -60,6 +62,7 @@ function createInitialState(): CampaignState {
     teamRoles: null,
     dynamicCode: Math.floor(1000 + Math.random() * 9000).toString(),
     p2Pos: null,
+    r1Evidence: [],
   };
 }
 
@@ -106,6 +109,7 @@ export function normalizeCampaignState(state: Partial<CampaignState> | null | un
     teamRoles: roles,
     dynamicCode: typeof state.dynamicCode === 'string' && state.dynamicCode.length > 0 ? state.dynamicCode : base.dynamicCode,
     p2Pos,
+    r1Evidence: asArray(state.r1Evidence, base.r1Evidence),
   };
 }
 
@@ -180,6 +184,8 @@ function reducer(state: CampaignState, action: CampaignAction): CampaignState {
       return { ...state, teamRoles: action.roles };
     case 'SET_P2_POS':
       return { ...state, p2Pos: action.pos };
+    case 'SET_R1_EVIDENCE':
+      return { ...state, r1Evidence: action.evidence };
     default:
       return state;
   }
@@ -197,25 +203,31 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
 
   // Load initial state
   React.useEffect(() => {
-    fetch('/api/campaign/state', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        dispatch({ type: 'INITIALIZE_STATE', state: normalizeCampaignState(data) });
+    const token = localStorage.getItem('token');
+    if (!token) {
         setIsLoaded(true);
-      })
-      .catch(err => {
+        return;
+    }
+
+    Promise.all([
+        fetch('/api/campaign/state', { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
+        fetch('/api/r1/my-evidence', { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json())
+    ])
+    .then(([campaignData, r1Data]) => {
+        const normalized = normalizeCampaignState(campaignData);
+        dispatch({ type: 'INITIALIZE_STATE', state: { ...normalized, r1Evidence: Array.isArray(r1Data) ? r1Data : [] } });
+        setIsLoaded(true);
+    })
+    .catch(err => {
         console.error('Failed to load campaign state', err);
         setIsLoaded(true);
-      });
+    });
   }, []);
 
-  // Save state on critical changes (debounce could be added, but skipping playerPos ensures we only save on milestone actions)
+  // Save state on critical changes
   React.useEffect(() => {
     if (!isLoaded) return;
 
-    // Persist milestone progress and round 2 collaboration state, but avoid writing every footstep.
     const stateToSave = {
       inventory: state.inventory,
       clues: state.clues,

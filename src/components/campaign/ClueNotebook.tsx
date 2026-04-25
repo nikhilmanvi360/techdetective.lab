@@ -80,8 +80,30 @@ export default function ClueNotebook({ open, onClose }: ClueNotebookProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Round 1 Evidence Section */}
+            {(state?.r1Evidence || []).length > 0 && (
+              <div className="mb-6">
+                <div className="text-[10px] font-black text-[#8B2020] uppercase tracking-[0.2em] mb-3 border-b border-[#8B2020]/20 pb-1 flex items-center gap-2">
+                  <BookOpen className="w-3 h-3" /> Field Evidence (R1)
+                </div>
+                {(state.r1Evidence || []).map((ev, i) => (
+                  <div key={`r1-${i}`} className="border border-[#a07830]/30 p-3 bg-white/30 mb-2 rounded-sm shadow-sm">
+                    <div className="text-[8px] font-black uppercase tracking-widest text-[#d4a017] mb-1 flex justify-between">
+                      <span>{ev.code}</span>
+                      <span>{ev.category}</span>
+                    </div>
+                    <div className="text-[11px] font-black text-[#2a1a0a] leading-tight mb-1">{ev.title}</div>
+                    <p className="text-[10px] font-serif italic text-[#2a1a0a]/70 line-clamp-2">{ev.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-[10px] font-black text-[#8B2020] uppercase tracking-[0.2em] mb-3 border-b border-[#8B2020]/20 pb-1 flex items-center gap-2">
+               <BookOpen className="w-3 h-3" /> Lab Analysis (R2)
+            </div>
             {(state?.clues || []).length === 0 ? (
-              <p className="text-[#a07830] font-serif italic text-sm">No clues collected yet.</p>
+              <p className="text-[#a07830] font-serif italic text-sm">No lab clues collected yet.</p>
             ) : (
               (state?.clues || []).map((clue, i) => {
                 const isSynthesis = clue.startsWith('SYNTHESIS:');

@@ -22,6 +22,8 @@ import AdminSubmissions from './pages/admin/AdminSubmissions';
 import AdminBuilder from './pages/admin/AdminBuilder';
 import AdminSystem from './pages/admin/AdminSystem';
 import AdminLayout from './pages/admin/AdminLayout';
+import AdminQRManager from './pages/admin/AdminQRManager';
+import ScanPage from './pages/ScanPage';
 
 export default function App() {
     const [team, setTeam] = useState<Team | null>(null);
@@ -70,23 +72,24 @@ export default function App() {
                 <Route path="/start" element={team ? <Navigate to="/" /> : <LandingPage />} />
                 <Route path="/login" element={team ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} />
 
-                {/* ── Redirect root to /start if not logged in ── */}
-                <Route path="/" element={team ? (
-                    <Layout team={team} onLogout={handleLogout} />
-                ) : (
-                    <Navigate to="/start" />
-                )}>
-                    <Route index element={<InvestigationBoard />} />
-                    <Route path="case/:id" element={<CaseDetail />} />
-                    <Route path="mission/:id" element={<MissionWorkstation />} />
-                    <Route path="evidence/:id" element={<EvidenceViewer />} />
-                    <Route path="scoreboard" element={<Scoreboard />} />
-                    <Route path="profile" element={<Profile />} />
-                    <Route path="black-market" element={<BlackMarket />} />
-                    <Route path="lobby" element={<InvestigationLobby />} />
-                    <Route path="room/:code" element={<InvestigationRoom />} />
-                    <Route path="campaign" element={<CampaignMap />} />
-                </Route>
+                 {/* ── Redirect root to /start if not logged in ── */}
+                 <Route path="/" element={team ? (
+                     <Layout team={team} onLogout={handleLogout} />
+                 ) : (
+                     <Navigate to="/start" />
+                 )}>
+                     <Route index element={<InvestigationBoard />} />
+                     <Route path="case/:id" element={<CaseDetail />} />
+                     <Route path="mission/:id" element={<MissionWorkstation />} />
+                     <Route path="evidence/:id" element={<EvidenceViewer />} />
+                     <Route path="scoreboard" element={<Scoreboard />} />
+                     <Route path="profile" element={<Profile />} />
+                     <Route path="black-market" element={<BlackMarket />} />
+                     <Route path="lobby" element={<InvestigationLobby />} />
+                     <Route path="room/:code" element={<InvestigationRoom />} />
+                     <Route path="campaign" element={<CampaignMap />} />
+                     <Route path="scan" element={<ScanPage />} />
+                 </Route>
 
                 {/* ── Admin Routes (use their own layout) ── */}
                 <Route path="/admin" element={team?.role === 'admin' || team?.name === 'CCU_ADMIN'
@@ -98,6 +101,7 @@ export default function App() {
                     <Route path="submissions" element={<AdminSubmissions />} />
                     <Route path="builder" element={<AdminBuilder />} />
                     <Route path="system" element={<AdminSystem />} />
+                    <Route path="qr" element={<AdminQRManager />} />
                 </Route>
 
                 {/* ── Fallback ── */}

@@ -1,46 +1,46 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  Play, Send, ChevronLeft, Activity,
-  CheckCircle2, AlertTriangle, Terminal as TerminalIcon, BookOpen, 
-  Map as MapIcon, Search, FileText, Share2, Compass, Zap, RefreshCw
-} from 'lucide-react';
-import { useSound } from '../hooks/useSound';
-import { getRankTitle } from '../utils/ranks';
+import { motion } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
+import { useSound } from '../hooks/useSound';
+import { useMissionFiles } from '../hooks/useMissionFiles';
 
-const DIFFICULTY_CFG: Record<string, { label: string; color: string; border: string }> = {
-  Easy:         { label: 'PHASE 1 — RECON',           color: '#4a7c3f', border: '#2a4a20' },
-  Intermediate: { label: 'PHASE 2 — EVIDENCE trail',  color: '#c8860a', border: '#5a3a0a' },
-  Hard:         { label: 'PHASE 3 — DEEP DIVE',       color: '#8B2020', border: '#4a1010' },
-  Expert:       { label: 'PHASE 4 — FINAL protocol',  color: '#7a3aaa', border: '#3a1a5a' },
-};
+// Specialized Components
+import WorkstationTopBar from '../components/workstation/WorkstationTopBar';
+import InstructionsPane from '../components/workstation/InstructionsPane';
+import CodeEditorPane from '../components/workstation/CodeEditorPane';
+import TerminalPane from '../components/workstation/TerminalPane';
 
 export default function MissionWorkstation() {
   const { id } = useParams<{ id: string }>();
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
   const { playSound } = useSound();
 
-  const [mission, setMission]       = useState<any>(null);
-  const [loading, setLoading]       = useState(true);
-  const [code, setCode]             = useState('');
-  const [output, setOutput]         = useState('');
-  const [trace, setTrace]           = useState<any[]>([]);
-  const [runError, setRunError]     = useState<string | null>(null);
-  const [isRunning, setIsRunning]   = useState(false);
+  const [mission, setMission] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [output, setOutput] = useState('');
+  const [trace, setTrace] = useState<any[]>([]);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [verdict, setVerdict]       = useState<'correct' | 'incorrect' | null>(null);
+  const [verdict, setVerdict] = useState<'correct' | 'incorrect' | null>(null);
   const [pointsAwarded, setPointsAwarded] = useState(0);
   const [activePanel, setActivePanel] = useState<'brief' | 'functions'>('brief');
-  const [socket, setSocket]         = useState<Socket | null>(null);
-  const [pendingJobId, setPendingJobId] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'terminal' | 'preview'>('terminal');
+  const [socket, setSocket] = useState<Socket | null>(null);
 
-  const editorRef = useRef<HTMLTextAreaElement>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
+  const { 
+    files, 
+    activeFile, 
+    activeFileIndex, 
+    setActiveFileIndex, 
+    updateActiveFileContent, 
+    setFiles 
+  } = useMissionFiles([]);
 
-  const team = (() => { try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } })();
-  const rankTitle = getRankTitle(team?.score || 0);
+  const team = useMemo(() => { 
+    try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } 
+  }, []);
 
   useEffect(() => {
     const s = io(window.location.origin);
@@ -67,24 +67,21 @@ export default function MissionWorkstation() {
   }, [team.id, playSound]);
 
   useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [trace, output]);
-
-  useEffect(() => {
     if (!id) return;
     fetch(`/api/cases/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
       .then(r => r.json())
       .then(data => {
         if (data.id) {
           setMission(data);
-          const starter = data.metadata?.starter_code || `// INVESTIGATION REPORT\n`;
-          setCode(starter);
+          // Core Idea: Initialize multi-file structure based on mission type
+          const initialFiles = data.metadata?.files || [
+            { name: 'main.py', language: 'python', content: data.metadata?.starter_code || '' }
+          ];
+          setFiles(initialFiles);
         }
       })
       .finally(() => setLoading(false));
-  }, [id, playSound]);
+  }, [id, setFiles]);
 
   const handleRun = useCallback(async () => {
     if (!id || isRunning) return;
@@ -101,14 +98,15 @@ export default function MissionWorkstation() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ 
+          code: activeFile?.content || '',
+          fileName: activeFile.name,
+          allFiles: files 
+        }),
       });
       const data = await res.json();
 
-      if (res.status === 202) {
-        setPendingJobId(data.jobId);
-        // Result will arrive via socket
-      } else if (data.error) {
+      if (data.error) {
         setRunError(data.error);
         playSound('error');
         setIsRunning(false);
@@ -118,7 +116,7 @@ export default function MissionWorkstation() {
       playSound('error');
       setIsRunning(false);
     }
-  }, [id, code, isRunning, playSound]);
+  }, [id, activeFile, files, isRunning, playSound]);
 
   const handleSubmit = useCallback(async () => {
     if (!id || isSubmitting) return;
@@ -128,14 +126,17 @@ export default function MissionWorkstation() {
     setRunError(null);
 
     try {
-      // 1. Re-run to get fresh output
       const runRes = await fetch(`/api/missions/${id}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ 
+          code: activeFile?.content || '',
+          fileName: activeFile.name,
+          allFiles: files 
+        }),
       });
       const runData = await runRes.json();
       
@@ -149,14 +150,17 @@ export default function MissionWorkstation() {
       setTrace(runData.trace || []);
       setOutput(runData.output || '');
 
-      // 2. Submit the resulting output
       const res = await fetch(`/api/missions/${id}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ code, output: runData.output || '' }),
+        body: JSON.stringify({ 
+          code: activeFile?.content || '', 
+          output: runData.output || '',
+          allFiles: files
+        }),
       });
       const data = await res.json();
 
@@ -177,9 +181,26 @@ export default function MissionWorkstation() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [id, code, isSubmitting, playSound, team]);
+  }, [id, activeFile, files, isSubmitting, playSound, team]);
 
-  if (loading) return <div className="fixed inset-0 flex items-center justify-center bg-[#140e06] text-[#f0d070]"><Activity className="w-10 h-10 animate-pulse" /></div>;
+  const previewContent = useMemo(() => {
+    const htmlFile = files.find(f => f.language === 'html');
+    const cssFile = files.find(f => f.language === 'css');
+    if (!htmlFile) return activeFile?.content || ''; // fallback
+    
+    return `
+      <html>
+        <head><style>${cssFile?.content || ''}</style></head>
+        <body>${htmlFile.content}</body>
+      </html>
+    `;
+  }, [files, activeFile]);
+
+  if (loading) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#140e06] text-[#f0d070]">
+      <Activity className="w-10 h-10 animate-pulse" />
+    </div>
+  );
 
   if (verdict === 'correct') return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#140e06] z-[999]">
@@ -194,120 +215,51 @@ export default function MissionWorkstation() {
     </div>
   );
 
+  // Core Idea: Bundle HTML/CSS for live preview
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#140e06] text-[#f0e0a0]" style={{ fontFamily: "'Georgia', serif" }}>
-      {/* ═══ WORKSTATION BODY ═══ */}
+      
+      <WorkstationTopBar 
+        missionTitle={mission?.title || 'Unknown Case'} 
+        navigatePath="/" 
+      />
+
       <div className="flex-1 flex min-h-0 bg-[#0c0803]">
         
-        {/* ── LEFT PANEL: Brief & Editor ── */}
-        <div className="flex-1 flex flex-col border-r-4 border-[#3a2810] relative shadow-2xl">
-           
-           <div className="flex-shrink-0 flex bg-[#1a0e04] border-b border-[#3a2810]">
-             <button onClick={() => setActivePanel('brief')} className={`flex-1 py-3 uppercase font-black tracking-[0.2em] text-[10px] ${activePanel === 'brief' ? 'bg-[#f0e0a0]/10 text-[#f0d070] border-b-2 border-[#d4a017]' : 'text-[#a07830]/50'}`}>
-               The Evidence
-             </button>
-             <button onClick={() => setActivePanel('functions')} className={`flex-1 py-3 uppercase font-black tracking-[0.2em] text-[10px] ${activePanel === 'functions' ? 'bg-[#f0e0a0]/10 text-[#f0d070] border-b-2 border-[#d4a017]' : 'text-[#a07830]/50'}`}>
-               Specialized Tools
-             </button>
-           </div>
+        <InstructionsPane 
+          activePanel={activePanel}
+          setActivePanel={setActivePanel}
+          missionBrief={mission?.metadata?.brief}
+          availableFunctions={mission?.metadata?.available_functions || []}
+        />
 
-           <div className="flex-shrink-0 p-6 bg-[#140e06] border-b border-[#3a2810]">
-             {activePanel === 'brief' ? (
-                <p className="text-[14px] leading-relaxed text-[#c8a050] italic font-serif">
-                   "{mission?.metadata?.brief}"
-                </p>
-             ) : (
-                <div className="flex gap-2 flex-wrap">
-                   {(mission?.metadata?.available_functions || []).map((fn: string, i: number) => (
-                      <code key={i} className="px-2 py-1 bg-[#f0e0a0]/5 border border-[#c8a050]/20 text-[#f0d070] text-[11px] font-mono">{fn}</code>
-                   ))}
-                </div>
-             )}
-           </div>
+        <div className="flex-1 flex flex-col bg-[#140e06] min-w-0">
+          
+          <CodeEditorPane 
+            files={files}
+            activeFileIndex={activeFileIndex}
+            setActiveFileIndex={setActiveFileIndex}
+            onContentChange={updateActiveFileContent}
+            onRun={handleRun}
+            onSubmit={handleSubmit}
+            isRunning={isRunning}
+            isSubmitting={isSubmitting}
+            onReset={() => updateActiveFileContent(mission?.metadata?.starter_code || '')}
+          />
 
-           <div className="flex-1 relative bg-[#f0e0a0]/95 p-8 shadow-2xl">
-             <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
-             <textarea
-                ref={editorRef}
-                value={code}
-                onChange={e => setCode(e.target.value)}
-                spellCheck={false}
-                placeholder="Transcribe investigative script..."
-                className="w-full h-full resize-none bg-transparent text-[#2a1a0a] focus:outline-none font-mono text-[16px] leading-relaxed"
-                style={{ tabSize: 2 }}
-             />
-             <div className="pointer-events-none absolute inset-0 opacity-20 mix-blend-multiply" 
-                  style={{ background: 'radial-gradient(circle, transparent 70%, #140e06 100%)' }} />
-           </div>
+          <TerminalPane 
+            trace={trace}
+            runError={runError}
+            verdict={verdict}
+            activeView={activeView}
+            setActiveView={setActiveView}
+            htmlContent={previewContent}
+          />
 
-           <div className="flex-shrink-0 flex items-center justify-between px-8 py-5 bg-[#1a0e04] border-t-2 border-[#3a2810]">
-             <div className="flex items-center gap-4">
-                <span className="text-[10px] font-mono text-[#a07830] tracking-widest uppercase">{code.length} CHARS</span>
-                <button onClick={() => setCode(mission?.metadata?.starter_code || '')} className="text-[#a07830] hover:text-[#f0d070] transition-colors"><RefreshCw className="w-4 h-4" /></button>
-             </div>
-             <button
-                onClick={handleRun}
-                disabled={isRunning}
-                className="flex items-center gap-3 px-10 py-4 bg-gradient-to-b from-[#a07830] to-[#6a4e1a] border-2 border-[#d4a017] text-[#f0d070] uppercase tracking-[0.2em] font-black transition-all hover:brightness-110 disabled:opacity-50 shadow-xl"
-             >
-                {isRunning ? <><Activity className="w-5 h-5 animate-spin" /> ANALYZING...</> : <><Play className="w-5 h-5" /> RUN ANALYSIS</>}
-             </button>
-           </div>
-        </div>
-
-        {/* ── RIGHT PANEL: Output Log ── */}
-        <div className="w-[450px] flex-shrink-0 flex flex-col bg-[#140e06]">
-           
-           <div className="flex-1 flex flex-col shadow-inner">
-              <div className="flex-shrink-0 p-4 bg-[#1a0e04] border-b border-[#3a2810] flex items-center gap-3 text-[11px] font-black uppercase text-[#a07830] tracking-[0.3em]">
-                 <TerminalIcon className="w-4 h-4" /> INVESTIGATION LOG
-              </div>
-              
-              <div ref={terminalRef} className="flex-1 overflow-y-auto p-6 space-y-3 bg-[#0c0803] custom-scrollbar">
-                 {!trace?.length && !runError && (
-                    <div className="h-full flex flex-col items-center justify-center opacity-10">
-                       <FileText className="w-16 h-16 text-[#a07830] mb-4" />
-                       <span className="uppercase text-xs font-black tracking-[0.5em]">Telegraph Standby</span>
-                    </div>
-                 )}
-
-                 {runError && (
-                    <div className="p-4 bg-red-900/15 border-l-4 border-red-700 text-red-500 text-[12px] font-mono leading-relaxed">
-                       <strong className="block mb-1 font-black uppercase tracking-widest">⚠️ ERROR</strong>
-                       {runError}
-                    </div>
-                 )}
-
-                 {trace?.map((t: any, i: number) => (
-                    <div key={i} className="text-[13px] font-mono flex gap-3 animate-in fade-in slide-in-from-left-2 duration-300">
-                       <span className="text-[#a07830] opacity-40 shrink-0">[{t.type.substring(0,4).toUpperCase()}]</span>
-                       {t.type === 'move' && <span className="text-[#c8a050]">REPOSITION: {t.target}</span>}
-                       {t.type === 'scan' && <span className="text-[#d4a017]">SCAN FOUND: {t.data.ports.length} ADDR</span>}
-                       {t.type === 'download' && <span className="text-[#f0d070]">ACQUIRED: "{t.message}"</span>}
-                       {t.type === 'print' && <span className="text-[#f0e0a0] brightness-125">{t.message}</span>}
-                       {t.type === 'error' && <span className="text-red-500 font-bold">{t.message}</span>}
-                    </div>
-                 ))}
-
-                 {verdict === 'incorrect' && (
-                    <div className="mt-4 p-3 bg-red-900/20 border border-red-700/50 text-red-400 text-[11px] font-black uppercase tracking-widest text-center">
-                       MOLT Report Error: Evidence Mismatch
-                    </div>
-                 )}
-              </div>
-
-              <div className="flex-shrink-0 p-8 border-t-4 border-[#3a2810] bg-[#1a0e04] shadow-2xl">
-                 <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="w-full flex items-center justify-center gap-4 py-5 bg-[#2a1a0a] border-2 border-[#a07830] text-[#f0d070] uppercase tracking-[0.3em] font-black transition-all hover:bg-[#3d2610] disabled:opacity-30 shadow-lg group"
-                 >
-                    {isSubmitting ? <><Activity className="w-5 h-5 animate-spin" /> FILING REPORT...</> : <><Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" /> SUBMIT EVIDENCE</>}
-                 </button>
-              </div>
-           </div>
         </div>
       </div>
+      
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -324,5 +276,13 @@ export default function MissionWorkstation() {
         }
       `}</style>
     </div>
+  );
+}
+
+function Activity({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+    </svg>
   );
 }

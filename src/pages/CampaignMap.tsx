@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 
 import { CampaignProvider, useCampaign } from '../engine/campaignStore';
 import { CAMPAIGN_ZONES, ZoneId } from '../data/campaignData';
@@ -10,15 +10,12 @@ import { Direction } from '../engine/mapEngine';
 import { TileInteraction } from '../data/campaignData';
 
 import MapRenderer from '../components/campaign/MapRenderer';
-import CampaignHUD from '../components/campaign/CampaignHUD';
 import DialoguePanel from '../components/campaign/DialoguePanel';
 import TerminalPuzzlePanel from '../components/campaign/TerminalPuzzlePanel';
 import InventoryPanel from '../components/campaign/InventoryPanel';
 import ClueNotebook from '../components/campaign/ClueNotebook';
 import ZoneTransitionOverlay from '../components/campaign/ZoneTransitionOverlay';
-import InteractionPrompt from '../components/campaign/InteractionPrompt';
 import CaseResolution from '../components/campaign/CaseResolution';
-import RoleSelectionOverlay from '../components/campaign/RoleSelectionOverlay';
 import SessionLobby from '../components/campaign/SessionLobby';
 import { useSession } from '../engine/useSession';
 import { CampaignAction } from '../engine/campaignStore';
@@ -34,7 +31,6 @@ function CampaignMapInner() {
     createSession,
     joinSession,
     broadcastAction,
-    leaveSession,
   } = useSession(state, dispatch);
 
   const dispatchSync = useCallback((action: CampaignAction) => {
@@ -47,21 +43,28 @@ function CampaignMapInner() {
   const [activeInteraction, setActiveInteraction] = useState<TileInteraction | null>(null);
   const [terminalSolved, setTerminalSolved] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [notebookOpen, setNotebookOpen] = useState(false);
   const [transitionZone, setTransitionZone] = useState<ZoneId | null>(null);
   const [lockedMsg, setLockedMsg] = useState<string | null>(null);
   const [canInteract, setCanInteract] = useState(false);
+  const [playerMoving, setPlayerMoving] = useState(false);
   const [droneTick, setDroneTick] = useState(0);
   const [securityTimer, setSecurityTimer] = useState<number | null>(null);
+  const movementResetRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (movementResetRef.current !== null) {
+        window.clearTimeout(movementResetRef.current);
+      }
+    };
+  }, []);
 
   const currentZoneConfig = CAMPAIGN_ZONES.find(z => z.id === state.currentZone);
   const latestObjective = state.objectiveLog?.length
     ? state.objectiveLog[state.objectiveLog.length - 1]
     : 'Initializing field board...';
-  const completedZones = state.completedZones?.length || 0;
-  const activeThreatLabel = securityTimer !== null
-    ? 'Security lockdown active'
-    : (currentZoneConfig?.drones?.length ? 'Drone patrols moving' : 'No active threats');
 
   useEffect(() => {
     if (state.currentZone === 'admin_core') {
@@ -137,7 +140,6 @@ function CampaignMapInner() {
     if (activeInteraction || !currentZoneConfig) return;
     const interaction = getInteraction(state.playerPos, currentZoneConfig);
     if (!interaction) {
-      const grid = currentZoneConfig.grid;
       const [r, c] = state.playerPos;
       const dirs: [number, number][] = [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]];
       for (const [nr, nc] of dirs) {
@@ -189,6 +191,55 @@ function CampaignMapInner() {
       })) : undefined,
     };
 
+    // ── ROUND 1 HEAVY ADVANTAGE LOGIC ──
+    // Check if team has specific evidence from Round 1 to auto-solve or buff this interaction
+    const hasR1Code = (code: string) => state.r1Evidence.some(e => e.code === code);
+    const hasR1Category = (cat: string) => state.r1Evidence.some(e => e.category === cat);
+
+    // 1. Laptop Password (EC-G7H8)
+    if (ix.speaker === 'Left-Behind Laptop' && hasR1Code('EC-G7H8')) {
+      processedIx.lines = [
+        'PRE-AUTH DETECTED: You retrieved the password "sys_ghost / R@z@2024!" from the sticky note in Round 1.',
+        'The system bypasses the terminal login. Data successfully extracted.'
+      ];
+      processedIx.terminalCmd = undefined; 
+      processedIx.reward = 'kitchen_key';
+    }
+
+    // 2. Archived Terminal (EC-C3D4 mentions LB-2241)
+    if (ix.speaker === 'Archived Terminal' && hasR1Code('EC-C3D4')) {
+        processedIx.lines = [
+            'Staff ID LB-2241 detected in Round 1 evidence (Crumpled Receipt).',
+            'The terminal recognizes your authority and reveals the redacted document immediately.'
+        ];
+        processedIx.terminalCmd = undefined;
+    }
+
+    // 3. Node Gamma (EC-Y5Z6 mentions Node Gamma)
+    if (ix.speaker === 'Node Gamma' && hasR1Code('EC-Y5Z6')) {
+        processedIx.lines = [
+            'ARGUS Protocol Intercept (EC-Y5Z6) utilized.',
+            'The Node Gamma security layer is bypassed. Sync complete.'
+        ];
+        processedIx.terminalCmd = undefined;
+    }
+
+    // 4. VIP Clearance (VIP-ACCESS-01) - Special Item or Global Skip
+    if (hasR1Code('VIP-ACCESS-01') && !state.inventory.includes('master_keycard')) {
+        // Automatically give a master keycard if they have the VIP code
+        dispatchSync({ type: 'COLLECT_ITEM', item: 'master_keycard' });
+        dispatchSync({ type: 'ADD_OBJECTIVE', text: 'VIP CLEARANCE DETECTED: Master Keycard granted from Round 1.' });
+    }
+
+    // 5. Generic "Witness" Advantage - Richer dialogue for NPCs
+    if (ix.type === 'dialogue' && hasR1Category('witness') && ix.lines.length > 2) {
+        processedIx.lines = [
+            '...I see you’ve been doing your homework in the field. Since you already spoke to the witnesses...',
+            ...ix.lines,
+            'Also, keep an eye on the vents. I heard them rattling earlier.'
+        ];
+    }
+
     setActiveInteraction(processedIx);
     setTerminalSolved(false);
     setLineIndex(0);
@@ -236,8 +287,6 @@ function CampaignMapInner() {
   }
 
   useEffect(() => {
-    if (activeInteraction || transitionZone || !state.teamRoles) return;
-
     const KEY_DIR: Record<string, Direction> = {
       ArrowUp: 'up', w: 'up', W: 'up',
       ArrowDown: 'down', s: 'down', S: 'down',
@@ -246,20 +295,70 @@ function CampaignMapInner() {
     };
 
     const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeInteraction) {
+          closeInteraction();
+          return;
+        }
+        if (notebookOpen) {
+          setNotebookOpen(false);
+          return;
+        }
+        if (inventoryOpen) {
+          setInventoryOpen(false);
+          return;
+        }
+        return;
+      }
+
+      if (e.key === 'i' || e.key === 'I') {
+        if (activeInteraction || transitionZone) return;
+        setInventoryOpen(v => !v);
+        setNotebookOpen(false);
+        return;
+      }
+
+      if (e.key === 'n' || e.key === 'N') {
+        if (activeInteraction || transitionZone) return;
+        setNotebookOpen(o => !o);
+        setInventoryOpen(false);
+        return;
+      }
+
+      if (activeInteraction || transitionZone || notebookOpen || inventoryOpen || !state.teamRoles) return;
+
       if (e.key === 'e' || e.key === 'E') {
         triggerInteraction();
         return;
       }
+
       const dir = KEY_DIR[e.key];
       if (!dir || !currentZoneConfig) return;
       e.preventDefault();
       const next = getNextPos(state.playerPos, dir, currentZoneConfig.grid);
-      if (next) dispatchSync({ type: 'SET_POS', pos: next });
+      if (next) {
+        dispatchSync({ type: 'SET_POS', pos: next });
+        setPlayerMoving(true);
+        if (movementResetRef.current !== null) {
+          window.clearTimeout(movementResetRef.current);
+        }
+        movementResetRef.current = window.setTimeout(() => setPlayerMoving(false), 220);
+      }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state.playerPos, currentZoneConfig, activeInteraction, transitionZone, state.teamRoles, triggerInteraction, dispatchSync]);
+  }, [
+    state.playerPos,
+    currentZoneConfig,
+    activeInteraction,
+    transitionZone,
+    notebookOpen,
+    inventoryOpen,
+    state.teamRoles,
+    triggerInteraction,
+    dispatchSync,
+  ]);
 
   if (!isLoaded) {
     return (
@@ -270,22 +369,7 @@ function CampaignMapInner() {
   }
 
   return (
-    <div
-      className="h-full flex flex-col relative overflow-hidden bg-[#180f08] text-[#f4e6c4]"
-      style={{
-        backgroundImage: [
-          'radial-gradient(circle at top, rgba(179,135,74,0.20), transparent 34%)',
-          'radial-gradient(circle at 20% 15%, rgba(103,132,92,0.12), transparent 26%)',
-          'linear-gradient(180deg, rgba(24,15,8,0.98), rgba(42,27,14,0.92))',
-          'url("https://www.transparenttextures.com/patterns/old-paper.png")',
-        ].join(', '),
-      }}
-    >
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(248,237,215,0.10),transparent_58%)]" />
-      <div className="absolute inset-x-0 top-0 h-24 pointer-events-none bg-gradient-to-b from-[#d4a017]/10 to-transparent" />
-
-      <CampaignHUD partnerConnected={partnerConnected} />
-
+    <div className="fixed inset-0 overflow-hidden bg-[#0a0805] text-[#f4e6c4]">
       <SessionLobby
         sessionCode={sessionCode}
         isHost={isHost}
@@ -295,136 +379,28 @@ function CampaignMapInner() {
         onStart={() => dispatchSync({ type: 'SET_ROLES', roles: { p1: 'Lead Investigator', p2: 'Forensic Tech' } })}
       />
 
-      <div className="absolute top-20 left-4 flex gap-2 z-20">
+      {currentZoneConfig && (
+        <MapRenderer
+          grid={currentZoneConfig.grid}
+          playerPos={state.playerPos}
+          p2Pos={state.p2Pos || undefined}
+          zoneId={state.currentZone}
+          zoneName={currentZoneConfig.name}
+          objective={latestObjective}
+          drones={activeDrones.map(d => d.pos)}
+          canInteract={canInteract && !activeInteraction}
+          playerMoving={playerMoving}
+        />
+      )}
+
+      <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1 rounded-full bg-[#f4e6c4]/95 border border-[#b58a53] px-3 py-1.5 text-[9px] font-black text-[#2a1a0a] uppercase tracking-widest hover:bg-[#f8edd7] transition-colors pointer-events-auto shadow-[0_8px_20px_rgba(42,26,10,0.12)]"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[9px] font-black text-[#d4a017] uppercase tracking-widest transition-all"
+          style={{ background: 'rgba(10,8,5,0.80)', border: '1px solid rgba(212,160,23,0.25)', backdropFilter: 'blur(6px)' }}
         >
           <ChevronLeft className="w-3 h-3" /> Bureau
         </button>
-        <button
-          onClick={() => setNotebookOpen(o => !o)}
-          className="flex items-center gap-1 rounded-full bg-[#f4e6c4]/95 border border-[#b58a53] px-3 py-1.5 text-[9px] font-black text-[#2a1a0a] uppercase tracking-widest hover:bg-[#f8edd7] transition-colors pointer-events-auto shadow-[0_8px_20px_rgba(42,26,10,0.12)]"
-        >
-          <BookOpen className="w-3 h-3" /> Notebook ({(state.clues || []).length})
-        </button>
-      </div>
-
-      <div className="relative z-10 flex-1 min-h-0 px-3 pb-4 pt-24 lg:px-5 xl:px-6">
-        <div className="grid h-full min-h-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
-          <aside className="hidden min-h-0 flex-col gap-4 xl:flex">
-            <div className="rounded-[1.75rem] border border-[#b58a53]/70 bg-[#f4e6c4]/92 p-4 shadow-[0_18px_42px_rgba(42,26,10,0.16)] backdrop-blur-sm">
-              <div className="text-[9px] uppercase tracking-[0.4em] font-black text-[#8a6b44]">Zone Brief</div>
-              <div className="mt-2 text-xl font-black uppercase tracking-tight text-[#2a1a0a]">
-                {currentZoneConfig?.name || 'Unknown Zone'}
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-[#5e4a2f]">
-                {currentZoneConfig?.description}
-              </p>
-              <div className="mt-4 grid gap-2">
-                <div className="rounded-2xl border border-[#b58a53] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Threat Level</div>
-                  <div className="mt-1 text-sm font-black uppercase tracking-widest text-[#2a1a0a]">
-                    {activeThreatLabel}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-[#b58a53] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Progress</div>
-                  <div className="mt-1 text-sm font-black uppercase tracking-widest text-[#2a1a0a]">
-                    {completedZones}/4 Zones Cleared
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </aside>
-
-          <div className="flex min-h-0 flex-col gap-4">
-            <div className="grid gap-3 sm:grid-cols-3 xl:hidden">
-              <div className="rounded-2xl border border-[#b58a53]/70 bg-[#f4e6c4]/92 px-3 py-2 shadow-[0_18px_42px_rgba(42,26,10,0.16)]">
-                <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Zone</div>
-                <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">{currentZoneConfig?.name}</div>
-              </div>
-              <div className="rounded-2xl border border-[#b58a53]/70 bg-[#f4e6c4]/92 px-3 py-2 shadow-[0_18px_42px_rgba(42,26,10,0.16)]">
-                <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Objective</div>
-                <div className="mt-1 text-sm font-serif italic text-[#2a1a0a]">{latestObjective}</div>
-              </div>
-              <div className="rounded-2xl border border-[#b58a53]/70 bg-[#f4e6c4]/92 px-3 py-2 shadow-[0_18px_42px_rgba(42,26,10,0.16)]">
-                <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Threat</div>
-                <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">{activeThreatLabel}</div>
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-hidden rounded-[2rem] border border-[#b58a53]/50 bg-[#f4e6c4]/28 p-2 shadow-[0_20px_50px_rgba(42,26,10,0.16)] backdrop-blur-[2px]">
-              <div className="h-full w-full overflow-auto flex items-start justify-center lg:items-center">
-                <motion.div
-                  key={state.currentZone}
-                  initial={{ opacity: 0, scale: 0.95, y: 14 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.45 }}
-                  className="w-full flex items-start justify-center"
-                >
-                  {currentZoneConfig && (
-                    <MapRenderer
-                      grid={currentZoneConfig.grid}
-                      playerPos={state.playerPos}
-                      p2Pos={state.p2Pos || undefined}
-                      zoneId={state.currentZone}
-                      zoneName={currentZoneConfig.name}
-                      zoneDescription={currentZoneConfig.description}
-                      objective={latestObjective}
-                      drones={activeDrones.map(d => d.pos)}
-                    />
-                  )}
-                </motion.div>
-              </div>
-            </div>
-          </div>
-
-          <aside className="hidden min-h-0 flex-col gap-4 xl:flex">
-            <div className="rounded-[1.75rem] border border-[#b58a53]/70 bg-[#f4e6c4]/92 p-4 shadow-[0_18px_42px_rgba(42,26,10,0.16)] backdrop-blur-sm">
-              <div className="text-[9px] uppercase tracking-[0.4em] font-black text-[#8a6b44]">Team Status</div>
-              <div className="mt-2 rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Roles</div>
-                <div className="mt-1 text-sm italic text-[#2a1a0a]">
-                  {state.teamRoles ? `${state.teamRoles.p1} and ${state.teamRoles.p2}` : 'Awaiting assignment'}
-                </div>
-              </div>
-              <div className="mt-3 grid gap-2">
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Inventory</div>
-                  <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">{(state.inventory || []).length} Items</div>
-                </div>
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Clues</div>
-                  <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">{(state.clues || []).length} Notes</div>
-                </div>
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Reputation</div>
-                  <div className="mt-1 text-sm font-black uppercase text-[#2a1a0a]">{state.reputation}%</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-[#b58a53]/70 bg-[#f4e6c4]/92 p-4 shadow-[0_18px_42px_rgba(42,26,10,0.16)] backdrop-blur-sm">
-              <div className="text-[9px] uppercase tracking-[0.4em] font-black text-[#8a6b44]">Field Rules</div>
-              <div className="mt-2 space-y-2 text-sm text-[#2a1a0a]">
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Keyboard</div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-[#5e4a2f]">
-                    Arrow keys or WASD move the operator. E opens nearby interactions.
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-[#d6b57b] bg-[#fff6df] px-3 py-2">
-                  <div className="text-[8px] uppercase tracking-[0.35em] font-black text-[#8a6b44]">Board State</div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-[#5e4a2f]">
-                    Drones, terminals, and evidence pulse inside the map when they become relevant.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
       </div>
 
       {securityTimer !== null && (
@@ -438,17 +414,6 @@ function CampaignMapInner() {
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 flex gap-3 z-20 pointer-events-none">
-        {(['W', 'A', 'S', 'D'] as const).map(k => (
-          <div key={k} className="w-7 h-7 border border-[#b58a53] flex items-center justify-center bg-[#f4e6c4]/90 rounded-md shadow-[0_8px_18px_rgba(42,26,10,0.08)]">
-            <span className="text-[10px] font-black text-[#8a6b44]">{k}</span>
-          </div>
-        ))}
-        <div className="w-7 h-7 border border-[#b58a53] flex items-center justify-center bg-[#f8edd7] rounded-md shadow-[0_8px_18px_rgba(42,26,10,0.08)]">
-          <span className="text-[10px] font-black text-[#8c5f22]">E</span>
-        </div>
-      </div>
-
       {lockedMsg && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -459,9 +424,7 @@ function CampaignMapInner() {
         </motion.div>
       )}
 
-      <InteractionPrompt visible={canInteract && !activeInteraction} />
-
-      <InventoryPanel />
+      <InventoryPanel open={inventoryOpen} onClose={() => setInventoryOpen(false)} />
 
       <TerminalPuzzlePanel
         interaction={activeInteraction}
