@@ -342,7 +342,7 @@ function CampaignMapInner() {
         if (movementResetRef.current !== null) {
           window.clearTimeout(movementResetRef.current);
         }
-        movementResetRef.current = window.setTimeout(() => setPlayerMoving(false), 300);
+        movementResetRef.current = window.setTimeout(() => setPlayerMoving(false), 220);
       }
     };
 
