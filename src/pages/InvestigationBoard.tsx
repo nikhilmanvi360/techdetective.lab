@@ -14,6 +14,7 @@ interface Case {
   points: number;
   status: string;
   round: string;
+  source: 'db' | 'json';
 }
 
 export default function InvestigationBoard() {
@@ -137,7 +138,12 @@ export default function InvestigationBoard() {
 
             <div className="flex flex-wrap gap-12 justify-center lg:justify-start">
               {cases.map((c, i) => (
-                <CaseCard key={c.id} c={c} i={i} onClick={() => navigate(`/case/${c.id}`)} />
+                <CaseCard 
+                  key={c.id} 
+                  c={c} 
+                  i={i} 
+                  onClick={() => navigate(c.source === 'json' ? `/mission/${c.id}` : `/case/${c.id}`)} 
+                />
               ))}
               {cases.length === 0 && (
                 <div className="w-full py-32 text-center">

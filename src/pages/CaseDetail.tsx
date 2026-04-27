@@ -263,7 +263,14 @@ export default function CaseDetail() {
               {caseData.title}
             </h1>
             <p className="text-base md:text-xl text-[#1a0e04]/70 font-display italic max-w-4xl border-l-4 border-red-900/20 pl-6 leading-relaxed">
-              "{caseData.description}"
+              {(() => {
+                try {
+                  const desc = typeof caseData.description === 'string' ? JSON.parse(caseData.description) : caseData.description;
+                  return desc.summary || desc.description || caseData.description;
+                } catch (e) {
+                  return caseData.description;
+                }
+              })()}
             </p>
 
             {/* Tactical stats row */}

@@ -184,18 +184,31 @@ async function startServer() {
       // 1. Try JSON Case Loader
       if (id.startsWith('mission-')) {
         const jsonCase = await CaseLoader.getCaseById(id);
-        if (jsonCase) return res.json(jsonCase);
+        if (jsonCase) return res.json({
+          ...jsonCase,
+          evidence: [],
+          puzzles: []
+        });
       }
 
       // 2. Fallback to Supabase
       const { data: dbCase, error } = await supabase.from('cases').select('*').eq('id', id).single();
       if (error || !dbCase) return res.status(404).json({ error: 'Investigation dossier not found.' });
 
-      res.json(dbCase);
+      // Fetch associated evidence and puzzles
+      const { data: evidence } = await supabase.from('evidence').select('*').eq('case_id', id);
+      const { data: puzzles } = await supabase.from('puzzles').select('*').eq('case_id', id);
+
+      res.json({
+        ...dbCase,
+        evidence: evidence || [],
+        puzzles: puzzles || []
+      });
     } catch (err) {
       res.status(500).json({ error: 'Failed to retrieve mission dossier.' });
     }
   });
+
 
   publicRouter.post('/auth/login', loginLimiter, async (req: any, res: any) => {
     const { teamName, password } = req.body;
