@@ -198,7 +198,7 @@ function CaseCard({ c, i, onClick }: any) {
           <div className="text-[#a07830] opacity-40 group-hover:opacity-100 transition-opacity"><FileText className="w-6 h-6" /></div>
         </div>
         <div className="mb-4">
-           <span className="text-[8px] font-black text-[#a07830] uppercase tracking-[0.4em] opacity-60">Case Dossier No. {c.id.substring(0, 8)}</span>
+           <span className="text-[8px] font-black text-[#a07830] uppercase tracking-[0.4em] opacity-60">Case Dossier No. {String(c.id).substring(0, 8)}</span>
            <h3 className="text-2xl font-serif italic font-black text-[#2a1a0a] leading-[1.1] mt-1 group-hover:text-black transition-colors">{c.title}</h3>
         </div>
         <div className="flex-1 border-y border-[#a07830]/20 my-6 py-6 overflow-hidden">
