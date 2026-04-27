@@ -6,13 +6,10 @@ import InvestigationBoard from './pages/InvestigationBoard';
 import CaseDetail from './pages/CaseDetail';
 import EvidenceViewer from './pages/EvidenceViewer';
 import MissionWorkstation from './pages/MissionWorkstation';
-import Scoreboard from './pages/Scoreboard';
 import Profile from './pages/Profile';
 import BlackMarket from './pages/BlackMarket';
 import Layout from './components/Layout';
 import { Team } from './types';
-import InvestigationLobby from './pages/InvestigationLobby';
-import InvestigationRoom from './pages/InvestigationRoom';
 import CampaignMap from './pages/CampaignMap';
 
 // Admin sub-pages
@@ -82,11 +79,8 @@ export default function App() {
                      <Route path="case/:id" element={<CaseDetail />} />
                      <Route path="mission/:id" element={<MissionWorkstation />} />
                      <Route path="evidence/:id" element={<EvidenceViewer />} />
-                     <Route path="scoreboard" element={<Scoreboard />} />
                      <Route path="profile" element={<Profile />} />
                      <Route path="black-market" element={<BlackMarket />} />
-                     <Route path="lobby" element={<InvestigationLobby />} />
-                     <Route path="room/:code" element={<InvestigationRoom />} />
                      <Route path="campaign" element={<CampaignMap />} />
                      <Route path="scan" element={<ScanPage />} />
                  </Route>

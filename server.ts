@@ -24,7 +24,6 @@ import * as eventStore from './src/engine/eventStore';
 import * as caseEngine from './src/engine/caseEngine';
 import * as adversary from './src/engine/adversary';
 import * as shopEngine from './src/engine/shopEngine';
-import * as boardEngine from './src/engine/boardEngine';
 import { codeExecutionQueue } from './src/lib/queue';
 import { GameStateManager, GameState } from './src/engine/gameStateManager';
 import { CaseLoader } from './src/engine/caseLoader';
@@ -139,31 +138,7 @@ async function startServer() {
   // SOCKET.IO: Multi-Room Management
   // -------------------------------------------------------
   io.on('connection', (socket) => {
-    // Join a specific investigation room
-    socket.on('join_investigation', ({ roomCode, teamName }) => {
-      socket.join(roomCode);
-      console.log(`[SOCKET] ${teamName} joined room: ${roomCode}`);
-
-      // Notify other detectives in this room
-      socket.to(roomCode).emit('detective_joined', { teamName, timestamp: new Date() });
-    });
-
-    // Start a synchronized mission
-    socket.on('launch_investigation', async ({ roomCode }) => {
-      try {
-        await GameStateManager.transition(roomCode, 'ROUND_1');
-        io.to(roomCode).emit('mission_started', { startTime: new Date() });
-      } catch (err: any) {
-        socket.emit('error', { message: err.message });
-      }
-    });
-
-    socket.on('node_dragging', (data) => {
-      socket.broadcast.emit('board_update', {
-        teamId: data.teamId, type: 'node_moved',
-        nodeId: data.nodeId, x: data.x, y: data.y
-      });
-    });
+    // Other socket connections if any
   });
 
   // =========================================================
@@ -173,23 +148,7 @@ async function startServer() {
 
   publicRouter.get('/health', (req, res) => res.json({ status: 'UP', timestamp: new Date().toISOString() }));
 
-  publicRouter.get('/scoreboard', async (req, res) => {
-    const { data: scores, error } = await supabase
-      .from('teams').select('name, score')
-      .neq('name', 'CCU_ADMIN')
-      .order('score', { ascending: false }).limit(50);
-    if (error) return res.status(500).json({ error: 'Failed to fetch scoreboard' });
-    res.json(scores);
-  });
 
-  publicRouter.get('/multipliers/active', async (req, res) => {
-    try {
-      const active = await eventStore.getActiveMultipliers();
-      res.json(active);
-    } catch (e) {
-      res.json([]);
-    }
-  });
 
   publicRouter.get('/cases', async (req, res) => {
     try {
@@ -861,68 +820,7 @@ async function startServer() {
     if (!result.success) return res.status(400).json(result);
     res.json(result);
   });
-  // --- Investigation Board ---
-  protectedRouter.get('/board/:caseId', async (req: any, res: any) => {
-    try {
-      const state = await boardEngine.getBoardState(req.user.id, parseInt(req.params.caseId));
-      res.json(state);
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to fetch board state' });
-    }
-  });
 
-  protectedRouter.post('/board/nodes', async (req: any, res: any) => {
-    try {
-      const { caseId, type, content, x, y } = req.body;
-      const node = await boardEngine.addNode(req.user.id, parseInt(caseId), type, content, x, y);
-      io.emit('board_update', { teamId: req.user.id, type: 'node_added', node });
-      res.json(node);
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to add node' });
-    }
-  });
-
-  protectedRouter.patch('/board/nodes/:id', async (req: any, res: any) => {
-    try {
-      const { x, y } = req.body;
-      await boardEngine.updateNodePosition(req.user.id, parseInt(req.params.id), x, y);
-      io.emit('board_update', { teamId: req.user.id, type: 'node_moved', nodeId: parseInt(req.params.id), x, y });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to move node' });
-    }
-  });
-
-  protectedRouter.delete('/board/nodes/:id', async (req: any, res: any) => {
-    try {
-      await boardEngine.deleteNode(req.user.id, parseInt(req.params.id));
-      io.emit('board_update', { teamId: req.user.id, type: 'node_deleted', nodeId: parseInt(req.params.id) });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to delete node' });
-    }
-  });
-
-  protectedRouter.post('/board/links', async (req: any, res: any) => {
-    try {
-      const { sourceId, targetId } = req.body;
-      const link = await boardEngine.createLink(req.user.id, sourceId, targetId);
-      io.emit('board_update', { teamId: req.user.id, type: 'link_added', link });
-      res.json(link);
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to create link' });
-    }
-  });
-
-  protectedRouter.delete('/board/links/:id', async (req: any, res: any) => {
-    try {
-      await boardEngine.deleteLink(req.user.id, parseInt(req.params.id));
-      io.emit('board_update', { teamId: req.user.id, type: 'link_deleted', linkId: parseInt(req.params.id) });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to delete link' });
-    }
-  });
 
   // --- Round 1: The Living Crime Scene ---
   protectedRouter.get('/r1/status', async (req: any, res: any) => {

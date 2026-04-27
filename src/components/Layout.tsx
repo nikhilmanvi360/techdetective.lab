@@ -26,21 +26,23 @@ export default function Layout({ team, onLogout }: LayoutProps) {
 
   const menuItems = [
     { label: 'Bureau Command', path: '/', icon: MapIcon },
-    { label: 'Field Dispatch', path: '/lobby', icon: Users },
-    { label: 'Evidence Registry', path: '/scoreboard', icon: Trophy },
     { label: 'Field Badge', path: '/profile', icon: User },
   ];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#140e06] text-[#f0e0a0] selection:bg-[#d4a017] selection:text-[#140e06]">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#140e06] text-[#f0e0a0] selection:bg-[#d4a017] selection:text-[#140e06] relative">
+      {/* Global Immersive Overlays */}
+      <div className="fixed inset-0 pointer-events-none z-[9999] mix-blend-soft-light opacity-20" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/pinstriped-suit.png")' }} />
+      <div className="fixed inset-0 pointer-events-none z-[9999] shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
+      
       <DetectiveHUD team={team} />
       <StateTransition />
 
       {/* 🕵️ NOIR BUREAU NAVIGATION */}
-      <nav className="relative z-[50] h-18 bg-[#1a1005] border-b-[6px] border-[#3a2810] shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex items-center px-8 gap-10 overflow-hidden">
+      <nav className="relative z-[50] h-20 bg-[#1a1005] border-b-[6px] border-[#3a2810] shadow-[0_10px_50px_rgba(0,0,0,1)] flex items-center px-10 gap-10 overflow-hidden">
         {/* Wood grain & Shadow depth */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
-        <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#d4a017]/20 shadow-[0_0_10px_#d4a017]" />
+        <div className="absolute inset-0 opacity-15 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
+        <div className="absolute bottom-0 inset-x-0 h-[3px] bg-[#d4a017]/30 shadow-[0_0_15px_#d4a017]" />
         
         <div className="flex items-center gap-4">
            <div className="w-10 h-10 border-2 border-[#d4a017] shadow-[inset_0_0_10px_rgba(212,160,23,0.3)] flex items-center justify-center font-black text-[#d4a017] text-sm rotate-3">
@@ -60,11 +62,11 @@ export default function Layout({ team, onLogout }: LayoutProps) {
                  key={nav.path}
                  to={nav.path}
                  onClick={() => playSound('click')}
-                 className={`group flex items-center gap-3 px-6 py-2 uppercase text-[9px] font-black tracking-[0.3em] transition-all relative ${
-                   active 
-                     ? 'text-[#140e06] bg-[#d4a017] shadow-[0_0_20px_rgba(212,160,23,0.4)]' 
-                     : 'text-[#a07830] hover:text-[#f0d070]'
-                 }`}
+                  className={`group flex items-center gap-4 px-8 py-3 uppercase text-[10px] font-black tracking-[0.4em] transition-all relative ${
+                    active 
+                      ? 'text-[#140e06] bg-[#d4a017] shadow-[0_0_30px_rgba(212,160,23,0.5)] scale-105 z-10' 
+                      : 'text-[#a07830] hover:text-[#f0d070] hover:bg-white/5'
+                  }`}
                >
                  {active && <div className="absolute -top-1 -inset-x-0 h-1 bg-[#f0d070]" />}
                  <nav.icon className="w-3.5 h-3.5" />

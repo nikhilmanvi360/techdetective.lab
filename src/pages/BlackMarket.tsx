@@ -39,12 +39,10 @@ export default function BlackMarket() {
       if (itemsRes.ok) {
         const data = await itemsRes.json();
         if (Array.isArray(data)) setItems(data);
-        else console.error("Black Market API Error: Items not array", data);
       }
       if (targetsRes.ok) {
         const data = await targetsRes.json();
         if (Array.isArray(data)) setTeams(data);
-        else console.error("Black Market API Error: Targets not array", data);
       }
       if (profileRes.ok) {
         const profile = await profileRes.json();
@@ -83,7 +81,6 @@ export default function BlackMarket() {
           itemId,
           metadata: {
             targetTeamId: itemId === 'emp_jammer' ? selectedTargetId : undefined,
-            // Normally we'd pass case_id for evidence/hint if we had multiple active
           }
         })
       });
@@ -92,181 +89,151 @@ export default function BlackMarket() {
       setFeedback(result);
       if (result.success) {
         playSound('success');
-        fetchData(); // Refresh score
+        fetchData();
       } else {
         playSound('error');
       }
     } catch (err) {
       setFeedback({ success: false, message: 'Link Error: Transaction Interrupted' });
-      playSound('error');
     } finally {
       setPurchasing(null);
     }
   };
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'FileSearch': return <Terminal className="w-5 h-5" />;
-      case 'Unlock': return <Lock className="w-5 h-5" />;
-      case 'Radio': return <Radio className="w-5 h-5" />;
-      case 'Shield': return <Shield className="w-5 h-5" />;
-      default: return <ShoppingBag className="w-5 h-5" />;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Skull className="w-12 h-12 text-[#A52A2A] animate-pulse" />
-        <div className="font-display text-[#A52A2A] uppercase tracking-[0.4em]">
-          Establishing_Dark_Link...
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="h-full flex items-center justify-center bg-[#0a0805]">
+      <Activity className="w-10 h-10 text-[#d4a017] animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="space-y-10 max-w-6xl mx-auto pb-20">
-      {/* Header Panel */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="detective-panel border-[#8B1A1A]/30 p-8 relative overflow-hidden bg-gradient-to-br from-black via-black to-[#8B1A1A]/5"
-      >
-        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-          <Skull className="w-32 h-32 text-[#A52A2A]" />
-        </div>
-
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 text-[#A52A2A] mb-1">
-              <span className="text-[10px] font-display uppercase tracking-[0.5em] font-bold py-1 px-3 bg-[#8B1A1A]/10 border border-[#8B1A1A]/30">Restricted_Access</span>
-              <span className="text-[10px] font-mono text-gray-600">Encrypted_Vortex_Market_v0.9</span>
-            </div>
-            <h1 className="text-4xl font-display font-bold text-white tracking-widest">
-              BLACK<span className="text-[#A52A2A]">_MARKET</span>
-            </h1>
-            <p className="text-gray-400 font-mono text-sm max-w-xl">
-              Spend accumulated XP units to bypass security protocols or disrupt rival operations.
-              Transactions are non-refundable and permanently logged.
-            </p>
+    <div className="h-full flex flex-col bg-[#0a0805] text-[#f0e0a0] relative overflow-hidden">
+      {/* Tactical Background Overlays */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#d4a017 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black pointer-events-none opacity-60" />
+      
+      {/* Header */}
+      <div className="relative z-10 px-10 py-12 border-b border-[#d4a017]/20 flex items-center justify-between bg-black/40 backdrop-blur-md">
+        <div className="flex items-center gap-6">
+          <div className="p-4 bg-[#d4a017]/10 border border-[#d4a017]/30 rounded-full shadow-[0_0_30px_rgba(212,160,23,0.2)]">
+            <Skull className="w-10 h-10 text-[#d4a017]" />
           </div>
-
-          <div className="flex flex-col items-end gap-2 bg-black/60 border border-[#8B1A1A]/20 p-6 corner-brackets relative min-w-[200px]">
-            <div className="flex items-center gap-2">
-              <Zap className="w-3 h-3 text-[#c8a050] animate-pulse" />
-              <span className="text-[10px] font-display text-gray-500 uppercase tracking-widest">Available_Credits</span>
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+               <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+               <h1 className="text-4xl font-black uppercase tracking-tighter text-[#f0d070]">The <span className="text-[#8B2020]">Black</span> Market</h1>
             </div>
-            <span className="text-3xl font-display font-bold text-[#c8a050] tracking-tighter tabular-nums">
-              {playerTeam?.score?.toLocaleString() || 0} <span className="text-xs text-[#c8a050]/50 font-normal">XP</span>
-            </span>
+            <p className="text-[10px] font-mono text-[#a07830] uppercase tracking-[0.4em] opacity-60 font-black">Encrypted Bureau Bypass // Illegal Trade Node</p>
           </div>
         </div>
-      </motion.div>
 
-      {/* Item Catalog */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
-        {items.map((item, idx) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className={`group relative flex flex-col h-full bg-black/40 border border-[rgba(139,105,20,0.4)] p-6 hover:border-[#8B1A1A]/40 transition-all ${playerTeam && playerTeam.score < item.cost ? 'opacity-50 grayscale pointer-events-none' : ''
-              }`}
-          >
-            <div className="absolute top-0 right-0 p-3 text-gray-800 pointer-events-none group-hover:text-[#A52A2A]/10 transition-colors">
-              <Activity className="w-12 h-12" />
+        <div className="flex items-center gap-8">
+          <div className="text-right">
+            <div className="text-[9px] font-black text-[#a07830] uppercase tracking-widest mb-1">Available Credits</div>
+            <div className="text-3xl font-black text-[#d4a017] tracking-tighter tabular-nums flex items-center gap-2">
+               <Zap className="w-6 h-6 fill-[#d4a017]" />
+               {playerTeam?.score || 0} <span className="text-sm text-[#a07830]/50 ml-1">XP</span>
             </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-4 bg-[#8B1A1A]/5 border border-[#8B1A1A]/20 group-hover:border-[#c8a050] shadow-[0_0_8px_rgba(200,160,80,0.3)] transition-all">
-                {getIcon(item.id === 'intel_draft' ? 'FileSearch' : item.id === 'evidence_decrypter' ? 'Unlock' : item.id === 'emp_jammer' ? 'Radio' : 'Shield')}
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-display font-bold text-white tracking-wide uppercase group-hover:text-[#A52A2A] transition-colors">{item.name}</h3>
-                <div className="text-xs font-mono text-[#A52A2A]/60 font-bold uppercase tracking-widest flex items-center gap-2">
-                  <Archive className="w-3 h-3" />
-                  Cost: {item.cost} XP
-                </div>
-              </div>
-            </div>
-
-            <p className="text-gray-400 font-mono text-xs leading-relaxed mb-6 flex-grow">
-              {item.description}
-            </p>
-
-            {/* Special Options: Target Selection for EMP */}
-            {item.id === 'emp_jammer' && (
-              <div className="mb-6 space-y-3 p-3 bg-red-950/20 border border-[#8B1A1A]/10">
-                <label className="text-[9px] font-display text-[#A52A2A] uppercase tracking-widest">Target_Deployment_Zone:</label>
-                <div className="flex flex-wrap gap-2">
-                  {teams.length > 0 ? teams.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTargetId(t.id)}
-                      className={`px-3 py-1.5 text-[10px] font-mono border transition-all ${selectedTargetId === t.id
-                        ? 'bg-[#8B1A1A] border-[#8B1A1A] text-black font-bold'
-                        : 'border-[#8B1A1A]/20 text-[#A52A2A] hover:bg-[#8B1A1A]/10'
-                        }`}
-                    >
-                      {t.name}
-                    </button>
-                  )) : (
-                    <span className="text-[10px] font-mono text-gray-600">NO_RIVALS_ONLINE</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => handleBuy(item.id)}
-              disabled={purchasing !== null || (playerTeam && playerTeam.score < item.cost)}
-              className={`w-full h-12 flex items-center justify-center gap-3 font-display uppercase tracking-widest transition-all ${purchasing === item.id
-                ? 'bg-[#8B1A1A]/20 text-[#A52A2A] border border-[#8B1A1A]/40 animate-pulse'
-                : 'bg-[#8B1A1A] text-black font-bold hover:bg-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)] clip-path-slant'
-                }`}
-            >
-              {purchasing === item.id ? (
-                <>
-                  <Activity className="w-4 h-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <ChevronRight className="w-4 h-4" />
-                  Authorize_Transaction
-                </>
-              )}
-            </button>
-          </motion.div>
-        ))}
+          </div>
+        </div>
       </div>
 
-      {/* Feedback Overlay */}
-      <AnimatePresence>
-        {feedback && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className={`fixed bottom-10 right-10 p-5 border flex items-center gap-4 shadow-2xl z-50 ${feedback.success ? 'bg-black border-[#d4a017] text-[#d4a017]' : 'bg-black border-[#8B1A1A] text-[#A52A2A]'
-              }`}
-          >
-            {feedback.success ? <Check className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
-            <div>
-              <div className="text-[10px] font-display uppercase tracking-widest font-bold">System_Feedback</div>
-              <div className="text-xs font-mono">{feedback.message}</div>
+      <div className="flex-1 overflow-y-auto px-10 py-12 custom-scrollbar">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 max-w-7xl mx-auto">
+          {/* Shop Items Section */}
+          <div className="lg:col-span-2 space-y-10">
+            <div className="flex items-center gap-4 border-l-4 border-[#d4a017] pl-4 mb-8">
+              <ShoppingBag className="w-5 h-5 text-[#d4a017]" />
+              <h2 className="text-xl font-black uppercase tracking-widest text-[#f0e0a0]">Available Exploits</h2>
             </div>
-            <button
-              onClick={() => setFeedback(null)}
-              className="ml-4 p-1 hover:bg-white/10 rounded transition-colors"
-            >
-              <ChevronRight className="w-4 h-4 rotate-90" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {items.map((item) => (
+                <motion.div
+                  key={item.id}
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  className="bg-[#1a1005] border-2 border-[#d4a017]/20 p-6 shadow-2xl relative group overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#d4a017]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-[#d4a017]/10 transition-colors" />
+                  
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="p-3 bg-[#d4a017]/10 border border-[#d4a017]/20">
+                         {item.id === 'emp_jammer' ? <Radio className="w-6 h-6 text-red-500" /> : <Archive className="w-6 h-6 text-[#d4a017]" />}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[9px] font-black text-[#a07830] uppercase mb-1">Cost</div>
+                        <div className="text-xl font-black text-[#d4a017] tracking-tighter">{item.cost} XP</div>
+                      </div>
+                    </div>
+                    
+                    <h3 className="text-lg font-black uppercase tracking-widest text-[#f0e0a0] mb-2">{item.name}</h3>
+                    <p className="text-xs font-mono text-[#a07830] leading-relaxed mb-8 flex-1">{item.description}</p>
+                    
+                    <button
+                      onClick={() => handleBuy(item.id)}
+                      disabled={purchasing === item.id || (playerTeam?.score || 0) < item.cost}
+                      className={`w-full py-3 text-[10px] font-black uppercase tracking-[0.3em] shadow-xl transition-all relative overflow-hidden ${
+                        (playerTeam?.score || 0) < item.cost
+                          ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-50'
+                          : 'bg-[#d4a017] text-[#1a0e04] hover:bg-[#f0d070] active:scale-95'
+                      }`}
+                    >
+                      {purchasing === item.id ? 'Processing...' : 'Authorize Purchase'}
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Targets & Feedback Section */}
+          <div className="space-y-10">
+            {/* Feedback Panel */}
+            <AnimatePresence>
+              {feedback && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`p-6 border-2 shadow-2xl flex flex-col items-center text-center ${feedback.success ? 'bg-green-950/20 border-green-500/50' : 'bg-red-950/20 border-red-500/50'}`}
+                >
+                  <AlertCircle className={`w-8 h-8 mb-4 ${feedback.success ? 'text-green-500' : 'text-red-500'}`} />
+                  <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${feedback.success ? 'text-green-500' : 'text-red-500'}`}>System Notification</div>
+                  <p className="text-xs font-mono text-[#f0e0a0] leading-relaxed">{feedback.message}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Target Selection */}
+            <div className="bg-[#1a1005] border-2 border-[#d4a017]/20 p-8 shadow-2xl">
+              <div className="flex items-center gap-4 mb-8 pb-4 border-b border-[#d4a017]/10">
+                <Skull className="w-5 h-5 text-red-600" />
+                <h2 className="text-lg font-black uppercase tracking-widest text-[#f0e0a0]">Signal Targets</h2>
+              </div>
+              
+              <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                {teams.filter(t => t.id !== playerTeam?.id).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => { playSound('click'); setSelectedTargetId(t.id); }}
+                    className={`w-full p-4 flex items-center justify-between border transition-all ${
+                      selectedTargetId === t.id 
+                        ? 'bg-red-900/20 border-red-500 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]' 
+                        : 'bg-black/40 border-white/5 text-[#a07830] hover:border-[#d4a017]/30 hover:text-[#f0e0a0]'
+                    }`}
+                  >
+                    <div className="flex flex-col items-start leading-none">
+                      <span className="text-[10px] font-black uppercase tracking-widest mb-1">{t.name}</span>
+                      <span className="text-[8px] font-mono opacity-50">Signal Strength: 100%</span>
+                    </div>
+                    {selectedTargetId === t.id && <Check className="w-4 h-4" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -47,36 +47,43 @@ export default function InvestigationBoard() {
   );
 
   return (
-    <div className="h-full relative overflow-hidden flex flex-col bg-[#1d1208]" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }}>
-      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
+    <div className="h-full relative overflow-hidden flex flex-col bg-[#140e06]">
+      {/* Background elements */}
+      <div className="absolute inset-0 z-0 opacity-15 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/80 via-transparent to-black/80 pointer-events-none" />
+      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/old-paper.png")' }} />
 
       <AnimatePresence mode="wait">
         {view === 'PHASES' ? (
           <motion.div 
             key="phases"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center p-12"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            className="relative z-10 flex-1 flex flex-col items-center justify-center p-12 overflow-y-auto custom-scrollbar"
           >
-            <div className="text-center mb-16">
-              <div className="flex items-center justify-center gap-4 mb-4">
-                <div className="w-12 h-[2px] bg-[#d4a017]" />
-                <span className="text-[#d4a017] font-black uppercase tracking-[0.4em] text-xs">Operation Tech Detective</span>
-                <div className="w-12 h-[2px] bg-[#d4a017]" />
+            <div className="text-center mb-16 relative">
+              <div className="flex items-center justify-center gap-6 mb-6">
+                <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#d4a017]" />
+                <span className="text-[#d4a017] font-black uppercase tracking-[0.5em] text-[10px] drop-shadow-lg">Operational Command Center</span>
+                <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#d4a017]" />
               </div>
-              <h1 className="text-6xl font-black text-[#f0e0a0] uppercase tracking-tighter font-serif italic">Operational Phases</h1>
-              <p className="text-[#a07830] font-serif italic mt-4 opacity-60">"Select an engagement sector to begin the field operation."</p>
+              <h1 className="text-7xl font-black text-[#f0e0a0] uppercase tracking-tighter font-serif italic mb-2 drop-shadow-2xl">
+                Bureau <span className="text-[#a07830]">Operations</span>
+              </h1>
+              <p className="text-[#a07830] font-serif italic mt-6 opacity-80 max-w-xl mx-auto leading-relaxed text-lg">
+                "Select a mission sector to begin the engagement. All actions are logged under CCU authority."
+              </p>
             </div>
 
-            <div className="flex gap-12 max-w-6xl w-full">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-7xl w-full">
               {/* Phase 1: Dossiers */}
               <PhaseCard 
                 num="01"
-                title="The Dossiers"
-                description="Review case files, evidence, and leads in the central bureau database."
-                icon={<FileText className="w-8 h-8" />}
-                status="Active"
+                title="Case Dossiers"
+                description="Analyze encrypted data, suspect records, and physical evidence in the bureau archives."
+                icon={<FileText className="w-10 h-10" />}
+                status="Active Engagement"
                 color="#d4a017"
                 onClick={() => setView('CASES')}
               />
@@ -84,56 +91,60 @@ export default function InvestigationBoard() {
               {/* Phase 2: Field Campaign */}
               <PhaseCard 
                 num="02"
-                title="Field Campaign"
-                description="Deploy to the virtual campus. Real-time exploration and site investigation."
-                icon={<MapIcon className="w-8 h-8" />}
-                status="Operational"
+                title="Field Operation"
+                description="Live tactical deployment to the target site. Real-time exploration and site investigation."
+                icon={<MapIcon className="w-10 h-10" />}
+                status="Operational Ready"
                 color="#1a6a8a"
                 onClick={() => navigate('/campaign')}
               />
 
-              {/* Phase 3: Finale */}
+              {/* Phase 3: The Finale */}
               <PhaseCard 
                 num="03"
-                title="The Finale"
-                description="Final confrontation. The grand architecture of the syndicate is revealed."
-                icon={<Shield className="w-8 h-8" />}
-                status="Locked"
+                title="Final Sector"
+                description="High-priority containment. Final confrontation with the syndicate's core infrastructure."
+                icon={<Shield className="w-10 h-10" />}
+                status="Locked - Phase 2 Req."
                 color="#8B2020"
-                disabled
+                disabled={true}
               />
             </div>
           </motion.div>
         ) : (
           <motion.div 
             key="cases"
-            initial={{ opacity: 0, x: 50 }}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            className="relative z-10 flex-1 flex flex-col"
+            exit={{ opacity: 0, x: -20 }}
+            className="relative z-10 flex-1 flex flex-col p-12 overflow-y-auto custom-scrollbar"
           >
-            <div className="px-12 pt-12 pb-6 flex items-center justify-between">
+            <div className="flex items-center justify-between mb-12 border-b border-[#a07830]/30 pb-8">
               <div>
-                 <button onClick={() => setView('PHASES')} className="flex items-center gap-2 text-[#d4a017] uppercase font-black text-[10px] mb-4 hover:translate-x-[-4px] transition-transform">
-                    <ChevronLeft className="w-4 h-4" /> Back to Phases
-                 </button>
-                 <h1 className="text-5xl font-black text-[#f0e0a0] uppercase tracking-tighter font-serif italic">Active Dossiers</h1>
+                <button 
+                  onClick={() => setView('PHASES')}
+                  className="flex items-center gap-2 text-[#a07830] hover:text-[#d4a017] transition-colors uppercase text-[10px] font-black tracking-[0.3em] mb-2"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Back to Phases
+                </button>
+                <h2 className="text-5xl font-black text-[#f0e0a0] uppercase tracking-tighter">Active <span className="text-[#a07830]">Investigations</span></h2>
               </div>
-              
-              <div className="bg-[#f0e0a0] p-4 border-2 border-[#a07830] shadow-xl rotate-2 hidden md:block">
-                 <div className="text-[10px] text-[#8B2020] font-black uppercase mb-1">Squad Status</div>
-                 <button onClick={() => navigate('/lobby')} className="flex items-center gap-2 text-xs font-black text-[#2a1a0a] hover:text-[#8B2020]">
-                    <Users className="w-4 h-4" /> RECRUIT TEAM &rarr;
-                 </button>
+              <div className="flex flex-col items-end opacity-50">
+                <span className="text-[9px] font-mono text-[#a07830] uppercase tracking-widest">Bureau Registry</span>
+                <span className="text-[10px] font-mono text-[#f0e0a0]">{cases.length} Folders Found</span>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-12 py-10">
-              <div className="flex flex-wrap gap-12 justify-center max-w-7xl mx-auto pb-20">
-                {cases.map((c, idx) => (
-                  <CaseCard key={c.id} c={c} i={idx} onClick={() => navigate(`/mission/${c.id}`)} />
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-12 justify-center lg:justify-start">
+              {cases.map((c, i) => (
+                <CaseCard key={c.id} c={c} i={i} onClick={() => navigate(`/case/${c.id}`)} />
+              ))}
+              {cases.length === 0 && (
+                <div className="w-full py-32 text-center">
+                  <FileText className="w-16 h-16 text-[#a07830] mx-auto opacity-20 mb-4" />
+                  <p className="text-[#a07830] font-serif italic opacity-40">"No active dossiers match your clearance level."</p>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -144,21 +155,29 @@ export default function InvestigationBoard() {
 
 function PhaseCard({ num, title, description, icon, status, color, onClick, disabled }: any) {
   return (
-    <motion.div 
-      whileHover={!disabled ? { y: -10, scale: 1.02 } : {}}
-      onClick={!disabled ? onClick : undefined}
-      className={`flex-1 group relative bg-[#e8d5a0] border-4 border-[#a07830] p-8 shadow-2xl transition-all cursor-pointer ${disabled ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-[#f0e0a0]'}`}
+    <motion.div
+      whileHover={{ y: -12, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`flex-1 group relative bg-[#e8d5a0] border-[12px] border-[#a07830] p-10 shadow-[0_30px_60px_rgba(0,0,0,0.4)] transition-all cursor-pointer ${disabled ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-[#f0e0a0] hover:shadow-[0_40px_80px_rgba(212,160,23,0.2)]'}`}
     >
-      <div className="absolute top-4 right-4 text-4xl font-black text-[#a07830]/20 font-serif italic">{num}</div>
-      <div className={`w-16 h-16 mb-8 flex items-center justify-center border-4 border-[#a07830] transition-colors group-hover:bg-[#a07830]/10`} style={{ color }}>
-        {icon}
+      <div className="absolute top-6 right-6 text-6xl font-black text-[#a07830]/10 font-serif italic select-none">{num}</div>
+      <div className="relative z-10">
+        <div className={`w-20 h-20 mb-10 flex items-center justify-center border-[6px] border-[#a07830] transition-all group-hover:bg-[#a07830]/5 group-hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.1)]`} style={{ color }}>
+          {icon}
+        </div>
+        <h3 className="text-3xl font-black text-[#2a1a0a] uppercase tracking-tighter mb-4 group-hover:text-black transition-colors">{title}</h3>
+        <p className="text-[#2a1a0a] font-serif italic opacity-80 mb-10 leading-relaxed text-lg">{description}</p>
+        <div className="flex items-center justify-between mt-auto pt-6 border-t-2 border-[#a07830]/20">
+          <div className="flex items-center gap-3">
+             <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: color }} />
+             <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color }}>{status}</span>
+          </div>
+          <span className="text-xl font-black text-[#a07830] group-hover:translate-x-3 transition-transform">&rarr;</span>
+        </div>
       </div>
-      <h3 className="text-2xl font-black text-[#2a1a0a] uppercase tracking-tighter mb-4">{title}</h3>
-      <p className="text-[#2a1a0a] font-serif italic opacity-70 mb-8 leading-relaxed">{description}</p>
-      <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#a07830]/20">
-        <span className="text-[10px] font-black uppercase tracking-widest" style={{ color }}>{status}</span>
-        <span className="text-xs font-black text-[#a07830] group-hover:translate-x-2 transition-transform">&rarr;</span>
-      </div>
+      {/* Subtle paper texture overlay */}
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/old-paper.png')] opacity-10 pointer-events-none" />
     </motion.div>
   );
 }
@@ -166,29 +185,45 @@ function PhaseCard({ num, title, description, icon, status, color, onClick, disa
 function CaseCard({ c, i, onClick }: any) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9, rotate: i % 2 === 0 ? -1 : 1 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ rotate: 0, scale: 1.05, y: -10 }}
+      initial={{ opacity: 0, y: 30, rotate: i % 2 === 0 ? -0.5 : 0.5 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ rotate: 0, scale: 1.04, y: -15, zIndex: 50 }}
       onClick={onClick}
-      className="w-[280px] h-[360px] bg-[#e8d5a0] p-6 shadow-2xl relative cursor-pointer group border-b-[12px] border-r-[12px] border-[#a07830]/30"
+      className="w-[300px] h-[400px] bg-[#f5e8b0] p-8 shadow-2xl relative cursor-pointer group border-b-[16px] border-r-[16px] border-[#a07830]/40 transition-shadow hover:shadow-[0_50px_100px_rgba(0,0,0,0.6)]"
     >
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/old-paper.png')] opacity-10" />
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/old-paper.png')] opacity-20 pointer-events-none" />
       <div className="relative z-10 h-full flex flex-col">
-        <div className="flex justify-between items-start mb-4">
-          <div className="px-2 py-1 bg-[#2a1a0a] text-[#f0e0a0] text-[8px] font-black uppercase tracking-widest">{c.difficulty}</div>
-          <div className="text-[#a07830]"><FileText className="w-5 h-5" /></div>
+        <div className="flex justify-between items-start mb-6">
+          <div className="px-3 py-1.5 bg-[#2a1a0a] text-[#f0e0a0] text-[9px] font-black uppercase tracking-widest shadow-md">{c.difficulty}</div>
+          <div className="text-[#a07830] opacity-40 group-hover:opacity-100 transition-opacity"><FileText className="w-6 h-6" /></div>
         </div>
-        <h3 className="text-xl font-serif italic font-bold text-[#2a1a0a] leading-tight mb-4 border-b-2 border-[#a07830]/20 pb-2">{c.title}</h3>
-        <div className="mt-auto space-y-3">
-          <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[#a07830]">
-             <span>Reward</span>
-             <span className="text-[#8B2020]">{c.points} XP</span>
+        <div className="mb-4">
+           <span className="text-[8px] font-black text-[#a07830] uppercase tracking-[0.4em] opacity-60">Case Dossier No. {c.id.substring(0, 8)}</span>
+           <h3 className="text-2xl font-serif italic font-black text-[#2a1a0a] leading-[1.1] mt-1 group-hover:text-black transition-colors">{c.title}</h3>
+        </div>
+        <div className="flex-1 border-y border-[#a07830]/20 my-6 py-6 overflow-hidden">
+           <p className="text-[11px] font-serif italic text-[#2a1a0a]/60 leading-relaxed">
+              "Tactical assessment required. Initial reconnaissance suggests high-level cryptographic patterns linked to the syndicate core..."
+           </p>
+        </div>
+        <div className="mt-auto space-y-4">
+          <div className="flex justify-between items-end">
+             <span className="text-[9px] font-black uppercase tracking-widest text-[#a07830] opacity-60">Clearance Reward</span>
+             <span className="text-xl font-black text-[#8B2020] tracking-tighter">{c.points} XP</span>
           </div>
-          <div className="w-full h-10 bg-[#2a1a0a] text-[#f0e0a0] flex items-center justify-center font-black uppercase text-[10px] tracking-widest group-hover:bg-[#d4a017] group-hover:text-[#2a1a0a] transition-colors">
-            Open Dossier
+          <div className="w-full h-12 bg-[#2a1a0a] text-[#f0e0a0] flex items-center justify-center font-black uppercase text-[11px] tracking-[0.3em] group-hover:bg-[#d4a017] group-hover:text-[#2a1a0a] transition-all shadow-lg active:scale-95">
+            Examine Folder
           </div>
         </div>
       </div>
+      {/* Red confidential stamp on hover */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 2 }}
+        whileHover={{ opacity: 0.1, scale: 1 }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-[12px] border-red-900 rounded-full flex items-center justify-center font-black text-red-900 text-3xl rotate-[-25deg] pointer-events-none"
+      >
+        CLASSIFIED
+      </motion.div>
     </motion.div>
   );
 }

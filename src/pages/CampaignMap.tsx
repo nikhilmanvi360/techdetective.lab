@@ -337,12 +337,14 @@ function CampaignMapInner() {
       e.preventDefault();
       const next = getNextPos(state.playerPos, dir, currentZoneConfig.grid);
       if (next) {
+        const isRunning = e.shiftKey;
         dispatchSync({ type: 'SET_POS', pos: next });
         setPlayerMoving(true);
+        // We could pass isRunning to MapRenderer if we want a different animation
         if (movementResetRef.current !== null) {
           window.clearTimeout(movementResetRef.current);
         }
-        movementResetRef.current = window.setTimeout(() => setPlayerMoving(false), 220);
+        movementResetRef.current = window.setTimeout(() => setPlayerMoving(false), isRunning ? 150 : 220);
       }
     };
 
