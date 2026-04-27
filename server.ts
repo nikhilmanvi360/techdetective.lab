@@ -885,6 +885,12 @@ async function startServer() {
     res.json(data);
   });
 
+  adminRouter.delete('/r1/codes/:id', async (req, res) => {
+    const { error } = await supabase.from('evidence_codes').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true });
+  });
+
   adminRouter.post('/r1/toggle', async (req, res) => {
     const { action } = req.body;
     const is_active = action === 'start';

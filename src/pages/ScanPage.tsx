@@ -195,15 +195,22 @@ export default function ScanPage() {
 
               {result?.status === 'claimed_by_you' && (
                 <motion.div key="success" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-green-700" />
-                    <div>
-                      <div className="text-[9px] font-black uppercase text-green-800">Evidence Secured</div>
-                      <div className="text-lg font-black text-amber-950 leading-tight">{result.evidence?.title}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-6 h-6 text-green-700" />
+                      <div>
+                        <div className="text-[9px] font-black uppercase text-green-800">Evidence Secured</div>
+                        <div className="text-lg font-black text-amber-950 leading-tight">{result.evidence?.title}</div>
+                      </div>
                     </div>
+                    {cat && (
+                      <div className={`px-3 py-1.5 rounded-sm text-[9px] font-black uppercase border-2 tracking-tighter ${cat.badge}`}>
+                        {cat.label}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="relative overflow-hidden rounded-lg p-4 bg-black/90 border border-amber-900/30">
+                  <div className={`relative overflow-hidden rounded-lg p-4 bg-black/90 border border-amber-900/30 ${cat?.glow}`}>
                     <AnimatePresence>
                       {!revealed && (
                         <motion.div className="absolute inset-0 flex items-center justify-center bg-black/95 z-20" exit={{ opacity: 0 }}>
@@ -211,7 +218,11 @@ export default function ScanPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    <pre className="text-[11px] font-mono text-[#d4a017] whitespace-pre-wrap leading-relaxed min-h-[100px]">
+                    <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
+                       <span className="text-[10px] font-mono text-[#d4a017]/40 uppercase tracking-widest">Digital Telemetry</span>
+                       <span className="text-[10px] font-mono text-[#d4a017]/40 uppercase tracking-widest">Code: {result.evidence?.code}</span>
+                    </div>
+                    <pre className="text-[12px] font-mono text-[#f0d070] whitespace-pre-wrap leading-relaxed min-h-[100px]">
                         {result.evidence?.content}
                     </pre>
                   </div>

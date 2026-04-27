@@ -136,6 +136,14 @@ async function seedRound1() {
       points_value: 275,
       flavor_text: 'Inside a folder labeled "LECTURE SLIDES W12" near the podium',
     },
+    {
+      code: 'VIP-ACCESS-01',
+      title: 'Master Keycard Override',
+      content: `[ENCRYPTED PROTOCOL — VIP CLEARANCE]\n\nThis code grants administrative override for all non-essential security sectors in the Library and Archive wings.\n\nSYSTEM LOG: "VIP_TOKEN_VALIDATED. Master Keycard 0x01 deployed to virtual inventory."\n\nFORENSIC NOTE: This is high-level clearance. Only top-tier personnel or high-ranking visitors have this. Finding it suggests a massive security lapse.`,
+      category: 'document',
+      points_value: 500,
+      flavor_text: 'SECRET: Behind the portrait of the founder in the main hall',
+    },
   ];
 
   // Upsert all codes

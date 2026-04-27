@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'motion/react';
-import { QrCode, Play, Square, RotateCcw, Users, CheckCircle, FileText, Printer, Search, Shield, Zap, Plus } from 'lucide-react';
+import { QrCode, Play, Square, RotateCcw, Users, CheckCircle, FileText, Printer, Search, Shield, Zap, Plus, Trash2 } from 'lucide-react';
 
 interface EvidenceCode {
   id: number;
@@ -80,6 +80,20 @@ export default function AdminQRManager() {
       if (res.ok) fetchData();
     } catch (err) {
       alert('Reset failed');
+    }
+  };
+
+  const deleteCode = async (id: number) => {
+    if (!confirm('Permanently delete this evidence code? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/r1/codes/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) fetchData();
+      else alert('Failed to delete evidence');
+    } catch (err) {
+      alert('Delete error');
     }
   };
 
@@ -260,6 +274,7 @@ export default function AdminQRManager() {
                 <th className="p-6 text-[10px] font-black text-[#a07830] uppercase tracking-widest text-center">Category</th>
                 <th className="p-6 text-[10px] font-black text-[#a07830] uppercase tracking-widest text-center">XP Value</th>
                 <th className="p-6 text-[10px] font-black text-[#a07830] uppercase tracking-widest">Current Status</th>
+                <th className="p-6 text-[10px] font-black text-[#a07830] uppercase tracking-widest text-center">Actions</th>
                 <th className="p-6 text-[10px] font-black text-[#a07830] uppercase tracking-widest text-right">QR Link</th>
               </tr>
             </thead>
@@ -299,6 +314,14 @@ export default function AdminQRManager() {
                         <span className="text-[10px] font-black text-[#a07830] uppercase tracking-widest italic">In Field</span>
                       </div>
                     )}
+                  </td>
+                  <td className="p-6 text-center">
+                    <button 
+                      onClick={() => deleteCode(c.id)}
+                      className="p-2 text-[#a07830] hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                   <td className="p-6 text-right">
                     <div className="inline-block p-1 bg-white rounded-sm opacity-20 group-hover:opacity-100 transition-all transform group-hover:scale-125 duration-300 shadow-[0_0_10px_rgba(255,255,255,0.1)]">
