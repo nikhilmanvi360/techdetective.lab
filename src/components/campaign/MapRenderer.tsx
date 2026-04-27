@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { TileType, ZoneId } from '../../data/campaignData';
+import { directionRow } from '../../utils/animation';
 
 const TILE = 48; // Updated TILE size to 48 or 56 depending on how the map scales, let's stick to 48 as base
 
@@ -13,12 +14,14 @@ type SpriteSheet = {
 };
 
 const SP = {
-  playerIdle: { src: '/assets/people and map/PNG/Citizen1_Idle.png',   cols: 4, rows: 4 },
-  playerWalk: { src: '/assets/people and map/PNG/Citizen1_Walk.png',   cols: 9, rows: 4 },
-  partner:    { src: '/assets/people and map/PNG/Citizen2_Idle.png',   cols: 4, rows: 4 },
-  npc1:       { src: '/assets/people and map/PNG/Talking_person1.png', cols: 4, rows: 1 },
-  npc2:       { src: '/assets/people and map/PNG/Talking_person2.png', cols: 4, rows: 1 },
-  fighter:    { src: '/assets/people and map/PNG/Fighter2_Idle.png',   cols: 9, rows: 4 },
+  playerIdle: { src: '/assets/people and map/PNG/Citizen1_Idle_without_shadow.png',   cols: 4, rows: 4 },
+  playerWalk: { src: '/assets/people and map/PNG/Citizen1_Walk_without_shadow.png',   cols: 6, rows: 4 },
+  partnerIdle: { src: '/assets/people and map/PNG/Citizen2_Idle_without_shadow.png',   cols: 4, rows: 4 },
+  partnerWalk: { src: '/assets/people and map/PNG/Citizen2_Walk_without_shadow.png',   cols: 6, rows: 4 },
+  npc1:       { src: '/assets/people and map/PNG/Talking_person1_without_shadow.png', cols: 4, rows: 1 },
+  npc2:       { src: '/assets/people and map/PNG/Talking_person2_without_shadow.png', cols: 4, rows: 1 },
+  fighterIdle: { src: '/assets/people and map/PNG/Fighter2_Idle_without_shadow.png',   cols: 9, rows: 4 },
+  fighterWalk: { src: '/assets/people and map/PNG/Fighter2_Walk_without_shadow.png',   cols: 6, rows: 4 },
 };
 
 const OBJ = {
@@ -67,35 +70,39 @@ const CHAR_W = 32;
 const CHAR_H = 48;
 
 function Sprite({
-  sheet, frameCol, frameRow, filter, bounce
+  sheet, frame, row, filter, bounce, isWalking
 }: {
-  sheet: SpriteSheet; frameCol: number; frameRow: number;
-  filter?: string; bounce?: boolean;
+  sheet: SpriteSheet; frame: number; row: number;
+  filter?: string; bounce?: boolean; isWalking?: boolean;
 }) {
   const [bgSize, setBgSize] = useState('auto');
   
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    const w = (img.naturalWidth / sheet.cols) * (CHAR_H / (img.naturalHeight / sheet.rows));
+    const scale = CHAR_H / (img.naturalHeight / sheet.rows);
+    const w = (img.naturalWidth / sheet.cols) * scale;
     setBgSize(`${w * sheet.cols}px auto`);
   };
 
-  const xPos = (frameCol / (sheet.cols - 1 || 1)) * 100;
-  const yPos = (frameRow / (sheet.rows - 1 || 1)) * 100;
+  // Adjust frame based on sheet cols and state
+  const fps = isWalking ? 10 : 4;
+  const actualFrame = Math.floor((frame * fps) / 12) % sheet.cols;
+  const sx = actualFrame * CHAR_W;
+  const sy = row * CHAR_H;
 
   return (
-    <div style={{ width: CHAR_W, height: CHAR_H, position: 'relative' }}>
+    <div style={{ width: CHAR_W, height: CHAR_H, position: 'relative', overflow: 'hidden' }}>
       <img src={sheet.src} onLoad={handleLoad} style={{ display: 'none' }} alt="" />
       <motion.div
-        animate={bounce ? { y: [0, -2, 0] } : { y: 0 }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        animate={bounce ? { y: [0, -1.5, 0] } : { y: 0 }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           width: '100%', height: '100%',
           backgroundImage: `url('${sheet.src}')`,
           backgroundSize: bgSize,
-          backgroundPosition: `${xPos}% ${yPos}%`,
+          backgroundPosition: `-${sx}px -${sy}px`,
           imageRendering: 'pixelated',
-          filter,
+          filter: filter || 'drop-shadow(0 4px 6px rgba(0,0,0,0.6))',
         }}
       />
     </div>
@@ -105,15 +112,18 @@ function Sprite({
 // ─── TileCell ────────────────────────────────────────────────────────────────
 function TileCell({
   tile, row, col,
-  theme, isPlayer, isPlayerWalking, isP2, isDrone, isNpc, showInteract, tick,
-  fastTick, playerFacingRow = 0,
+  theme, isPlayer, isPlayerWalking, isP2, isP2Walking, isDrone, isDroneWalking, isNpc, showInteract,
+  animFrame, facingRow = 0,
 }: {
+  key?: string;
   tile: TileType; row: number; col: number;
   theme: ZoneTheme;
   isPlayer: boolean; isPlayerWalking: boolean;
-  isP2: boolean; isDrone: boolean; isNpc: boolean;
-  showInteract: boolean; tick: number;
-  fastTick: number; playerFacingRow?: number;
+  isP2: boolean; isP2Walking: boolean;
+  isDrone: boolean; isDroneWalking: boolean;
+  isNpc: boolean;
+  showInteract: boolean;
+  animFrame: number; facingRow?: number;
 }) {
   const isWall = tile === 'wall';
   const isAlt  = (row + col) % 2 === 0;
@@ -183,7 +193,13 @@ function TileCell({
       {/* ── Characters ── */}
       {isNpc && !isPlayer && !isP2 && !isDrone && (
         <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
-          <Sprite sheet={tick % 2 === 0 ? SP.npc1 : SP.npc2} frameCol={0} frameRow={0} bounce />
+          <Sprite 
+            sheet={Math.floor(animFrame / 40) % 2 === 0 ? SP.npc1 : SP.npc2} 
+            frame={animFrame} 
+            row={0} 
+            bounce={Math.floor(animFrame / 20) % 2 === 0} 
+            filter="drop-shadow(0 4px 6px rgba(0,0,0,0.7))"
+          />
         </div>
       )}
 
@@ -191,9 +207,10 @@ function TileCell({
         <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
           <Sprite
             sheet={isPlayerWalking ? SP.playerWalk : SP.playerIdle}
-            frameCol={isPlayerWalking ? (fastTick % SP.playerWalk.cols) : 0}
-            frameRow={playerFacingRow}
-            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 8px rgba(212,160,23,0.7))"
+            frame={animFrame}
+            row={facingRow}
+            isWalking={isPlayerWalking}
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.8)) drop-shadow(0 0 12px rgba(212,160,23,0.4))"
             bounce={!isPlayerWalking}
           />
         </div>
@@ -201,18 +218,26 @@ function TileCell({
 
       {isP2 && !isPlayer && (
         <div className="absolute inset-0 flex items-end justify-center" style={{ paddingBottom: 2 }}>
-          <Sprite sheet={SP.partner} frameCol={0} frameRow={0} filter="drop-shadow(0 4px 8px rgba(0,0,0,0.95)) drop-shadow(0 0 6px rgba(92,194,106,0.6))" bounce />
+          <Sprite 
+            sheet={isP2Walking ? SP.partnerWalk : SP.partnerIdle} 
+            frame={animFrame} 
+            row={facingRow} 
+            isWalking={isP2Walking}
+            filter="drop-shadow(0 4px 8px rgba(0,0,0,0.8)) drop-shadow(0 0 10px rgba(92,194,106,0.4))" 
+            bounce={!isP2Walking}
+          />
         </div>
       )}
 
       {isDrone && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div animate={{ opacity: [0.75, 1, 0.75], scale: [1, 1.06, 1] }} transition={{ duration: 0.65, repeat: Infinity }}>
+          <motion.div animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.05, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>
             <Sprite
-              sheet={SP.fighter}
-              frameCol={fastTick % SP.fighter.cols}
-              frameRow={0}
-              filter="drop-shadow(0 0 10px rgba(220,40,40,0.9)) brightness(0.7) sepia(0.6) hue-rotate(330deg)"
+              sheet={isDroneWalking ? SP.fighterWalk : SP.fighterIdle}
+              frame={animFrame}
+              row={facingRow}
+              isWalking={isDroneWalking}
+              filter="drop-shadow(0 0 12px rgba(220,40,40,0.8)) brightness(0.8) sepia(0.4) hue-rotate(320deg)"
             />
           </motion.div>
         </div>
@@ -259,28 +284,108 @@ export default function MapRenderer({
 }: MapRendererProps) {
   const vp    = useViewport();
   const theme = ZONE_THEME[zoneId];
-  const [tick, setTick] = useState(0);
-  const [fastTick, setFastTick] = useState(0);
+  const [animFrame, setAnimFrame] = useState(0);
   const [playerFacingRow, setPlayerFacingRow] = useState(0);
+  const [p2FacingRow, setP2FacingRow] = useState(0);
+  const [p2Moving, setP2Moving] = useState(false);
+  const [droneFacingRows, setDroneFacingRows] = useState<Record<string, number>>({});
+  const [movingDrones, setMovingDrones] = useState<Set<string>>(new Set());
+  
   const prevPosRef = useRef(playerPos);
-  const tickRef = useRef(0);
-  const fastTickRef = useRef(0);
+  const prevP2PosRef = useRef(p2Pos);
+  const prevDronesRef = useRef<[number, number][]>(drones);
+  const p2MoveTimeoutRef = useRef<number | null>(null);
+  const droneMoveTimeoutRef = useRef<number | null>(null);
+  
+  const lastTimeRef = useRef(performance.now());
+  const accumulatorRef = useRef(0);
+  const frameRef = useRef(0);
+
+  const update = useCallback((time: number) => {
+    const dt = (time - lastTimeRef.current) / 1000;
+    lastTimeRef.current = time;
+
+    accumulatorRef.current += dt;
+    const step = 1 / 12; // 12 FPS target
+
+    while (accumulatorRef.current >= step) {
+      accumulatorRef.current -= step;
+      frameRef.current += 1;
+      setAnimFrame(frameRef.current);
+    }
+
+    requestAnimationFrame(update);
+  }, []);
 
   useEffect(() => {
-    const id = setInterval(() => { tickRef.current += 1; setTick(tickRef.current); }, 500);
-    const idFast = setInterval(() => { fastTickRef.current += 1; setFastTick(fastTickRef.current); }, 100);
-    return () => { clearInterval(id); clearInterval(idFast); };
-  }, []);
+    const id = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(id);
+  }, [update]);
 
   useEffect(() => {
     const [pr, pc] = prevPosRef.current;
     const [nr, nc] = playerPos;
-    if (nr > pr) setPlayerFacingRow(0);
-    else if (nr < pr) setPlayerFacingRow(3);
-    else if (nc < pc) setPlayerFacingRow(1);
-    else if (nc > pc) setPlayerFacingRow(2);
+    if (nr > pr) setPlayerFacingRow(0); // Down
+    else if (nr < pr) setPlayerFacingRow(3); // Up
+    else if (nc < pc) setPlayerFacingRow(1); // Left
+    else if (nc > pc) setPlayerFacingRow(2); // Right
     prevPosRef.current = playerPos;
   }, [playerPos]);
+
+  useEffect(() => {
+    if (!p2Pos) return;
+    const prev = prevP2PosRef.current;
+    if (!prev) {
+      prevP2PosRef.current = p2Pos;
+      return;
+    }
+    const [pr, pc] = prev;
+    const [nr, nc] = p2Pos;
+    if (nr !== pr || nc !== pc) {
+      if (nr > pr) setP2FacingRow(0);
+      else if (nr < pr) setP2FacingRow(3);
+      else if (nc < pc) setP2FacingRow(1);
+      else if (nc > pc) setP2FacingRow(2);
+      setP2Moving(true);
+      if (p2MoveTimeoutRef.current) window.clearTimeout(p2MoveTimeoutRef.current);
+      p2MoveTimeoutRef.current = window.setTimeout(() => setP2Moving(false), 300);
+    }
+    prevP2PosRef.current = p2Pos;
+  }, [p2Pos]);
+
+  useEffect(() => {
+    const newFacings = { ...droneFacingRows };
+    const newMoving = new Set<string>();
+    let changed = false;
+    
+    drones.forEach((pos, i) => {
+      const prev = prevDronesRef.current[i];
+      if (!prev) return;
+      const [pr, pc] = prev;
+      const [nr, nc] = pos;
+      const key = `${nr},${nc}`;
+      
+      if (nr !== pr || nc !== pc) {
+        newMoving.add(key);
+        let row = newFacings[key] ?? 0;
+        if (nr > pr) row = 0;
+        else if (nr < pr) row = 3;
+        else if (nc < pc) row = 1;
+        else if (nc > pc) row = 2;
+        
+        if (newFacings[key] !== row) {
+          newFacings[key] = row;
+          changed = true;
+        }
+      }
+    });
+    
+    if (changed || newMoving.size !== movingDrones.size) {
+      setDroneFacingRows(newFacings);
+      setMovingDrones(newMoving);
+    }
+    prevDronesRef.current = drones;
+  }, [drones, movingDrones.size]);
 
   const rows    = grid.length;
   const cols    = grid[0]?.length ?? 0;
@@ -325,16 +430,27 @@ export default function MapRenderer({
           return row.slice(c0, c1).map((tile, cOff) => {
             const ci = c0 + cOff;
             const k  = key(ri, ci);
+            const isDroneMatch = droneSet.has(k);
+            const isP2Match = !!p2Pos && p2Pos[0] === ri && p2Pos[1] === ci;
+            const isPlayerMatch = playerPos[0] === ri && playerPos[1] === ci;
+
             return (
               <TileCell
                 key={k} tile={tile} row={ri} col={ci} theme={theme}
-                isPlayer={playerPos[0] === ri && playerPos[1] === ci}
+                isPlayer={isPlayerMatch}
                 isPlayerWalking={playerMoving}
-                isP2={!!p2Pos && p2Pos[0] === ri && p2Pos[1] === ci}
-                isDrone={droneSet.has(k)}
+                isP2={isP2Match}
+                isP2Walking={p2Moving}
+                isDrone={isDroneMatch}
+                isDroneWalking={movingDrones.has(k)}
                 isNpc={tile === 'npc'}
                 showInteract={interactSet.has(k)}
-                tick={tick} fastTick={fastTick} playerFacingRow={playerFacingRow}
+                animFrame={animFrame}
+                facingRow={
+                  isPlayerMatch ? playerFacingRow :
+                  isP2Match ? p2FacingRow :
+                  isDroneMatch ? (droneFacingRows[k] ?? 0) : 0
+                }
               />
             );
           });
