@@ -2,7 +2,7 @@ import IORedis from 'ioredis';
 
 const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
 
-export type GameState = 'LOBBY' | 'ROUND_1' | 'ROUND_2' | 'FINAL' | 'COMPLETED';
+export type GameState = 'LOBBY' | 'ROUND_0' | 'ROUND_1' | 'ROUND_2' | 'ROUND_3' | 'FINAL' | 'COMPLETED';
 
 interface RoomState {
   currentState: GameState;
@@ -11,18 +11,22 @@ interface RoomState {
 }
 
 const TRANSITIONS: Record<GameState, GameState[]> = {
-  LOBBY: ['ROUND_1'],
+  LOBBY: ['ROUND_0'],
+  ROUND_0: ['ROUND_1', 'COMPLETED'],
   ROUND_1: ['ROUND_2', 'COMPLETED'],
-  ROUND_2: ['FINAL', 'COMPLETED'],
+  ROUND_2: ['ROUND_3', 'COMPLETED'],
+  ROUND_3: ['FINAL', 'COMPLETED'],
   FINAL: ['COMPLETED'],
   COMPLETED: ['LOBBY'],
 };
 
 const DURATIONS: Record<GameState, number> = {
   LOBBY: 0,
-  ROUND_1: 3600, // 1 hour
-  ROUND_2: 900, // 15 minutes
-  FINAL: 300,   // 5 minutes
+  ROUND_0: 2700, // 45 minutes
+  ROUND_1: 5400, // 90 minutes
+  ROUND_2: 900,  // 15 minutes
+  ROUND_3: 4680, // 78 minutes
+  FINAL: 300,    // 5 minutes
   COMPLETED: 0,
 };
 

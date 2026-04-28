@@ -26,6 +26,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
 
   const menuItems = [
     { label: 'Bureau Command', path: '/', icon: MapIcon },
+    { label: 'The Verdict', path: '/round3', icon: Zap },
     { label: 'Field Badge', path: '/profile', icon: User },
   ];
 

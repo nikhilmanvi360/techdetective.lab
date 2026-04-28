@@ -19,8 +19,10 @@ import AdminSubmissions from './pages/admin/AdminSubmissions';
 import AdminBuilder from './pages/admin/AdminBuilder';
 import AdminSystem from './pages/admin/AdminSystem';
 import AdminLayout from './pages/admin/AdminLayout';
-import AdminQRManager from './pages/admin/AdminQRManager';
+import AdminRound3 from './pages/admin/AdminRound3';
 import ScanPage from './pages/ScanPage';
+import Round3Page from './pages/round3/Round3Page';
+import Round0Page from './pages/round0/Round0Page';
 
 export default function App() {
     const [team, setTeam] = useState<Team | null>(null);
@@ -83,6 +85,8 @@ export default function App() {
                      <Route path="black-market" element={<BlackMarket />} />
                      <Route path="campaign" element={<CampaignMap />} />
                      <Route path="scan" element={<ScanPage />} />
+                     <Route path="round0" element={<Round0Page />} />
+                     <Route path="round3" element={<Round3Page />} />
                  </Route>
 
                 {/* ── Admin Routes (use their own layout) ── */}
@@ -95,7 +99,7 @@ export default function App() {
                     <Route path="submissions" element={<AdminSubmissions />} />
                     <Route path="builder" element={<AdminBuilder />} />
                     <Route path="system" element={<AdminSystem />} />
-                    <Route path="qr" element={<AdminQRManager />} />
+                    <Route path="round3" element={<AdminRound3 />} />
                 </Route>
 
                 {/* ── Fallback ── */}

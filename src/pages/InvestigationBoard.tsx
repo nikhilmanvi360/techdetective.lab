@@ -38,7 +38,21 @@ export default function InvestigationBoard() {
         setLoading(false);
       }
     };
+    const checkRound0 = async () => {
+        // Admin Bypass for Round 0
+        if (team?.role === 'admin' || team?.name === 'CCU_ADMIN') return;
+
+        const res = await fetch('/api/r0/state', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const data = await res.json();
+        if (!data.completedAt) {
+            navigate('/round0');
+        }
+    };
+
     fetchCases();
+    checkRound0();
   }, []);
 
   if (loading) return (
@@ -106,9 +120,10 @@ export default function InvestigationBoard() {
                 title="Final Sector"
                 description="High-priority containment. Final confrontation with the syndicate's core infrastructure."
                 icon={<Shield className="w-10 h-10" />}
-                status="Locked - Phase 2 Req."
+                status={team?.role === 'admin' || team?.name === 'CCU_ADMIN' ? 'Operational Ready (Bypass)' : 'Locked - Phase 2 Req.'}
                 color="#8B2020"
-                disabled={true}
+                disabled={team?.role !== 'admin' && team?.name !== 'CCU_ADMIN'}
+                onClick={() => navigate('/round3')}
               />
             </div>
           </motion.div>

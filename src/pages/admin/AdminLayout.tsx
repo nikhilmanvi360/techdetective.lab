@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Overview', icon: <Activity className="w-4 h-4" />, exact: true },
   { to: '/admin/submissions', label: 'Submissions', icon: <FileText className="w-4 h-4" /> },
   { to: '/admin/teams', label: 'Teams', icon: <Users className="w-4 h-4" /> },
-  { to: '/admin/qr', label: 'Round 1 QR', icon: <QrCode className="w-4 h-4" /> },
+  { to: '/admin/round3', label: 'Round 3 Control', icon: <HardDrive className="w-4 h-4 text-red-500" /> },
   { to: '/admin/builder', label: 'Case Builder', icon: <Plus className="w-4 h-4" /> },
   { to: '/admin/system', label: 'System', icon: <Settings className="w-4 h-4" /> },
 ];

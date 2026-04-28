@@ -1,0 +1,68 @@
+# Round 3 "The Verdict" Testing Guide
+
+This guide outlines how to simulate the high-stakes, multi-team collaborative finale on your local machine.
+
+## Prerequisites
+1.  **Server Running**: Ensure `npm run dev` is active.
+2.  **Database Seeded**: You need at least 2-3 teams in your `teams` table to see the fragment distribution.
+
+---
+
+## 1. Multi-Team Setup
+To test the "Neural Link" synchronization, you need to simulate multiple concurrent users:
+
+1.  **Open 3 Browser Windows**:
+    *   **Window A (Admin)**: Log in as `CCU_ADMIN`. Navigate to `/admin/round3`.
+    *   **Window B (Team 1)**: Log in as a student team. Navigate to `/round3`.
+    *   **Window C (Team 2)**: Log in as a different student team. Navigate to `/round3`.
+
+---
+
+## 2. Testing the Flow
+
+### Phase 1: The Monologue
+1.  In **Window A (Admin)**, set the "Opening Monologue" state.
+2.  Click **Sync Broadcast**.
+3.  Verify that **Windows B & C** show the cinematic text scrolling with the data you entered in the Admin panel.
+
+### Phase 2: The Neural Link (The Core Test)
+1.  In **Window A (Admin)**, transition the timeline to **"4. The Neural Link"**.
+2.  In **Window B (Team 1)**, check your assigned characters (e.g., `AF` at Index `0`).
+3.  In **Window C (Team 2)**, check your assigned characters (e.g., `88` at Index `2`).
+4.  **Success Path**:
+    *   In **Window B**, type `AF` and hit Enter.
+    *   Observe **Window C** and **Window A** (Monitor). The first two slots should turn gold.
+    *   In **Window C**, type `88` and hit Enter.
+    *   Observe all windows. The next two slots should fill.
+5.  **Failure Path (The Reset)**:
+    *   In **Window B**, intentionally type the WRONG characters (e.g., `XX`).
+    *   Verify that **all slots** in **Window C** and **Window A** reset to `_` immediately.
+    *   The Admin monitor should show the reset in real-time.
+
+---
+
+## 3. Testing Majority-Rule Branching
+1.  In **Window A (Admin)**, transition to **"3. Challenge Phase"**.
+2.  In **Window B & C**, navigate to **Phase B (The Verdict)**.
+3.  **Simulation**:
+    *   Team 1 submits `SYNDICATE_AI` as the culprit.
+    *   Team 2 submits `RAZA_MALIK` as the culprit.
+4.  In **Window A**, check the **Majority Verdict** monitor. You should see a 50/50 split.
+5.  Submit a 3rd vote (Window D or script) for `SYNDICATE_AI`.
+6.  Transition to **"5. Final Reveal"**.
+7.  Verify that the reveal cinematic plays the **Syndicate Evasion** ending (because they were the majority suspect).
+
+---
+
+## 4. Helpful Console Commands
+If you need to manually trigger events or check state from the console:
+
+```javascript
+// Check current client-side state
+console.log(window.location.pathname);
+
+// Manual API checks (Run in browser console while logged in)
+fetch('/api/r3/state', { 
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } 
+}).then(r => r.json()).then(console.log);
+```

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Search, Ban, CheckCircle, Save, Edit2, Check, Shield } from 'lucide-react';
+import { Users, Search, Ban, CheckCircle, Save, Edit2, Check, Shield, Zap } from 'lucide-react';
 import { Team } from '../../types';
 import { useSound } from '../../hooks/useSound';
 
@@ -136,6 +136,22 @@ export default function AdminTeams() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                     )}
+                    <button 
+                      onClick={async () => {
+                        const res = await fetch(`/api/admin/r0/bypass/${t.id}`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                        });
+                        if (res.ok) {
+                          playSound('success');
+                          alert(`Unit ${t.id} bypassed Round 0 successfully.`);
+                        }
+                      }} 
+                      title="Bypass Round 0"
+                      className="p-3 bg-[#2a1a0a] text-[#a07830] border border-[#3a2810] hover:text-blue-500 hover:border-blue-500/40 transition-all shadow-lg"
+                    >
+                      <Zap className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleToggleDisable(t)} className="p-3 bg-[#2a1a0a] text-[#a07830] border border-[#3a2810] hover:text-[#f4e6c4] hover:border-red-900/40 transition-all shadow-lg">
                       {t.is_disabled ? <Check className="w-4 h-4 text-green-600" /> : <Ban className="w-4 h-4 text-[#8B2020]" />}
                     </button>

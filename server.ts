@@ -27,6 +27,8 @@ import * as shopEngine from './src/engine/shopEngine';
 import { codeExecutionQueue } from './src/lib/queue';
 import { GameStateManager, GameState } from './src/engine/gameStateManager';
 import { CaseLoader } from './src/engine/caseLoader';
+import { round0Manager } from './src/engine/round0Manager';
+import { Round3Manager } from './src/engine/round3Manager';
 
 const ROOT_DIR = process.cwd();
 const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
@@ -504,9 +506,9 @@ async function startServer() {
       }
       return {
         ...e,
-        is_locked: ((e.required_puzzle_id && !solvedPuzzleIds.has(e.required_puzzle_id)) || timeLocked) && !purchasedEvidenceIds.includes(e.id),
+        is_locked: ((e.required_puzzle_id && !solvedPuzzleIds.has(e.required_puzzle_id)) || timeLocked) && !purchasedEvidenceIds.includes(e.id) && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN',
         is_encrypted: encryptedIds.has(e.id),
-        time_locked: timeLocked,
+        time_locked: timeLocked && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN',
         unlock_at: e.unlock_at
       }
     });
@@ -523,7 +525,7 @@ async function startServer() {
         hint: isHintAvailable ? p.hint : null, solved: isSolved ? 1 : 0,
         hint_used: (hintUsedAt || isPurchased) ? 1 : 0, hint_used_at: hintUsedAt,
         is_purchased_hint: isPurchased,
-        is_locked: isLockedByDependency,
+        is_locked: isLockedByDependency && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN',
         depends_on_puzzle_id: p.depends_on_puzzle_id
       };
     });
@@ -616,6 +618,25 @@ async function startServer() {
     }
   });
 
+  protectedRouter.get('/r3/state', (req: any, res: any) => {
+    res.json(Round3Manager.getState());
+  });
+
+  protectedRouter.get('/r3/neural/fragment', (req: any, res: any) => {
+    // Deterministic assignment based on teamId
+    const teamId = req.user.id;
+    const index = ((teamId * 2) % 32); 
+    const fragment = Round3Manager.assignNeuralFragment(teamId, index);
+    res.json(fragment);
+  });
+
+  protectedRouter.post('/r3/neural/submit', (req: any, res: any) => {
+    const { segment } = req.body;
+    const result = Round3Manager.submitNeuralSegment(req.user.id, segment);
+    if (result.success) res.json(result);
+    else res.status(400).json(result);
+  });
+
   // --- Campaign Map State (Round 2) ---
   protectedRouter.get('/campaign/state', async (req: any, res: any) => {
     try {
@@ -696,7 +717,7 @@ async function startServer() {
     if (puzzle.depends_on_puzzle_id) {
       const { data: solve } = await supabase.from('solved_puzzles').select('1')
         .eq('team_id', req.user.id).eq('puzzle_id', puzzle.depends_on_puzzle_id).single();
-      if (!solve) return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
+      if (!solve && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN') return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
     }
 
     const caseState = await caseEngine.getCaseState(puzzle.case_id, req.user.id);
@@ -818,7 +839,26 @@ async function startServer() {
     res.json(result);
   });
 
-  // --- Shop ---
+  // --- Round 0: The UI Weaver (NEW) ---
+  protectedRouter.get('/r0/state', (req: any, res: any) => {
+    res.json(round0Manager.getTeamState(req.user.id));
+  });
+
+  protectedRouter.post('/r0/submit', (req: any, res: any) => {
+    const { task, answer } = req.body;
+    let success = false;
+    
+    // Simple validation for prototype
+    if (task === 'HTML' && answer.includes('<table') && answer.includes('</table>')) success = true;
+    if (task === 'CSS' && answer.includes('filter: none') || answer.includes('opacity: 1')) success = true;
+    if (task === 'PYTHON' && (answer.includes('.replace') && answer.includes('ALIVE'))) success = true;
+
+    if (success) {
+      const state = round0Manager.completeTask(req.user.id, task);
+      return res.json({ success: true, state });
+    }
+    res.status(400).json({ success: false, message: 'Code validation failed.' });
+  });
   protectedRouter.get('/shop/items', (req: any, res: any) => res.json(shopEngine.SHOP_ITEMS));
 
   protectedRouter.get('/shop/targets', async (req: any, res: any) => {
@@ -850,7 +890,7 @@ async function startServer() {
     const { code } = req.body;
     try {
       const { data: state } = await supabase.from('round1_state').select('is_active').eq('id', 1).single();
-      if (!state?.is_active) return res.status(403).json({ status: 'not_started' });
+      if (!state?.is_active && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN') return res.status(403).json({ status: 'not_started' });
       const { data: evCode, error } = await supabase.from('evidence_codes').select('*, teams(name)').eq('code', code.trim().toUpperCase()).single();
       if (error || !evCode) return res.status(404).json({ status: 'invalid' });
       if (evCode.claimed_by_team_id) {
@@ -871,6 +911,56 @@ async function startServer() {
     res.json(data);
   });
 
+  // --- Round 3: The Verdict ---
+  protectedRouter.get('/r3/state', async (req: any, res: any) => {
+    const { Round3Manager } = await import('./src/engine/round3Manager');
+    const r3State = Round3Manager.getState();
+    res.json({
+      subPhase: r3State.currentSubPhase,
+      monologueData: r3State.monologueData,
+      mySubmission: r3State.phaseBSubmissions.get(req.user.id),
+      myMitigation: r3State.phaseCMitigations.get(req.user.id),
+    });
+  });
+
+  protectedRouter.post('/r3/phase-a/submit', submissionLimiter, async (req: any, res: any) => {
+    const { code } = req.body;
+    // Basic validation for the "fix"
+    const isCorrect = code.includes(':') && code.includes(',');
+    if (isCorrect) {
+      await eventStore.appendEvent({
+        teamId: req.user.id, eventType: 'r3_phase_a_fix',
+        basePoints: 150, metadata: { status: 'fixed' }
+      });
+      emitLiveEvent(`${req.user.name} stabilized the corrupted artifact!`, 'badge');
+    }
+    res.json({ success: isCorrect });
+  });
+
+  protectedRouter.post('/r3/phase-b/submit', submissionLimiter, async (req: any, res: any) => {
+    const { Round3Manager } = await import('./src/engine/round3Manager');
+    const result = Round3Manager.submitPhaseB(req.user.id, req.body);
+    await eventStore.appendEvent({
+      teamId: req.user.id, eventType: 'r3_phase_b_submission',
+      basePoints: 0, metadata: req.body
+    });
+    res.json(result);
+  });
+
+  protectedRouter.post('/r3/phase-c/mitigate', submissionLimiter, async (req: any, res: any) => {
+    const { Round3Manager } = await import('./src/engine/round3Manager');
+    const { success } = req.body;
+    const result = Round3Manager.submitPhaseC(req.user.id, success);
+    if (success) {
+      await eventStore.appendEvent({
+        teamId: req.user.id, eventType: 'r3_phase_c_mitigation',
+        basePoints: 250, metadata: { status: 'threat_neutralized' }
+      });
+      emitLiveEvent(`${req.user.name} NEUTRALIZED the threat!`, 'case');
+    }
+    res.json(result);
+  });
+
   app.use('/api', protectedRouter);
 
   // =========================================================
@@ -878,45 +968,6 @@ async function startServer() {
   // =========================================================
   const adminRouter = express.Router();
   adminRouter.use(authenticateToken, requireAdmin);
-
-  // Round 1 Admin
-  adminRouter.get('/r1/codes', async (req, res) => {
-    const { data } = await supabase.from('evidence_codes').select('*, teams(name)').order('id', { ascending: true });
-    res.json(data?.map(c => ({ ...c, claimer_name: (c.teams as any)?.name })) || []);
-  });
-
-  adminRouter.post('/r1/codes', async (req, res) => {
-    const { code, title, content, category, points_value, flavor_text, reveal_delay_seconds } = req.body;
-    const { data, error } = await supabase.from('evidence_codes').insert([{
-      code: code.trim().toUpperCase(),
-      title, content, category,
-      points_value: points_value || 100,
-      flavor_text,
-      reveal_delay_seconds: reveal_delay_seconds || 3
-    }]).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-  });
-
-  adminRouter.delete('/r1/codes/:id', async (req, res) => {
-    const { error } = await supabase.from('evidence_codes').delete().eq('id', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
-  });
-
-  adminRouter.post('/r1/toggle', async (req, res) => {
-    const { action } = req.body;
-    const is_active = action === 'start';
-    await supabase.from('round1_state').update({ is_active, started_at: is_active ? new Date().toISOString() : undefined }).eq('id', 1);
-    emitLiveEvent(is_active ? 'ROUND 1 IS NOW LIVE' : 'ROUND 1 HAS ENDED', 'case');
-    res.json({ success: true });
-  });
-
-  adminRouter.post('/r1/reset', async (req, res) => {
-    await supabase.from('evidence_codes').update({ claimed_by_team_id: null, claimed_at: null });
-    await supabase.from('round1_state').update({ is_active: false, started_at: null, ended_at: null }).eq('id', 1);
-    res.json({ success: true });
-  });
 
   // Teams
   adminRouter.get('/teams', async (req: any, res: any) => {
@@ -1096,6 +1147,37 @@ async function startServer() {
   adminRouter.get('/adversary/log', async (req: any, res: any) => {
     const log = await adversary.getActionLog();
     res.json(log);
+  });
+
+  // --- Round 3 Command ---
+  adminRouter.post('/r3/transition', async (req: any, res: any) => {
+    const { phase } = req.body;
+    Round3Manager.transition(phase);
+    res.json({ success: true, phase });
+  });
+
+  adminRouter.post('/r3/monologue', async (req: any, res: any) => {
+    Round3Manager.setMonologueData(req.body);
+    res.json({ success: true });
+  });
+
+  adminRouter.get('/r3/submissions', async (req: any, res: any) => {
+    const { data } = await supabase
+      .from('round3_submissions')
+      .select('*, teams(name)')
+      .order('created_at', { ascending: false });
+    res.json(data || []);
+  });
+
+  adminRouter.get('/r3/majority', async (req: any, res: any) => {
+    const { correctSuspect } = req.query;
+    res.json(Round3Manager.getMajoritySuspect(String(correctSuspect || 'SYNDICATE_AI')));
+  });
+
+  // --- Round 0 Admin ---
+  adminRouter.post('/r0/bypass/:teamId', (req: any, res: any) => {
+    const state = round0Manager.bypass(parseInt(req.params.teamId));
+    res.json({ success: true, state });
   });
 
   app.use('/api/admin', adminRouter);
