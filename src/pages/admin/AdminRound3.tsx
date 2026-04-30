@@ -11,7 +11,7 @@ export default function AdminRound3() {
 
   useEffect(() => {
     // Initial State
-    fetch('/api/admin/r3/state', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+    fetch('/api/admin/r3/state', { headers: { 'Authorization': `Bearer ${''}` } })
       .then(res => res.json())
       .then(data => {
         setSubPhase(data.currentSubPhase);
@@ -27,7 +27,7 @@ export default function AdminRound3() {
   const handleTransition = async (phase: string) => {
     const res = await fetch('/api/admin/r3/transition', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
       body: JSON.stringify({ phase })
     });
     if (res.ok) setSubPhase(phase);
@@ -35,7 +35,7 @@ export default function AdminRound3() {
 
   const fetchSubmissions = async () => {
     const res = await fetch('/api/admin/r3/submissions', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${''}` }
     });
     const data = await res.json();
     setSubmissions(data);
@@ -84,7 +84,7 @@ export default function AdminRound3() {
           </div>
           
           <button 
-            onClick={() => { if(confirm('Reset all Round 4 state?')) fetch('/api/admin/r3/reset', { method: 'POST', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }) }}
+            onClick={() => { if(confirm('Reset all Round 4 state?')) fetch('/api/admin/r3/reset', { method: 'POST', headers: { 'Authorization': `Bearer ${''}` } }) }}
             className="w-full py-3 border-2 border-red-900/20 text-red-900/60 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/10 hover:text-red-900 transition-all"
           >
             Reset Round State

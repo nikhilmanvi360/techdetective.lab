@@ -12,7 +12,7 @@ export default function AdminSubmissions() {
   const { playSound } = useSound();
 
   useEffect(() => {
-    fetch('/api/admin/submissions', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+    fetch('/api/admin/submissions', { headers: { 'Authorization': `Bearer ${''}` } })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setSubmissions(data);

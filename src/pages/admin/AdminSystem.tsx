@@ -10,7 +10,7 @@ export default function AdminSystem() {
 
   useEffect(() => {
     const fetchSys = async () => {
-      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+      const headers = { 'Authorization': `Bearer ${''}` };
       const [adv, mul] = await Promise.all([
         fetch('/api/admin/adversary', { headers }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/multipliers', { headers }).then(r => r.json()).catch(() => [])
@@ -25,7 +25,7 @@ export default function AdminSystem() {
     playSound('click');
     const res = await fetch('/api/admin/adversary', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
       body: JSON.stringify({ ...adversaryConfig, ...updates })
     });
     if (res.ok) setAdversaryConfig({ ...adversaryConfig, ...updates });
@@ -39,12 +39,12 @@ export default function AdminSystem() {
     const durationMinutes = parseInt(fd.get('durationMinutes') as string);
     const res = await fetch('/api/admin/multipliers', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
       body: JSON.stringify({ multiplier, durationMinutes, eventTypes: ['puzzle_solve', 'case_solve'] })
     });
     if (res.ok) {
       playSound('success');
-      const text = await fetch('/api/admin/multipliers', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json());
+      const text = await fetch('/api/admin/multipliers', { headers: { 'Authorization': `Bearer ${''}` } }).then(r => r.json());
       setMultipliers(text);
       (e.target as HTMLFormElement).reset();
     }
@@ -125,7 +125,7 @@ export default function AdminSystem() {
                 const fd = new FormData(e.currentTarget);
                 await fetch('/api/admin/adversary/trigger', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
                   body: JSON.stringify({ actionType: fd.get('actionType'), message: fd.get('message') })
                 });
                 playSound('success');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   ChevronLeft, Terminal, Download, Copy, Check, Activity,
   ShieldAlert, Lock as LockIcon, Zap, Cpu, Database, Unlock, FileText
@@ -60,7 +60,7 @@ export default function EvidenceViewer() {
   const { activeActions, resolveAction } = useAdversary();
 
   const encryptAction = activeActions.find(a => a.action_type === 'evidence_encrypt');
-  const team = (() => { try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } })();
+  const { team } = useOutletContext<{ team: any }>();
   const rankTitle = getRankTitle(team?.score || 0);
   const xp = team?.score || 0;
   const xpPct = Math.min(100, Math.round((xp / 500) * 100));
@@ -72,7 +72,7 @@ export default function EvidenceViewer() {
       setLoading(true);
       try {
         const response = await fetch(`/api/evidence/${id}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 'Authorization': `Bearer ${''}` }
         });
         const data = await response.json();
         if (response.ok) {

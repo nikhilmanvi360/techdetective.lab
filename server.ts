@@ -20,7 +20,6 @@ import { codeExecutionQueue, codeExecutionEvents } from './src/lib/queue';
 import { GameStateManager } from './src/engine/gameStateManager';
 import { CaseLoader } from './src/engine/caseLoader';
 import { round0Manager } from './src/engine/round0Manager';
-import { Round3Manager } from './src/engine/round3Manager';
 
 const ROOT_DIR = process.cwd();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -687,7 +686,7 @@ async function startServer() {
   // Note: /r0/submit is defined later in the file near Round 0 Weaver section.
 
   // --- Round 1 / The Logs ---
-  protectedRouter.get('/r1/state', async (req: any, res: any) => {
+  protectedRouter.get('/r1/state', async (_req: any, res: any) => {
     res.json({
       subPhase: 'ACTIVE',
       monologueData: {
@@ -742,11 +741,11 @@ async function startServer() {
     }
   });
 
-  protectedRouter.post('/r3/phase-b/submit', async (req: any, res: any) => {
+  protectedRouter.post('/r3/phase-b/submit', async (_req: any, res: any) => {
     res.json({ success: true });
   });
 
-  protectedRouter.post('/r3/phase-c/mitigate', async (req: any, res: any) => {
+  protectedRouter.post('/r3/phase-c/mitigate', async (_req: any, res: any) => {
     res.json({ success: true });
   });
 
@@ -859,37 +858,42 @@ async function startServer() {
       try {
         const { data: hintUsed } = await supabase.from('used_hints').select('1')
           .eq('team_id', req.user.id).eq('puzzle_id', puzzle.id).single();
-        const { count: solveCount } = await supabase.from('solved_puzzles').select('*', { count: 'exact', head: true }).eq('puzzle_id', puzzle.id);
         const basePoints = hintUsed ? Math.floor(puzzle.points * 0.5) : puzzle.points;
-        const firstBloodBonus = (solveCount || 0) === 0 ? 50 : solveCount === 1 ? 25 : solveCount === 2 ? 10 : 0;
 
-        const { error: solveError } = await supabase.from('solved_puzzles').insert([{ team_id: req.user.id, puzzle_id: puzzle.id }]);
-        if (solveError) return res.json({ success: false, message: 'Already solved' });
-
-        const solveResult = await eventStore.appendEvent({
-          teamId: req.user.id, eventType: 'puzzle_solve', basePoints,
-          metadata: { puzzle_id: puzzle.id, case_id: puzzle.case_id, hint_used: !!hintUsed }
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('solve_puzzle_v2', {
+          p_team_id: req.user.id,
+          p_puzzle_id: puzzle.id,
+          p_base_points: basePoints,
+          p_case_id: puzzle.case_id
         });
 
-        let fbResult = { finalPoints: 0, multiplierApplied: null as number | null };
-        if (firstBloodBonus > 0) {
-          fbResult = await eventStore.appendEvent({
-            teamId: req.user.id, eventType: 'first_blood', basePoints: firstBloodBonus,
-            metadata: { puzzle_id: puzzle.id, position: (solveCount || 0) + 1 }
-          });
+        if (rpcError || !rpcResult?.success) {
+          return res.json({ success: false, message: rpcResult?.error || 'Already solved' });
         }
 
-        const totalPoints = solveResult.finalPoints + fbResult.finalPoints;
+        const { count: solveCount } = await supabase.from('solved_puzzles').select('*', { count: 'exact', head: true }).eq('puzzle_id', puzzle.id);
+        const firstBloodBonus = solveCount === 1 ? 50 : solveCount === 2 ? 25 : solveCount === 3 ? 10 : 0;
+
+        let fbPoints = 0;
+        if (firstBloodBonus > 0) {
+          const fbResult = await eventStore.appendEvent({
+            teamId: req.user.id, eventType: 'first_blood', basePoints: firstBloodBonus,
+            metadata: { puzzle_id: puzzle.id, position: solveCount }
+          });
+          fbPoints = fbResult.finalPoints;
+        }
+
+        const totalPoints = rpcResult.points + fbPoints;
         emitLiveEvent(firstBloodBonus > 0
-          ? `${req.user.name} got FIRST BLOOD on Puzzle #${puzzle.id}! (+${fbResult.finalPoints} pts)`
+          ? `${req.user.name} got FIRST BLOOD on Puzzle #${puzzle.id}! (+${fbPoints} pts)`
           : `${req.user.name} cracked Puzzle #${puzzle.id}!`
         );
         adversary.evaluateAdversary(io).catch(e => console.error('Adversary eval error:', e));
 
         res.json({
           success: true, points: totalPoints,
-          basePoints: solveResult.finalPoints, firstBloodBonus: fbResult.finalPoints,
-          hintUsed: !!hintUsed, multiplierApplied: solveResult.multiplierApplied,
+          basePoints: rpcResult.points, firstBloodBonus: fbPoints,
+          hintUsed: !!hintUsed, multiplierApplied: null,
           engineMessages: engineResult.messages,
           message: `Received ${totalPoints} XP`
         });
@@ -987,7 +991,7 @@ async function startServer() {
       res.status(500).json({ error: 'Failed to update briefing state' });
     }
   });
-  protectedRouter.get('/shop/items', (req: any, res: any) => res.json(shopEngine.SHOP_ITEMS));
+  protectedRouter.get('/shop/items', (_req: any, res: any) => res.json(shopEngine.SHOP_ITEMS));
 
   protectedRouter.get('/shop/targets', async (req: any, res: any) => {
     const { data: teams } = await supabase.from('teams').select('id, name, score')
@@ -1004,7 +1008,7 @@ async function startServer() {
 
 
   // --- Round 1: The Living Crime Scene ---
-  protectedRouter.get('/r1/status', async (req: any, res: any) => {
+  protectedRouter.get('/r1/status', async (_req: any, res: any) => {
     try {
       const { data: state } = await supabase.from('round1_state').select('*').eq('id', 1).single();
       const { data: codes } = await supabase.from('evidence_codes').select('id, claimed_by_team_id');
@@ -1115,7 +1119,7 @@ async function startServer() {
   adminRouter.use(authenticateToken, requireAdmin);
 
   // Teams
-  adminRouter.get('/teams', async (req: any, res: any) => {
+  adminRouter.get('/teams', async (_req: any, res: any) => {
     const { data: teams } = await supabase.from('teams').select('id, name, score, created_at, is_disabled').neq('name', 'CCU_ADMIN').order('score', { ascending: false });
     res.json(teams || []);
   });
@@ -1128,14 +1132,14 @@ async function startServer() {
   });
 
   // Submissions
-  adminRouter.get('/submissions', async (req: any, res: any) => {
+  adminRouter.get('/submissions', async (_req: any, res: any) => {
     const { data: submissions } = await supabase.from('submissions')
       .select('*, teams(name), cases(title)').order('submitted_at', { ascending: false });
     res.json(submissions?.map((s: any) => ({ ...s, team_name: s.teams?.name, case_title: s.cases?.title })) || []);
   });
 
   // Master Key (full view of all cases, puzzles, evidence)
-  adminRouter.get('/master-key', async (req: any, res: any) => {
+  adminRouter.get('/master-key', async (_req: any, res: any) => {
     const { data: cases } = await supabase.from('cases').select('*').order('id', { ascending: true });
     const { data: puzzles } = await supabase.from('puzzles').select('*');
     const { data: evidence } = await supabase.from('evidence').select('*');
@@ -1147,7 +1151,7 @@ async function startServer() {
   });
 
   // Analytics
-  adminRouter.get('/analytics', async (req: any, res: any) => {
+  adminRouter.get('/analytics', async (_req: any, res: any) => {
     const { data: puzzles } = await supabase.from('puzzles').select('id, question');
     const { data: attempts } = await supabase.from('puzzle_attempts').select('puzzle_id, is_correct');
     const stats = puzzles?.map((p: any) => {
@@ -1169,7 +1173,7 @@ async function startServer() {
   });
 
   // Multipliers
-  adminRouter.get('/multipliers', async (req: any, res: any) => {
+  adminRouter.get('/multipliers', async (_req: any, res: any) => {
     const multipliers = await eventStore.getMultipliers();
     res.json(multipliers);
   });
@@ -1185,7 +1189,7 @@ async function startServer() {
     }
   });
 
-  adminRouter.post('/recompute-scores', async (req: any, res: any) => {
+  adminRouter.post('/recompute-scores', async (_req: any, res: any) => {
     const result = await eventStore.recomputeAllScores();
     res.json(result);
   });
@@ -1202,7 +1206,7 @@ async function startServer() {
   });
 
   // Recompute & Snapshots (#4, #5)
-  adminRouter.post('/snapshots', async (req: any, res: any) => {
+  adminRouter.post('/snapshots', async (_req: any, res: any) => {
     try {
       const snapshot = await eventStore.createGlobalSnapshot();
       res.json(snapshot);
@@ -1211,7 +1215,7 @@ async function startServer() {
     }
   });
 
-  adminRouter.get('/snapshots', async (req: any, res: any) => {
+  adminRouter.get('/snapshots', async (_req: any, res: any) => {
     const snaps = await eventStore.getSnapshots();
     res.json(snaps);
   });
@@ -1273,7 +1277,7 @@ async function startServer() {
   });
 
   // Adversary
-  adminRouter.get('/adversary', async (req: any, res: any) => {
+  adminRouter.get('/adversary', async (_req: any, res: any) => {
     const config = await adversary.getConfig();
     res.json(config);
   });
@@ -1289,7 +1293,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  adminRouter.get('/adversary/log', async (req: any, res: any) => {
+  adminRouter.get('/adversary/log', async (_req: any, res: any) => {
     const log = await adversary.getActionLog();
     res.json(log);
   });
@@ -1302,18 +1306,18 @@ async function startServer() {
     res.json({ success: true, phase });
   });
 
-  adminRouter.post('/r3/reset', async (req: any, res: any) => {
+  adminRouter.post('/r3/reset', async (_req: any, res: any) => {
     const { Round3Manager } = await import('./src/engine/round3Manager');
     Round3Manager.reset();
     res.json({ success: true });
   });
 
-  adminRouter.get('/r3/state', async (req: any, res: any) => {
+  adminRouter.get('/r3/state', async (_req: any, res: any) => {
     const { Round3Manager } = await import('./src/engine/round3Manager');
     res.json(Round3Manager.getState());
   });
 
-  adminRouter.get('/r3/submissions', async (req: any, res: any) => {
+  adminRouter.get('/r3/submissions', async (_req: any, res: any) => {
     const { Round3Manager } = await import('./src/engine/round3Manager');
     const { data: teams } = await supabase.from('teams').select('id, name');
     const teamMap = new Map(teams?.map(t => [t.id, t.name]));
@@ -1351,7 +1355,7 @@ async function startServer() {
   } else {
     const distPath = path.join(ROOT_DIR, 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

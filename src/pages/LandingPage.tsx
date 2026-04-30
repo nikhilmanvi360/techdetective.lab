@@ -174,7 +174,7 @@ export default function LandingPage() {
  >
  <p className="text-sm italic leading-relaxed"
  style={{ color: 'rgba(245,230,200,0.55)', fontFamily:"'Georgia', serif", textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}
- >"The bank thought they were unhackable.<br />They didn't account for the rehearsal."
+ >"He submitted a clean report.<br />He was doing two jobs."
  </p>
  </motion.div>
 

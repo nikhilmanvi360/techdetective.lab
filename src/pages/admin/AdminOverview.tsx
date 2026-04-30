@@ -41,7 +41,7 @@ export default function AdminOverview() {
   const [events, setEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    const headers = { Authorization: `Bearer ${''}` };
     Promise.all([
       fetch('/api/admin/teams', { headers }).then(r => r.json()).catch(() => []),
       fetch('/api/admin/submissions', { headers }).then(r => r.json()).catch(() => []),

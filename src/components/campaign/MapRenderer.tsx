@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { TileType, ZoneId } from '../../data/campaignData';
-import { directionRow } from '../../utils/animation';
 
 const TILE = 48; // Updated TILE size to 48 or 56 depending on how the map scales, let's stick to 48 as base
 
@@ -39,25 +38,25 @@ type ZoneTheme = {
 };
 
 const ZONE_THEME: Record<ZoneId, ZoneTheme> = {
-  cafeteria: {
+  lobby: {
     floor: '#2c2520', floorAlt: '#26201b',
     wall: '#1f1b16', wallTop: '#352d24',
-    ambient: 'rgba(212,160,23,0.08)',
-    accent: '#d4a017',
+    ambient: 'rgba(181,135,74,0.08)',
+    accent: '#b5874a',
   },
-  library: {
+  compliance: {
     floor: '#1e261f', floorAlt: '#1a201b',
     wall: '#141a15', wallTop: '#243026',
     ambient: 'rgba(90,122,74,0.08)',
     accent: '#5a7a4a',
   },
-  maintenance: {
+  server_room: {
     floor: '#252525', floorAlt: '#222222',
     wall: '#1a1a1a', wallTop: '#2e2e2e',
     ambient: 'rgba(122,90,58,0.1)',
     accent: '#7a5a3a',
   },
-  admin_core: {
+  audit_core: {
     floor: '#261b1b', floorAlt: '#201616',
     wall: '#1a1212', wallTop: '#362222',
     ambient: 'rgba(139,32,32,0.12)',
@@ -295,7 +294,6 @@ export default function MapRenderer({
   const prevP2PosRef = useRef(p2Pos);
   const prevDronesRef = useRef<[number, number][]>(drones);
   const p2MoveTimeoutRef = useRef<number | null>(null);
-  const droneMoveTimeoutRef = useRef<number | null>(null);
   
   const lastTimeRef = useRef(performance.now());
   const accumulatorRef = useRef(0);

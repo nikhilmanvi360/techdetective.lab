@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
+import { useState, useEffect } from 'react';
+
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, AlertTriangle } from 'lucide-react';
 import Round3Challenges from '../../components/round3/Round3Challenges';
 
-const socket = io();
 
 export default function Round3Page() {
   const [loading, setLoading] = useState(true);
@@ -16,7 +14,7 @@ export default function Round3Page() {
     const fetchState = async () => {
       try {
         const res = await fetch('/api/r3/state', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 'Authorization': `Bearer ${''}` }
         });
         const data = await res.json();
         const start = data.startTime || Date.now();

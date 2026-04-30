@@ -1,4 +1,3 @@
-import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Team } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,7 +30,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
 
       {/* ══════════ MAIN CONTENT ══════════ */}
       <main className="flex-1 flex flex-col relative overflow-hidden bg-[#140e06]">
-        <Outlet />
+        <Outlet context={{ team }} />
         
         {/* Global Notifications Overlay */}
         <div className="absolute bottom-20 right-8 flex flex-col items-end gap-3 z-[100] pointer-events-none">

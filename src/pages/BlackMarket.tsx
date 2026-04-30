@@ -29,7 +29,7 @@ export default function BlackMarket() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = '';
       const [itemsRes, targetsRes, profileRes] = await Promise.all([
         fetch('/api/shop/items', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/shop/targets', { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -70,7 +70,7 @@ export default function BlackMarket() {
     playSound('click');
 
     try {
-      const token = localStorage.getItem('token');
+      const token = '';
       const res = await fetch('/api/shop/buy', {
         method: 'POST',
         headers: {

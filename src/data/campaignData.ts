@@ -211,8 +211,8 @@ export const SYNTHESIS_RECIPES: SynthesisRecipe[] = [
 export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
     id: 'lobby',
-    name: 'Meridian Bank Lobby',
-    description: 'The main entrance. High-net-worth clients only. Look for traces of Sehgal\'s late-night visit.',
+    name: 'Bank Lobby',
+    description: "Ground floor. Sehgal's badge log shows he entered here. Security desk is unmanned.",
     color: '#b5874a',
     requiredItems: [],
     playerStart: [20, 2],
@@ -254,8 +254,10 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       },
       '12,7': { 
         type: 'dialogue', 
-        speaker: 'Night Guard', 
-        lines: ['Mr. Sehgal is a very important consultant. He said he was just running some standard stress tests.'],
+        speaker: 'Bank Security Guard', 
+        lines: ["Sehgal had full access for six weeks. Friendly guy. Always working late.", 
+                "He was here at 3 AM once. Said he was running overnight simulations.",
+                "I thought nothing of it at the time."],
         options: [
           { 
             label: 'Trust Guard', 
@@ -281,8 +283,10 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       },
       '7,8': {
         type: 'dialogue',
-        speaker: 'Stressed Branch Manager',
-        lines: ['I cannot believe the coffee machine is broken again! It\'s a disaster for our VIP clients!'],
+        speaker: 'Compliance Officer',
+        lines: ["I filed the report for AUDIT's flag last week.",
+                "The board thought it was a calibration error. I'm not sure.",
+                "If you find the raw archive, look at run counts per category."],
         requiredCluesToUnlock: ['Decoy: Broken coffee machine in the lobby.'],
         clueFailMsg: ['Have you seen the repair technician?'],
         options: [
@@ -300,7 +304,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
     id: 'compliance',
     name: 'Compliance Archive',
-    description: 'Rows of physical and digital records. Seek the anomaly.',
+    description: "AUDIT's primary document storage. The redundant backup server is somewhere in here.",
     color: '#5a7a4a',
     requiredItems: ['key_A'],
     playerStart: [2, 2],
@@ -321,9 +325,11 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       },
       '15,19': { 
         type: 'clue', 
-        speaker: 'Dropped Note', 
-        lines: ['A scribbled Python script:', '"for i in range(1, 5):"', '"  if i == 3: break"'], 
-        clue: 'Python snippet stops at index 3.' 
+        speaker: 'Junior Analyst', 
+        lines: ["I indexed the batch folders last month.", 
+                "Most files are tagged TEST_CONFIG. Routine.",
+                "I did see one tagged differently. Batch 087 I think. Didn't think much of it."], 
+        clue: 'Archive indexer note: run batch 087 last' 
       },
       '12,6': { 
         type: 'clue', 
@@ -339,8 +345,10 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       },
       '3,10': { 
         type: 'dialogue', 
-        speaker: 'Junior Archivist', 
-        lines: ['I don\'t know anything about a LIVE_RUN_PARAMS tag. Everything Sehgal submitted was TEST_CONFIG.'],
+        speaker: 'AUDIT Interface Terminal', 
+        lines: ["AUDIT BACKUP SYSTEM — ACTIVE",
+                "Raw simulation archive: 4,247 entries preserved.",
+                "Batch folders: 089 total. All accessible."],
         requiredCluesToUnlock: ['Compliance log: LIVE_RUN_PARAMS tag used improperly.'],
         clueFailMsg: ['I am busy organizing these files. Please leave.']
       },
@@ -350,13 +358,15 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
     id: 'server_room',
     name: 'Server Room',
-    description: 'Industrial cooling and racks of servers. Beware the automated security drones. Sync the nodes.',
+    description: "Where the simulation environment ran. Node terminals are still hot.",
     color: '#7a5a3a',
     requiredItems: ['key_A', 'key_B'],
     playerStart: [2, 5],
     grid: maintenanceGrid,
     interactions: {
-      '3,5': { type: 'dialogue', speaker: 'IT Tech', lines: ['The system script crashed. I saw a Python error on Node Alpha: "IndexError: list index out of range".', 'It seems it was trying to access a system that doesn\'t exist. You need to point it to the correct core system.'] },
+      '3,5': { type: 'dialogue', speaker: 'IT Administrator', lines: ["The simulation nodes ran 24/7 for six weeks.",
+                "I have the access logs. Sehgal ran thousands of iterations.",
+                "Whatever he was testing, he was very thorough."] },
       '3,18': { 
         type: 'clue', 
         speaker: 'Whiteboard', 
@@ -410,7 +420,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
     id: 'audit_core',
     name: 'AUDIT Core',
-    description: 'The simulation engine. Bring all your evidence to bear.',
+    description: "The compliance engine's inner chamber. Batch 087 is in here.",
     color: '#8B2020',
     requiredItems: ['key_A', 'key_B', 'override_token'],
     playerStart: [2, 11],
@@ -418,14 +428,15 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     interactions: {
       '2,12': { 
         type: 'dialogue', 
-        speaker: 'Security Director', 
-        lines: ['This anomaly is severe. I need to see exactly how Sehgal planned his heist.'],
+        speaker: 'Meridian Bank Director', 
+        lines: ["I need to see the evidence before I call the police.",
+                "Sehgal is a respected consultant. We cannot act without proof."],
         requiredCluesToUnlock: [
-          'Sehgal arrived at 11:05 PM.',
-          'Terminal log: 4,000+ simulation runs detected.',
-          'Compliance log: LIVE_RUN_PARAMS tag used improperly.'
+          'Simulation run counts — 94% operational patterns',
+          'LIVE_RUN_PARAMS file tag in batch 087',
+          'Execution date confirmed'
         ],
-        clueFailMsg: ['That doesn\'t give me the full picture. I need proof of the suspect\'s timeline, their activity, AND how they disguised the file. Dig deeper.']
+        clueFailMsg: ["That is not enough. Find the file itself."]
       },
       '11,11': { 
         type: 'final', 
@@ -470,10 +481,10 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
 ];
 
 export const ITEMS: Record<string, { name: string; description: string; icon: string }> = {
-  key_A: { name: 'Compliance Key Card', description: 'Grants access to the Compliance Archive.', icon: '🗝️' },
-  key_B: { name: 'Master Badge', description: 'Found in the archive. Unlocks restricted areas.', icon: '🪪' },
-  server_key: { name: 'Server Room Passcode', description: 'Downloaded from the lobby. Opens the server room.', icon: '🔑' },
-  override_token: { name: 'Override Token', description: 'Level-4 admin override. For the AUDIT Core entrance.', icon: '📋' },
+  key_A: { name: 'Lobby Clearance Badge', description: 'Grants access to the Compliance wing.', icon: '🗝️' },
+  key_B: { name: 'Server Room Access Token', description: 'Found in the archive. Unlocks server nodes.', icon: '🪪' },
+  archive_passcard: { name: 'Compliance Archive Passcard', description: 'Grants access to the archive wing.', icon: '🪪' },
+  audit_override: { name: 'AUDIT Override Code', description: 'Level-4 admin override. For the AUDIT Core entrance.', icon: '💻' },
   firewall_bypass: { name: 'Firewall Bypass', description: 'Digital key to open the inner core.', icon: '💻' },
   compliance_override: { name: 'Compliance Override', description: 'Grants additional access points.', icon: '📑' },
 };

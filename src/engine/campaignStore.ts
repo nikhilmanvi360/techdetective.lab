@@ -48,12 +48,12 @@ function createInitialState(): CampaignState {
     inventory: [],
     clues: [],
     activatedNodes: [],
-    currentZone: 'cafeteria',
-    unlockedZones: ['cafeteria'],
-    objectiveLog: ['Investigate the Cafeteria. Find clues about the 14th.'],
+    currentZone: 'lobby',
+    unlockedZones: ['lobby'],
+    objectiveLog: ["Trace Sehgal's steps. Start with the Bank Lobby logs."],
     completedZones: [],
     gameComplete: false,
-    playerPos: [1, 1],
+    playerPos: [20, 2],
     score: 1000,
     reputation: 50,
     hintsUsed: 0,
@@ -203,7 +203,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
 
   // Load initial state
   React.useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = '';
     if (!token) {
         setIsLoaded(true);
         return;
@@ -249,7 +249,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     fetch('/api/campaign/state', {
       method: 'POST',
       headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${''}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ state: stateToSave })

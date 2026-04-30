@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, Shield, Cpu, Code2, AlertTriangle, Zap, CheckCircle2, ChevronRight } from 'lucide-react';
 import { io } from 'socket.io-client';
@@ -6,6 +7,7 @@ import { io } from 'socket.io-client';
 type Task = 'HTML' | 'CSS' | 'PYTHON' | 'BRIEFING';
 
 export default function Round0Page() {
+  const { team } = useOutletContext<{ team: any }>();
   const [state, setState] = useState<any>(null);
   const [activeTask, setActiveTask] = useState<Task>('HTML');
   const [userInput, setUserInput] = useState('');
@@ -20,13 +22,12 @@ export default function Round0Page() {
     const socket = io();
     fetchState();
 
-    const team = JSON.parse(localStorage.getItem('team') || '{}');
-    socket.on(`team_${team.id}_r0_complete`, () => {
+    socket.on(`team_${team?.id}_r0_complete`, () => {
       setRestoring(true);
       setTimeout(() => window.location.href = '/', 3000);
     });
 
-    socket.on(`team_${team.id}_r0_task_update`, (data) => {
+    socket.on(`team_${team?.id}_r0_task_update`, (data) => {
         setState(data.state);
     });
 
@@ -78,7 +79,7 @@ export default function Round0Page() {
 
   const fetchState = async () => {
     const res = await fetch('/api/r0/state', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      headers: { 'Authorization': `Bearer ${''}` }
     });
     const data = await res.json();
     setState(data);
@@ -115,7 +116,7 @@ export default function Round0Page() {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}` 
+        'Authorization': `Bearer ${''}` 
       },
       body: JSON.stringify({ task: activeTask, answer: userInput })
     });
@@ -134,31 +135,37 @@ export default function Round0Page() {
   };
 
   const taskPrompts = {
-    HTML: {
-        title: "Reconstruct Audit Table",
-        desc: "The Meridian Bank audit database has lost its structure. Repair the table structure to render the records.",
-        startingCode: "<!-- FIXME: Missing <table> and closing tags -->\n<tr><td>SIMULATION_BATCH_087</td></tr>",
-        hint: "Wrap the row in <table> tags to restore the grid."
-    },
-    CSS: {
-        title: "Descramble Security Feed",
-        desc: "A jammer has blurred the primary lobby feed. Apply visual mitigation to the stylesheet.",
-        startingCode: ".suspect-feed {\n  filter: blur(20px);\n  /* TODO: Set filter to none */\n}",
-        hint: "Override the filter property with 'none'."
-    },
-    PYTHON: {
-        title: "Parse 4,247 Log Runs",
-        desc: "The raw archive contains 4,247 batch logs. Write a Python script to isolate the runs that exceed 90% success probability.",
-        startingCode: "log_data = 'batch_runs=4247, success=91.4'\n# TODO: Extract the success rate and print it if > 90",
-        hint: "The system expects a printed string as the final output.",
-        fragment: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800"
-    }
+  HTML: {
+    title: "Reconstruct Audit Report",
+    desc: "AUDIT's report viewer is corrupted. The evidence table structure is broken — rows exist but the container is missing. Rebuild the HTML table to display Sehgal's reported vulnerability list.",
+    startingCode: `<!-- AUDIT REPORT — TABLE STRUCTURE BROKEN -->
+<tr><td>Network Intrusion</td><td>PATCHED</td></tr>
+<tr><td>Social Engineering</td><td>PATCHED</td></tr>
+<tr><td>Physical Access</td><td>PATCHED</td></tr>`,
+    hint: "Wrap all rows inside a <table> element."
+  },
+  CSS: {
+    title: "Clear Simulation Redaction",
+    desc: "The simulation archive viewer has been visually redacted. The discrepancy data exists but is blurred. Override the CSS filter to reveal AUDIT's raw simulation breakdown.",
+    startingCode: `.audit-log {
+  filter: blur(20px);
+  /* TODO: Override filter to reveal the data */
+}`,
+    hint: "Set the filter property to 'none'."
+  },
+  PYTHON: {
+    title: "Decode Batch Count",
+    desc: "AUDIT's archive indexer returned a corrupted status string. Use Python to fix the status from DEAD to LIVE to confirm the batch count is readable.",
+    startingCode: `status = 'ARCHIVE_DEAD_4247'
+# TODO: Replace 'DEAD' with 'LIVE' and print the result`,
+    hint: "Use .replace('DEAD', 'LIVE') and print()."
+  }
   };
 
   const taskFragments = {
-    HTML: "https://images.unsplash.com/photo-1557591953-97d81a967527?auto=format&fit=crop&q=80&w=800",
-    CSS: "https://images.unsplash.com/photo-1510511459019-5dee99c48fc8?auto=format&fit=crop&q=80&w=800",
-    PYTHON: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800"
+    HTML: "/assets/paper_texture.png",
+    CSS: "/assets/leather_texture.png",
+    PYTHON: "/assets/wood_texture.png"
   };
 
   if (!state) return null;

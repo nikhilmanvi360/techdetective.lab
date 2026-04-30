@@ -8,7 +8,7 @@
     "build": "npm run clean && vite build && tsx scripts/build-server.ts",
     "start": "node dist/server/server.js",
     "db:seed": "tsx database/init.ts",
-    "clean": "rm -rf dist",
+    "clean": "shx rm -rf dist",
     "lint": "tsc --noEmit",
     "postinstall": "shx mkdir -p public/pyodide && shx cp node_modules/pyodide/* public/pyodide/"
   },

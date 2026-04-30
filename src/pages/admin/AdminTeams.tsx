@@ -12,7 +12,7 @@ export default function AdminTeams() {
   const { playSound } = useSound();
 
   useEffect(() => {
-    fetch('/api/admin/teams', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+    fetch('/api/admin/teams', { headers: { 'Authorization': `Bearer ${''}` } })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setTeams(data);
@@ -30,7 +30,7 @@ export default function AdminTeams() {
     playSound('click');
     const res = await fetch(`/api/admin/teams/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
       body: JSON.stringify(editForm)
     });
     if (res.ok) {
@@ -46,7 +46,7 @@ export default function AdminTeams() {
     playSound('click');
     const res = await fetch(`/api/admin/teams/${team.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` },
       body: JSON.stringify({ name: team.name, score: team.score, is_disabled: !team.is_disabled })
     });
     if (res.ok) {
@@ -140,7 +140,7 @@ export default function AdminTeams() {
                       onClick={async () => {
                         const res = await fetch(`/api/admin/r0/bypass/${t.id}`, {
                           method: 'POST',
-                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                          headers: { 'Authorization': `Bearer ${''}` }
                         });
                         if (res.ok) {
                           playSound('success');

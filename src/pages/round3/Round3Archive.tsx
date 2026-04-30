@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Folder, FileText, Search, Database, Lock, CheckCircle, Zap } from 'lucide-react';
+import { Folder, FileText, Search, Database, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 

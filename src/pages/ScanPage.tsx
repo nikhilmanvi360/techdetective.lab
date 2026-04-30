@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Lock, CheckCircle, AlertTriangle, QrCode, Hash, ArrowLeft } from 'lucide-react';
+import { Lock, CheckCircle, AlertTriangle, QrCode, Hash, ArrowLeft } from 'lucide-react';
 
 interface ScanResult {
   status: 'claimed_by_you' | 'already_taken' | 'invalid' | 'round_over' | 'not_started';
@@ -37,7 +37,7 @@ export default function ScanPage() {
   const [revealed, setRevealed] = useState(false);
   const [revealCountdown, setRevealCountdown] = useState(0);
 
-  const token = localStorage.getItem('token');
+  const token = '';
 
   // Auto-claim if code is in URL
   useEffect(() => {

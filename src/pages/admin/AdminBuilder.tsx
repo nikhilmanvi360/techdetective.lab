@@ -12,7 +12,7 @@ export default function AdminBuilder() {
   const [newPuzzle, setNewPuzzle] = useState({ case_id: '', question: '', answer: '', points: 50, hint: '' });
 
   const fetchKeys = () => {
-    fetch('/api/admin/master-key', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+    fetch('/api/admin/master-key', { headers: { 'Authorization': `Bearer ${''}` } })
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setMasterKey(data); });
   };
@@ -22,7 +22,7 @@ export default function AdminBuilder() {
   const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault();
     playSound('click');
-    const res = await fetch('/api/admin/cases', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify(newCase) });
+    const res = await fetch('/api/admin/cases', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` }, body: JSON.stringify(newCase) });
     if (res.ok) { playSound('success'); alert('Case Created'); fetchKeys(); setNewCase({ title: '', description: '', difficulty: 'Easy', correct_attacker: '', points_on_solve: 500 }); }
   };
 
@@ -33,14 +33,14 @@ export default function AdminBuilder() {
     if (newEvidence.metadata) {
       try { metadata = JSON.stringify(JSON.parse(newEvidence.metadata)); } catch { return alert('Invalid JSON in metadata'); }
     }
-    const res = await fetch('/api/admin/evidence', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ ...newEvidence, metadata }) });
+    const res = await fetch('/api/admin/evidence', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` }, body: JSON.stringify({ ...newEvidence, metadata }) });
     if (res.ok) { playSound('success'); alert('Evidence Uploaded'); fetchKeys(); }
   };
 
   const handleCreatePuzzle = async (e: React.FormEvent) => {
     e.preventDefault();
     playSound('click');
-    const res = await fetch('/api/admin/puzzles', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify(newPuzzle) });
+    const res = await fetch('/api/admin/puzzles', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${''}` }, body: JSON.stringify(newPuzzle) });
     if (res.ok) { playSound('success'); alert('Puzzle Created'); fetchKeys(); }
   };
 

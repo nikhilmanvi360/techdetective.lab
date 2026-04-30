@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, Activity, Shield, ChevronLeft, Database, Search, 
@@ -21,7 +21,7 @@ export default function InvestigationBoard() {
   const navigate = useNavigate();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
-  const [team] = useState(() => JSON.parse(localStorage.getItem('team') || '{}'));
+  const { team } = useOutletContext<{ team: any }>();
   const [view, setView] = useState<'PHASES' | 'CASES'>('PHASES');
   const [round, setRound] = useState<string>('LOBBY');
 
@@ -34,7 +34,7 @@ export default function InvestigationBoard() {
     const fetchCases = async () => {
       try {
         const res = await fetch('/api/cases', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 'Authorization': `Bearer ${''}` }
         });
         const data = await res.json();
         setCases(Array.isArray(data) ? data : []);
@@ -48,7 +48,7 @@ export default function InvestigationBoard() {
     const checkRound0 = async () => {
         if (team?.role === 'admin') return;
         const res = await fetch('/api/r0/state', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            headers: { 'Authorization': `Bearer ${''}` }
         });
         const data = await res.json();
         if (!data.completedAt) navigate('/round0');
@@ -73,7 +73,7 @@ export default function InvestigationBoard() {
   return (
     <div className="h-full relative overflow-hidden flex flex-col bg-[#0c0e0b]">
       {/* Immersive Overlays */}
-      <div className="absolute inset-0 z-0 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2000')] bg-cover bg-center opacity-5 grayscale pointer-events-none" />
+      <div className="absolute inset-0 z-0 bg-[url('/assets/cyber_noir_bg.png')] bg-cover bg-center opacity-5 grayscale pointer-events-none" />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-black via-transparent to-black pointer-events-none" />
       <div className="scanline" />
       <div className="crt-vignette" />
@@ -251,7 +251,7 @@ function PhaseCard({ num, title, description, icon, status, onClick, active, loc
 
 import React from 'react';
 
-function CaseCard({ c, i, onClick, isFinalPhase }: any) {
+function CaseCard({ c, _i, onClick, isFinalPhase }: any) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

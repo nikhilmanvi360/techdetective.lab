@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useOutletContext } from 'react-router-dom';
 import {
   FileText, Code, Mail, MessageSquare, Terminal,
   ChevronRight, CheckCircle2, AlertCircle, HelpCircle,
@@ -55,7 +55,7 @@ function HintCooldown({ usedAt, onComplete }: { usedAt: string, onComplete: () =
 export default function CaseDetail() {
   const { id } = useParams();
   const [caseData, setCaseData] = useState<Case & { evidence: Evidence[], puzzles: Puzzle[], hintsUsedInCase?: number, maxHints?: number } | null>(null);
-  const team = JSON.parse(localStorage.getItem('team') || '{}');
+  const { team } = useOutletContext<{ team: any }>();
   const [loading, setLoading] = useState(true);
   const [puzzleAnswers, setPuzzleAnswers] = useState<Record<number, string>>({});
   const [puzzleFeedback, setPuzzleFeedback] = useState<Record<number, { success: boolean, message: string, firstBloodBonus?: number, points?: number }>>({});
@@ -91,7 +91,7 @@ export default function CaseDetail() {
 
   const fetchCase = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+      const headers = { 'Authorization': `Bearer ${''}` };
       const [caseRes, stateRes] = await Promise.all([
         fetch(`/api/cases/${id}`, { headers }),
         fetch(`/api/cases/${id}/state`, { headers })
@@ -126,7 +126,7 @@ export default function CaseDetail() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${''}`
         },
         body: JSON.stringify({ answer }),
       });
@@ -167,7 +167,7 @@ export default function CaseDetail() {
     try {
       const response = await fetch(`/api/puzzles/${puzzleId}/hint`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${''}` }
       });
       const data = await response.json();
       if (data.success) {
@@ -192,7 +192,7 @@ export default function CaseDetail() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${''}`
         },
         body: JSON.stringify(submission),
       });

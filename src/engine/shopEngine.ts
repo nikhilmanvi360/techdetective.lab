@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { appendEvent } from './eventStore';
 import { manualTrigger } from './adversary';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -51,38 +50,32 @@ export async function processPurchase(
  const item = SHOP_ITEMS.find(i => i.id === itemId);
  if (!item) return { success: false, message: 'Item not found' };
 
-  // 1. Check current team score (Source of truth: event log)
-  const { recomputeTeamScore } = await import('./eventStore');
-  const currentScore = await recomputeTeamScore(teamId);
-  
   const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single();
-
   if (!team) return { success: false, message: 'Team not found' };
-  if (currentScore < item.cost) return { success: false, message: 'Insufficient XP balance' };
 
- // 2. Process special item logic
- if (itemId === 'emp_jammer') {
- if (!metadata.targetTeamId) return { success: false, message: 'Target team required' };
- 
- await manualTrigger(
- io, 
- metadata.targetTeamId, 
- 'signal_interference', `⚡ EMP Strike initiated by team"${team.name}"!`
- );
- }
+  // Call the atomic RPC
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('purchase_item_v2', {
+    p_team_id: teamId,
+    p_cost: item.cost,
+    p_item_type: itemId, // Pass the string ID as item_type
+    p_item_id: 0,        // Pass 0 for item_id since our IDs are strings
+    p_case_id: 0
+  });
 
- // 3. Log the purchase as a negative score event
- await appendEvent({
- teamId,
- eventType: 'shop_purchase',
- basePoints: -item.cost,
- metadata: {
- item_id: itemId,
- item_name: item.name,
- consumed: itemId === 'data_shield' ? false : undefined,
- ...metadata
- }
- });
+  if (rpcError || !rpcResult?.success) {
+     return { success: false, message: rpcResult?.error || 'Insufficient XP balance or transactional error' };
+  }
+
+  // 2. Process special item logic
+  if (itemId === 'emp_jammer') {
+    if (!metadata.targetTeamId) return { success: false, message: 'Target team required' };
+    
+    await manualTrigger(
+      io, 
+      metadata.targetTeamId, 
+      'signal_interference', `⚡ EMP Strike initiated by team "${team.name}"!`
+    );
+  }
 
  // 4. Global broadcast for spectacle
  io.emit('live_event', {

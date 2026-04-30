@@ -108,7 +108,7 @@ export class GameStateManager {
     }
   }
 
-  static async handleEdgeCases(roomCode: string) {
+  static async handleEdgeCases(_roomCode: string) {
      // Handle player disconnects or room timeouts here
   }
 }

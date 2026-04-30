@@ -1,58 +1,44 @@
-# How to Play Tech Detective: The Rehearsal
+# How to Play: Operation The Rehearsal
 
-Welcome, Detective! You have been granted access to the Cyber Crimes Unit (CCU) Digital Crime Lab terminal. Your mission is to investigate a sophisticated breach at Meridian Bank.
-
-Here is your comprehensive guide on how to navigate the platform and solve the case.
+Welcome, Detective. You have been granted secure access to AUDIT, the Meridian Bank compliance AI. Your mission is to investigate a series of anomalies flagged during a recent security audit conducted by consultant Karan Sehgal.
 
 ---
 
-## The 4-Phase Investigation
+## The Investigation Roadmap
 
-Your investigation of the Meridian Bank anomaly is broken into four distinct phases.
+The operation is conducted across three primary phases. Your goal is to move from suspicion to absolute proof.
 
-### Round 0: The Briefing
-- **Objective:** Familiarize yourself with the basic forensic tools.
-- **Mechanics:** You will be tasked with three coding challenges to parse raw data (Audit Tables, Video Feeds, Server Logs). 
-- **Q&A Interrogation:** You will also interrogate the prime suspect, Consultant Karan Sehgal, using an interactive terminal. Ask the right questions to unlock crucial context.
+### Round 1: The Archive (Log Analysis)
+*   **The Situation:** Karan Sehgal submitted a clean 47-page report after his 6-week pen-test. AUDIT has flagged a discrepancy between his report and the raw simulation logs.
+*   **Your Task:** Use the split-pane document viewer to cross-reference the official report with the raw archive.
+*   **Mechanics:** Identify the anomalous simulation category that doesn't match the reported tests. Use Evidence Codes (e.g., `EV-01`) found in the records to query the database.
 
-### Round 1: The Logs
-- **Objective:** Cross-reference the official Pen-Test Report with the hidden Server Logs.
-- **Mechanics:** Using the split-pane document viewer, read through Sehgal's official report on the left. On the right, query the AUDIT Archive using Evidence Codes (e.g., `EV-01`) found in the text to uncover discrepancies.
-- **Submission:** Submit the code of the critical discrepancy that proves Sehgal was running unauthorized simulations.
+### Round 2: The Campus (Physical & Digital Footprints)
+*   **The Situation:** Retrace Sehgal's steps across the Meridian Bank floors: Lobby, Compliance Archive, Server Room, and the AUDIT Core.
+*   **Your Task:** Talk to NPCs, fix corrupted terminal nodes using Python and CSS, and collect clues.
+*   **Mechanics:** Use your inventory and the synthesis system to combine evidence. You must unlock the final firewall in the AUDIT Core to find the hidden file: `batch_087/run_31`.
 
-### Round 2: The Map
-- **Objective:** Trace the suspect's physical and digital footprints across the Meridian Bank campus.
-- **Mechanics:** Navigate the top-down RPG map of the Bank Lobby, Compliance Archive, Server Room, and AUDIT Core. Talk to NPCs, fix broken terminal nodes, and synthesize clues.
-- **Synthesis:** Combine three specific clues to unlock the final firewall.
-
-### Round 3: The Archive
-- **Objective:** Locate the exact simulation file that proves the heist rehearsal.
-- **Mechanics:** Navigate a 89-folder deep Compliance Data Lake. Use the Python logic clue you found in Round 2 to determine which batch and run file holds the `LIVE_RUN_PARAMS`.
-
-### Round 4: The Verdict
-- **Objective:** Finalize your case file and trigger the system counter-strike.
-- **Mechanics:** 
-  - **Phase A:** Reconstruct the timeline by slotting 5 key pieces of evidence in the correct chronological order.
-  - **Phase B:** Fill out the final dossier (Culprit, Purpose, Action) to officially file the report.
-  - **Phase C:** Execute the final neutralization strike using the extraction key you uncovered.
+### Round 3: The Verdict (The Case Filing)
+*   **The Situation:** You have the raw data. Now you must build the case for the Meridian Bank Board and Law Enforcement.
+*   **Your Task:**
+    1.  **Reconstruct the Timeline:** Arrange 5 key evidence cards in the exact order that proves intent.
+    2.  **File the Dossier:** Identify the suspect, their true purpose, and the required urgency.
+    3.  **Final Authorization:** Enter the AUDIT override code to transmit the evidence package.
 
 ---
 
-## The High-Stakes Shift
+## Tools of the Trade
 
-As you enter the final phases of the investigation, the nature of the mission changes.
-
-1. **Points are No Longer the Point:** In Round 4, the leaderboard disappears. You are no longer competing for XP; you are fighting for the integrity of the Meridian Bank system. Your focus must shift from speed to absolute forensic precision.
-2. **Real-Time Consequences:** Your actions in the final verdict have irreversible consequences on the narrative outcome. Consult with your team carefully before filing the dossier.
-3. **The Oracle:** If you find yourself lost in the deep archives, the Admin Bureau maintains a Master Manifest of all known intelligence. Your instructors can guide you using this "System Oracle".
-
----
+1.  **AUDIT AI:** Your primary interface. Pay attention to its messages—it knows more than it's allowed to say directly.
+2.  **The Terminal:** Standard syntax applies. Use `help` or check the `context` hints provided in the HUD.
+3.  **Evidence Synthesis:** Some clues only make sense when combined. Use the board to find patterns.
 
 ## General Rules
 
-1. **Collaboration:** Work closely with your team. Divide and conquer the evidence analysis.
-2. **Precision:** When entering passwords or commands in terminals, syntax matters.
-3. **Patience:** Not all evidence is immediately obvious. Read the flavor text, check HTML comments, and think like a hacker.
-4. **Narrative Integrity:** This is a story-driven experience. Respect the immersion and focus on the "why" behind the crime, not just the "what".
+1.  **Precision Over Speed:** In the final round, accuracy is paramount. One wrong slot in the timeline can compromise the legal case.
+2.  **Narrative Focus:** This is a story of a robbery disguised as a rehearsal. Look for intent, not just errors.
+3.  **Collaboration:** Share codes and clue locations with your team.
 
-Good luck, Detective. The network is depending on you.
+Good luck. He spent six weeks mapping this building. You have less than an hour to stop him.
+
+— AUDIT / SECURE_LINK_ACTIVE

@@ -45,7 +45,7 @@ export function useAdversary() {
  // Fetch active adversary actions on mount
  const fetchActions = useCallback(async () => {
  try {
- const token = localStorage.getItem('token');
+ const token = '';
  if (!token) return;
  
  const res = await fetch('/api/team/adversary-status', {
@@ -118,7 +118,7 @@ export function useAdversary() {
 
  const resolveAction = useCallback(async (actionId: number) => {
  try {
- const token = localStorage.getItem('token');
+ const token = '';
  const res = await fetch(`/api/team/resolve-action/${actionId}`, {
  method: 'POST',
  headers: { 'Authorization': `Bearer ${token}` }

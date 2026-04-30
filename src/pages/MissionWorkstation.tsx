@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 import { Activity, Trophy, ArrowLeft, Terminal } from 'lucide-react';
@@ -39,9 +39,7 @@ export default function MissionWorkstation() {
     setFiles 
   } = useMissionFiles([]);
 
-  const team = useMemo(() => { 
-    try { return JSON.parse(localStorage.getItem('team') || '{}'); } catch { return {}; } 
-  }, []);
+  const { team } = useOutletContext<{ team: any }>();
 
   useEffect(() => {
     const s = io(window.location.origin);
@@ -69,7 +67,7 @@ export default function MissionWorkstation() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/cases/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+    fetch(`/api/cases/${id}`, { headers: { Authorization: `Bearer ${''}` } })
       .then(r => r.json())
       .then(data => {
         if (data.id) {
@@ -96,7 +94,7 @@ export default function MissionWorkstation() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${''}`,
         },
         body: JSON.stringify({ 
           code: activeFile?.content || '',
@@ -130,7 +128,7 @@ export default function MissionWorkstation() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${''}`,
         },
         body: JSON.stringify({ 
           code: activeFile?.content || '',
@@ -154,7 +152,7 @@ export default function MissionWorkstation() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${''}`,
         },
         body: JSON.stringify({ 
           code: activeFile?.content || '', 

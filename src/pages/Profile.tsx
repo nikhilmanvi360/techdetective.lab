@@ -48,7 +48,7 @@ export default function Profile() {
       setRound(data.currentState);
     });
 
-    const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+    const headers = { 'Authorization': `Bearer ${''}` };
     Promise.all([
       fetch('/api/team/profile', { headers }).then(r => r.json()),
       fetch('/api/team/timeline', { headers }).then(r => r.ok ? r.json() : []),
