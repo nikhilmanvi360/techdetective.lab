@@ -58,6 +58,29 @@ export class Round3Manager {
     Round3Manager.saveState();
   }
 
+  static getMajoritySuspect(correctSuspect: string) {
+    const counts: Record<string, number> = {};
+    state.phaseBSubmissions.forEach(sub => {
+      const s = sub.suspect;
+      if (s) counts[s] = (counts[s] || 0) + 1;
+    });
+
+    let majority = correctSuspect;
+    let max = 0;
+    Object.entries(counts).forEach(([s, count]) => {
+      if (count > max) {
+        max = count;
+        majority = s;
+      }
+    });
+
+    return {
+      majority,
+      counts,
+      isCorrect: majority === correctSuspect
+    };
+  }
+
   static async saveState() {
     try {
       const { supabase } = await import('../lib/supabase');

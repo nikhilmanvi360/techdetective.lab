@@ -32,67 +32,96 @@ export interface EventInput {
  * Append a score event, check for active multipliers, compute final points,
  * and recompute the team's total score.
  */
+const teamLocks = new Set<number>();
+
 export async function appendEvent({ teamId, eventType, basePoints, metadata = {} }: EventInput): Promise<{ finalPoints: number; multiplierApplied: number | null }> {
- // Check for active multipliers that apply to this event type
- const now = new Date().toISOString();
- const { data: multipliers } = await supabase
- .from('score_multipliers')
- .select('*')
- .lte('starts_at', now)
- .gte('ends_at', now);
+  // Prevent concurrent recomputations for the same team on this instance
+  while (teamLocks.has(teamId)) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  teamLocks.add(teamId);
 
- let multiplierApplied: number | null = null;
- let finalPoints = basePoints;
+  try {
+    // Integrity check: prevent duplicate first_blood or case_solve for the same target
+    if (eventType === 'first_blood' || eventType === 'case_solve') {
+      const targetId = metadata.case_id || metadata.puzzle_id;
+      const { data: existing } = await supabase
+        .from('score_events')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('event_type', eventType)
+        .filter(metadata.case_id ? 'metadata->>case_id' : 'metadata->>puzzle_id', 'eq', targetId)
+        .limit(1)
+        .single();
+      
+      if (existing) {
+        return { finalPoints: 0, multiplierApplied: null };
+      }
+    }
 
- if (multipliers && multipliers.length > 0) {
- for (const m of multipliers) {
- // Check if this multiplier applies to this event type
- if (m.event_types && m.event_types.includes(eventType)) {
- finalPoints = Math.floor(basePoints * parseFloat(m.multiplier));
- multiplierApplied = parseFloat(m.multiplier);
- break; // Only apply the first matching multiplier
- }
- }
- }
+    // Check for active multipliers that apply to this event type
+    const now = new Date().toISOString();
+    const { data: multipliers } = await supabase
+      .from('score_multipliers')
+      .select('*')
+      .lte('starts_at', now)
+      .gte('ends_at', now);
 
- // Score Integrity Hashes (#4)
- const { data: lastEvent } = await supabase
- .from('score_events')
- .select('event_hash')
- .order('id', { ascending: false })
- .limit(1)
- .single();
- 
- const prev_hash = lastEvent?.event_hash || 'genesis';
- const event_hash = crypto.createHash('sha256')
- .update(`${prev_hash}|${teamId}|${eventType}|${finalPoints}|${now}`)
- .digest('hex');
+    let multiplierApplied: number | null = null;
+    let finalPoints = basePoints;
 
- // Insert the event
- await supabase.from('score_events').insert([{
- team_id: teamId,
- event_type: eventType,
- points: finalPoints,
- prev_hash,
- event_hash,
- metadata: {
- ...metadata,
- base_points: basePoints,
- multiplier: multiplierApplied,
- }
- }]);
+    if (multipliers && multipliers.length > 0) {
+      for (const m of multipliers) {
+        // Check if this multiplier applies to this event type
+        if (m.event_types && m.event_types.includes(eventType)) {
+          finalPoints = Math.floor(basePoints * parseFloat(m.multiplier));
+          multiplierApplied = parseFloat(m.multiplier);
+          break; // Only apply the first matching multiplier
+        }
+      }
+    }
 
- // Webhooks (#8)
- if (eventType === 'first_blood') {
- fireWebhook('FIRST BLOOD', `Team ${teamId} just claimed first blood on ${metadata.case_id ? `Case ${metadata.case_id}` : `Puzzle ${metadata.puzzle_id}`}!`);
- } else if (eventType === 'case_solve') {
- fireWebhook('CASE SOLVED', `Team ${teamId} solved Case ${metadata.case_id}!`);
- }
+    // Score Integrity Hashes (#4)
+    const { data: lastEvent } = await supabase
+      .from('score_events')
+      .select('event_hash')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+    
+    const prev_hash = lastEvent?.event_hash || 'genesis';
+    const event_hash = crypto.createHash('sha256')
+      .update(`${prev_hash}|${teamId}|${eventType}|${finalPoints}|${now}`)
+      .digest('hex');
 
- // Recompute team score from all events
- await recomputeTeamScore(teamId);
+    // Insert the event
+    await supabase.from('score_events').insert([{
+      team_id: teamId,
+      event_type: eventType,
+      points: finalPoints,
+      prev_hash,
+      event_hash,
+      metadata: {
+        ...metadata,
+        base_points: basePoints,
+        multiplier: multiplierApplied,
+      }
+    }]);
 
- return { finalPoints, multiplierApplied };
+    // Webhooks (#8)
+    if (eventType === 'first_blood') {
+      fireWebhook('FIRST BLOOD', `Team ${teamId} just claimed first blood on ${metadata.case_id ? `Case ${metadata.case_id}` : `Puzzle ${metadata.puzzle_id}`}!`);
+    } else if (eventType === 'case_solve') {
+      fireWebhook('CASE SOLVED', `Team ${teamId} solved Case ${metadata.case_id}!`);
+    }
+
+    // Recompute team score from all events
+    await recomputeTeamScore(teamId);
+
+    return { finalPoints, multiplierApplied };
+  } finally {
+    teamLocks.delete(teamId);
+  }
 }
 
 /**

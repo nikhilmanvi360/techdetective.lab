@@ -11,14 +11,13 @@ export async function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export function directionRow(direction: string): number {
-  return (
-    {
-      down: 0,
-      left: 1,
-      right: 2,
-      up: 3,
-    }[direction as any] ?? 0
-  );
+  const mapping: Record<string, number> = {
+    down: 0,
+    left: 1,
+    right: 2,
+    up: 3,
+  };
+  return mapping[direction] ?? 0;
 }
 
 export interface SpriteAnimatorOptions {

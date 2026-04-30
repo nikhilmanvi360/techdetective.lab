@@ -32,27 +32,32 @@ export default function App() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedTeam = localStorage.getItem('team');
-        const token = localStorage.getItem('token');
-        if (storedTeam && token) {
-            setTeam(JSON.parse(storedTeam));
-        }
-        setLoading(false);
+        const verifySession = async () => {
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    setTeam(data.team);
+                } else {
+                    localStorage.removeItem('team');
+                    localStorage.removeItem('token');
+                    setTeam(null);
+                }
+            } catch (e) {
+                console.error('Session verification failed');
+            } finally {
+                setLoading(false);
+            }
+        };
+        verifySession();
     }, []);
 
-    const handleLogin = (teamData: Team, token: string) => {
-        let roleFromToken = 'detective';
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            roleFromToken = payload.role || 'detective';
-        } catch (e) { /* ignore */ }
-        const teamWithRole = { ...teamData, role: roleFromToken };
-        localStorage.setItem('team', JSON.stringify(teamWithRole));
-        localStorage.setItem('token', token);
-        setTeam(teamWithRole);
+    const handleLogin = (teamData: Team) => {
+        setTeam(teamData);
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
         localStorage.removeItem('team');
         localStorage.removeItem('token');
         setTeam(null);
@@ -95,7 +100,7 @@ export default function App() {
                  </Route>
 
                 {/* ── Admin Routes (use their own layout) ── */}
-                <Route path="/admin" element={team?.role === 'admin' || team?.name === 'CCU_ADMIN'
+                <Route path="/admin" element={team?.role === 'admin'
                     ? <AdminLayout team={team} onLogout={handleLogout} />
                     : <Navigate to="/" />
                 }>

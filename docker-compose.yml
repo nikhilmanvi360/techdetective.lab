@@ -17,17 +17,6 @@ services:
       - detective-net
 
 
-  worker:
-    build: ./worker
-    image: tech-detective-worker
-    container_name: detective-worker
-    environment:
-      - REDIS_URL=redis://detective-redis:6379
-    depends_on:
-      - redis
-    networks:
-      - detective-net
-
   redis:
     image: redis:alpine
     container_name: detective-redis

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { supabase } from './src/lib/supabase';
@@ -11,40 +12,32 @@ import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { isFuzzyMatch } from './src/utils/fuzzyMatch';
 
-// Handle global crashes
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL] Uncaught Exception:', err);
-});
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Engine imports
 import * as eventStore from './src/engine/eventStore';
 import * as caseEngine from './src/engine/caseEngine';
 import * as adversary from './src/engine/adversary';
 import * as shopEngine from './src/engine/shopEngine';
-import { codeExecutionQueue } from './src/lib/queue';
-import { GameStateManager, GameState } from './src/engine/gameStateManager';
+import { codeExecutionQueue, codeExecutionEvents } from './src/lib/queue';
+import { GameStateManager } from './src/engine/gameStateManager';
 import { CaseLoader } from './src/engine/caseLoader';
 import { round0Manager } from './src/engine/round0Manager';
 import { Round3Manager } from './src/engine/round3Manager';
 
 const ROOT_DIR = process.cwd();
-const JWT_SECRET = process.env.JWT_SECRET || 'tech-detective-secret-key';
-if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'tech-detective-secret-key') {
-  console.error('[FATAL] JWT_SECRET must be set in production!');
-  process.exit(1);
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET is not defined in environment variables!');
+  if (process.env.NODE_ENV === 'production') process.exit(1);
 }
+const ACTUAL_SECRET = JWT_SECRET || 'dev-only-unsafe-fallback-random-' + Math.random();
 const isTest = process.env.NODE_ENV === 'test';
 
 // =========================================================
 // Rate limiters
 // =========================================================
 const loginLimiter = rateLimit({
-  windowMs: 5 * 1000,
-  max: isTest ? 100 : 10,
-  message: { error: 'Security lockout active. Please wait 5 seconds before retrying.' },
+  windowMs: 60 * 1000,
+  max: isTest ? 100 : 5,
+  message: { error: 'Security lockout active. Please wait 60 seconds before retrying.' },
   validate: false
 });
 
@@ -52,7 +45,6 @@ const submissionLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: isTest ? 20 : 10,
   keyGenerator: (req: any) => {
-    // Custom key gen: use user ID if authenticated, else IP
     return req.user?.id ? `user_${req.user.id}` : req.ip;
   },
   message: { error: 'Submission rate limit exceeded. Slow down, detective.' },
@@ -63,8 +55,6 @@ const submissionLimiter = rateLimit({
 // Global Memory State for Admin Overrides
 // =========================================================
 export const teamTokenVersions = new Map<number, number>();
-// In-memory fallback for investigation rooms if DB table is missing
-const memoryRooms = new Map<string, any>();
 const campaignStateMemory = new Map<number, any>();
 
 // =========================================================
@@ -72,14 +62,16 @@ const campaignStateMemory = new Map<number, any>();
 // =========================================================
 export const app = express();
 const server = http.createServer(app);
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true;
+
 export const io = new SocketIOServer(server, {
-  cors: { origin: '*' },
-  transports: ['websocket', 'polling'], // polling fallback for Render
+  cors: { origin: allowedOrigins, credentials: true },
+  transports: ['websocket', 'polling'],
 });
 GameStateManager.setIo(io);
 
 // Global Error Handler
-app.use((err: any, req: any, res: any, next: any) => {
+app.use((err: any, _req: any, res: any, _next: any) => {
   console.error('[EXPRESS ERROR]', err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
@@ -98,18 +90,20 @@ const emitLiveEvent = (message: string, type: 'solve' | 'badge' | 'case' = 'solv
 // Auth Middleware
 // =========================================================
 const authenticateToken = (req: any, res: any, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.cookies?.tech_detective_token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
+  
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  
+  const secret: string = ACTUAL_SECRET;
+  jwt.verify(token, secret, (err: any, user: any) => {
     if (err) {
       const status = err.name === 'TokenExpiredError' ? 401 : 403;
       const message = err.name === 'TokenExpiredError' ? 'Session expired. Please log in again.' : 'Forbidden';
       return res.status(status).json({ error: message });
     }
-    // Kill Switch: verify token version is still valid
     const min_version = teamTokenVersions.get(user.id) || 1;
     if ((user.tokenVersion || 1) < min_version) {
+      res.clearCookie('tech_detective_token');
       return res.status(401).json({ error: 'Session invalidated by administrator. Please log in again.' });
     }
 
@@ -127,20 +121,34 @@ const requireAdmin = (req: any, res: any, next: any) => {
 // Main Server Bootstrap
 // =========================================================
 async function startServer() {
-  app.use(cors());
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [true];
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
-
-  // Load token versions for Kill Switch (#6)
-  const { data: teams } = await supabase.from('teams').select('id, token_version');
-  if (teams) {
-    teams.forEach(t => teamTokenVersions.set(t.id, t.token_version || 1));
-  }
+  app.use(cookieParser());
 
   // -------------------------------------------------------
-  // SOCKET.IO: Multi-Room Management
+  // SOCKET.IO Auth Middleware
   // -------------------------------------------------------
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.cookie?.split('tech_detective_token=')[1]?.split(';')[0];
+    if (!token) return next(new Error('Authentication error'));
+    jwt.verify(token, ACTUAL_SECRET, (err: any, user: any) => {
+      if (err) return next(new Error('Authentication error'));
+      (socket as any).user = user;
+      next();
+    });
+  });
+
   io.on('connection', (socket) => {
-    // Other socket connections if any
+    // Only join team room if authenticated
+    const user = (socket as any).user;
+    if (user) {
+      socket.join(`team_${user.id}`);
+      if (user.role === 'admin') socket.join('admin_room');
+      
+      // Emit current round to the user
+      socket.emit('game_state_update', { currentState: 'ROUND_1' });
+    }
   });
 
   // =========================================================
@@ -148,11 +156,11 @@ async function startServer() {
   // =========================================================
   const publicRouter = express.Router();
 
-  publicRouter.get('/health', (req, res) => res.json({ status: 'UP', timestamp: new Date().toISOString() }));
+  publicRouter.get('/health', (_req, res) => res.json({ status: 'UP', timestamp: new Date().toISOString() }));
 
 
 
-  publicRouter.get('/cases', async (req, res) => {
+  publicRouter.get('/cases', async (_req, res) => {
     try {
       const { data: dbCases } = await supabase.from('cases').select('*').eq('status', 'active');
       const jsonCases = await CaseLoader.listAllCases();
@@ -215,39 +223,64 @@ async function startServer() {
   publicRouter.post('/auth/login', loginLimiter, async (req: any, res: any) => {
     const { teamName, password } = req.body;
     if (!teamName || !password) return res.status(400).json({ error: 'Team name and password are required' });
-    let assignedRole = 'detective';
-    if (teamName === 'CCU_ADMIN') assignedRole = 'admin';
-    else if (teamName.toUpperCase().endsWith('_ANALYST')) assignedRole = 'analyst';
-    else if (teamName.toUpperCase().endsWith('_HACKER')) assignedRole = 'hacker';
 
     try {
       const { data: team, error: fetchError } = await supabase
         .from('teams').select('*').eq('name', teamName).single();
 
       if (fetchError || !team) {
-        // Auto-register new team
+        // Auto-registration check
+        if (process.env.ALLOW_REGISTRATION !== 'true') {
+          return res.status(401).json({ error: 'Team not found. Registration is currently closed.' });
+        }
+
+        // Auto-register new team (DETECTIVE ONLY)
         const hashedPassword = bcrypt.hashSync(password, 10);
         const { data: newTeam, error: insertError } = await supabase
-          .from('teams').insert([{ name: teamName, password: hashedPassword, token_version: 1 }]).select().single();
+          .from('teams').insert([{ name: teamName, password: hashedPassword, token_version: 1, role: 'detective' }]).select().single();
         if (insertError) return res.status(500).json({ error: 'Failed to create team. Check DB connection.' });
+        
         emitLiveEvent(`New team registered: ${teamName}`, 'badge');
-        const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: assignedRole, tokenVersion: 1 }, JWT_SECRET, { expiresIn: '48h' });
-        return res.json({ token, team: { id: newTeam.id, name: newTeam.name, score: newTeam.score || 0, role: assignedRole } });
+        const token = jwt.sign({ id: newTeam.id, name: newTeam.name, role: 'detective', tokenVersion: 1 }, ACTUAL_SECRET, { expiresIn: '48h' });
+        
+        res.cookie('tech_detective_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 48 * 60 * 60 * 1000
+        });
+
+        return res.json({ team: { id: newTeam.id, name: newTeam.name, score: newTeam.score || 0, role: 'detective' } });
       }
 
       if (team.is_disabled) return res.status(403).json({ error: 'Account disabled by administrator' });
       if (!bcrypt.compareSync(password, team.password)) return res.status(401).json({ error: 'Invalid password' });
 
-      // Load correct token version
+      // Use role from DB if it exists, otherwise fallback to detective
+      // BOOTSTRAP: Always grant admin role to CCU_ADMIN
+      const currentRole = team.name === 'CCU_ADMIN' ? 'admin' : (team.role || 'detective');
       const currentTokenVersion = team.token_version || 1;
       teamTokenVersions.set(team.id, currentTokenVersion);
 
-      const token = jwt.sign({ id: team.id, name: team.name, role: assignedRole, tokenVersion: currentTokenVersion }, JWT_SECRET, { expiresIn: '48h' });
-      res.json({ token, team: { id: team.id, name: team.name, score: team.score || 0, is_disabled: !!team.is_disabled, role: assignedRole } });
+      const token = jwt.sign({ id: team.id, name: team.name, role: currentRole, tokenVersion: currentTokenVersion }, ACTUAL_SECRET, { expiresIn: '48h' });
+      
+      res.cookie('tech_detective_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 48 * 60 * 60 * 1000
+      });
+
+      res.json({ team: { id: team.id, name: team.name, score: team.score || 0, is_disabled: !!team.is_disabled, role: currentRole } });
     } catch (err: any) {
       console.error('[AUTH] Login error:', err.message);
       res.status(500).json({ error: 'Internal server error.' });
     }
+  });
+
+  publicRouter.post('/auth/logout', (_req, res) => {
+    res.clearCookie('tech_detective_token');
+    res.json({ success: true });
   });
 
   app.use('/api', publicRouter);
@@ -257,9 +290,13 @@ async function startServer() {
   // =========================================================
   const protectedRouter = express.Router();
   protectedRouter.use(authenticateToken);
-  protectedRouter.use((req, res, next) => {
+  protectedRouter.use((req, _res, next) => {
     console.log(`[API] ${req.method} ${req.path}`);
     next();
+  });
+
+  protectedRouter.get('/auth/me', (req: any, res: any) => {
+    res.json({ team: req.user });
   });
 
   // --- Coding Sandbox (NEW) ---
@@ -301,14 +338,14 @@ async function startServer() {
       // For this implementation, we monitor the job and emit via Socket.io when done.
       const waitForResult = async () => {
         try {
-          const result = await job.waitUntilFinished(undefined, 30000); // 30s timeout
-          io.emit('execution_complete', {
+          const result = await job.waitUntilFinished(codeExecutionEvents, 30000); // 30s timeout
+          io.to(`team_${req.user.id}`).emit('execution_complete', {
             teamId: req.user.id,
             jobId: job.id,
             result,
           });
         } catch (err: any) {
-          io.emit('execution_failed', {
+          io.to(`team_${req.user.id}`).emit('execution_failed', {
             teamId: req.user.id,
             jobId: job.id,
             error: err.message,
@@ -381,7 +418,17 @@ async function startServer() {
       }
 
       let pointsAwarded = 0;
+      let firstBloodBonus = 0;
       if (isCorrect) {
+        // ATOMIC CHECK: verify if someone else got first blood while we were processing
+        const { count: existingFB } = await supabase.from('score_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_type', 'first_blood')
+          .filter('metadata->>case_id', 'eq', id);
+        
+        const count = existingFB || 0;
+        const fbBonus = count === 0 ? 50 : count === 1 ? 25 : count === 2 ? 10 : 0;
+
         const solveResult = await eventStore.appendEvent({
           teamId: req.user.id, eventType: 'case_solve',
           basePoints: isDb ? missionData.points_on_solve : missionData.points,
@@ -389,6 +436,15 @@ async function startServer() {
         });
         pointsAwarded = solveResult.finalPoints;
         emitLiveEvent(`${req.user.name} cracked Mission #${id}: ${missionData.title}!`, 'case');
+        
+        if (fbBonus > 0) {
+          const fbResult = await eventStore.appendEvent({
+            teamId: req.user.id, eventType: 'first_blood',
+            basePoints: fbBonus, metadata: { case_id: id, position: count + 1 }
+          });
+          firstBloodBonus = fbResult.finalPoints;
+          pointsAwarded += firstBloodBonus;
+        }
       }
 
       res.json({
@@ -628,22 +684,7 @@ async function startServer() {
     }
   });
 
-  protectedRouter.post('/r0/submit', async (req: any, res: any) => {
-    const { task } = req.body;
-    try {
-      const { data: current } = await supabase.from('case_team_state').select('state').eq('case_id', 0).eq('team_id', req.user.id).single();
-      const newState = current?.state || { HTML: false, CSS: false, PYTHON: false };
-      newState[task] = true;
-      
-      await supabase.from('case_team_state').upsert({
-        case_id: 0, team_id: req.user.id, state: newState
-      }, { onConflict: 'case_id,team_id' });
-      
-      res.json({ success: true, state: newState });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to update briefing state' });
-    }
-  });
+  // Note: /r0/submit is defined later in the file near Round 0 Weaver section.
 
   // --- Round 1 / The Logs ---
   protectedRouter.get('/r1/state', async (req: any, res: any) => {
@@ -760,13 +801,15 @@ async function startServer() {
     const { data: item, error } = await supabase.from('evidence').select('*').eq('id', req.params.id).single();
     if (error || !item) return res.status(404).json({ error: 'Evidence not found' });
 
-    if (item.required_puzzle_id) {
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && item.required_puzzle_id) {
       const { data: solve } = await supabase.from('solved_puzzles').select('1')
         .eq('team_id', req.user.id).eq('puzzle_id', item.required_puzzle_id).single();
       if (!solve) return res.status(403).json({ error: 'Evidence is locked. Solve the required puzzle first.' });
     }
 
-    if (item.unlock_at && new Date(item.unlock_at).getTime() > new Date().getTime()) {
+    if (!isAdmin && item.unlock_at && new Date(item.unlock_at).getTime() > new Date().getTime()) {
       return res.status(403).json({ error: 'Evidence is time-locked by the administrator.' });
     }
 
@@ -786,10 +829,12 @@ async function startServer() {
     const { data: puzzle, error: puzzleError } = await supabase.from('puzzles').select('*').eq('id', req.params.id).single();
     if (puzzleError || !puzzle) return res.status(404).json({ error: 'Puzzle not found' });
 
-    if (puzzle.depends_on_puzzle_id) {
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && puzzle.depends_on_puzzle_id) {
       const { data: solve } = await supabase.from('solved_puzzles').select('1')
         .eq('team_id', req.user.id).eq('puzzle_id', puzzle.depends_on_puzzle_id).single();
-      if (!solve && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN') return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
+      if (!solve) return res.status(403).json({ success: false, message: 'Dependency locked. Solve the required puzzle first.' });
     }
 
     const caseState = await caseEngine.getCaseState(puzzle.case_id, req.user.id);
@@ -801,8 +846,8 @@ async function startServer() {
       });
     }
 
-    // Fuzzy Match Validation (#2)
-    const isCorrect = isFuzzyMatch(answer || '', puzzle.answer || '');
+    // Fuzzy Match Validation (#2) - Admin Bypass
+    const isCorrect = isAdmin || isFuzzyMatch(answer || '', puzzle.answer || '');
     await supabase.from('puzzle_attempts').insert([{ team_id: req.user.id, puzzle_id: puzzle.id, is_correct: isCorrect }]);
 
     const engineResult = await caseEngine.evaluatePostAttempt(puzzle.case_id, req.user.id, puzzle.id, isCorrect);
@@ -911,25 +956,36 @@ async function startServer() {
     res.json(result);
   });
 
-  // --- Round 0: The UI Weaver (NEW) ---
-  protectedRouter.get('/r0/state', (req: any, res: any) => {
-    res.json(round0Manager.getTeamState(req.user.id));
-  });
-
-  protectedRouter.post('/r0/submit', (req: any, res: any) => {
+  // --- Round 0: The UI Weaver (Merged & Validated) ---
+  protectedRouter.post('/r0/submit', async (req: any, res: any) => {
     const { task, answer } = req.body;
     let success = false;
     
-    // Simple validation for prototype
+    // 1. Validate Answer
     if (task === 'HTML' && answer.includes('<table') && answer.includes('</table>')) success = true;
-    if (task === 'CSS' && answer.includes('filter: none') || answer.includes('opacity: 1')) success = true;
+    if (task === 'CSS' && (answer.includes('filter: none') || answer.includes('opacity: 1'))) success = true;
     if (task === 'PYTHON' && (answer.includes('91.4') || answer.includes('91'))) success = true;
 
-    if (success) {
-      const state = round0Manager.completeTask(req.user.id, task);
-      return res.json({ success: true, state });
+    const isAdmin = req.user.role === 'admin';
+
+    if (!success && !isAdmin) {
+      return res.status(400).json({ success: false, message: 'Heuristic check failed. Refine your reconstruction.' });
     }
-    res.status(400).json({ success: false, message: 'Code validation failed.' });
+
+    // 2. Persist State in DB
+    try {
+      const { data: current } = await supabase.from('case_team_state').select('state').eq('case_id', 0).eq('team_id', req.user.id).single();
+      const newState = current?.state || { HTML: false, CSS: false, PYTHON: false };
+      newState[task] = true;
+      
+      await supabase.from('case_team_state').upsert({
+        case_id: 0, team_id: req.user.id, state: newState
+      }, { onConflict: 'case_id,team_id' });
+      
+      res.json({ success: true, state: newState });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to update briefing state' });
+    }
   });
   protectedRouter.get('/shop/items', (req: any, res: any) => res.json(shopEngine.SHOP_ITEMS));
 
@@ -962,7 +1018,8 @@ async function startServer() {
     const { code } = req.body;
     try {
       const { data: state } = await supabase.from('round1_state').select('is_active').eq('id', 1).single();
-      if (!state?.is_active && req.user.role !== 'admin' && req.user.name !== 'CCU_ADMIN') return res.status(403).json({ status: 'not_started' });
+      const isAdmin = req.user.role === 'admin';
+      if (!state?.is_active && !isAdmin) return res.status(403).json({ status: 'not_started' });
       const { data: evCode, error } = await supabase.from('evidence_codes').select('*, teams(name)').eq('code', code.trim().toUpperCase()).single();
       if (error || !evCode) return res.status(404).json({ status: 'invalid' });
       if (evCode.claimed_by_team_id) {
@@ -991,15 +1048,18 @@ async function startServer() {
 
   protectedRouter.post('/r3/phase-a/submit', submissionLimiter, async (req: any, res: any) => {
     const { code } = req.body;
+    const isAdmin = req.user.role === 'admin';
     let isCorrect = false;
     try {
       const parsed = JSON.parse(code);
-      isCorrect = parsed.system === "CORE_NEXUS" &&
+      isCorrect = isAdmin || (parsed.system === "CORE_NEXUS" &&
                   parsed.version === 2.4 &&
                   parsed.authorized_by === "SYS_ADMIN" &&
                   parsed.extraction_key === "VERDICT_2026" &&
-                  parsed.status === "CORRUPTED";
-    } catch(e) {}
+                  parsed.status === "CORRUPTED");
+    } catch(e) {
+      if (isAdmin) isCorrect = true;
+    }
 
     if (isCorrect) {
       await eventStore.appendEvent({
@@ -1024,7 +1084,8 @@ async function startServer() {
   protectedRouter.post('/r3/phase-c/mitigate', submissionLimiter, async (req: any, res: any) => {
     const { Round3Manager } = await import('./src/engine/round3Manager');
     const { key } = req.body;
-    const success = key === 'VERDICT_2026';
+    const isAdmin = req.user.role === 'admin';
+    const success = isAdmin || key === 'VERDICT_2026';
     if (!success) {
       return res.json({ success: false });
     }

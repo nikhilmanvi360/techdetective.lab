@@ -51,15 +51,14 @@ export async function processPurchase(
  const item = SHOP_ITEMS.find(i => i.id === itemId);
  if (!item) return { success: false, message: 'Item not found' };
 
- // 1. Check current team score
- const { data: team } = await supabase
- .from('teams')
- .select('score, name')
- .eq('id', teamId)
- .single();
+  // 1. Check current team score (Source of truth: event log)
+  const { recomputeTeamScore } = await import('./eventStore');
+  const currentScore = await recomputeTeamScore(teamId);
+  
+  const { data: team } = await supabase.from('teams').select('name').eq('id', teamId).single();
 
- if (!team) return { success: false, message: 'Team not found' };
- if (team.score < item.cost) return { success: false, message: 'Insufficient XP balance' };
+  if (!team) return { success: false, message: 'Team not found' };
+  if (currentScore < item.cost) return { success: false, message: 'Insufficient XP balance' };
 
  // 2. Process special item logic
  if (itemId === 'emp_jammer') {

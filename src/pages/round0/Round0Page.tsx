@@ -42,14 +42,18 @@ export default function Round0Page() {
     const loadPyodide = async () => {
         if (!(window as any).loadPyodide) {
             const script = document.createElement('script');
-            script.src = "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js";
+            script.src = "/pyodide/pyodide.js";
             script.onload = async () => {
-                const py = await (window as any).loadPyodide();
+                const py = await (window as any).loadPyodide({
+                    indexURL: "/pyodide/"
+                });
                 setPyodide(py);
             };
             document.head.appendChild(script);
         } else {
-            const py = await (window as any).loadPyodide();
+            const py = await (window as any).loadPyodide({
+                indexURL: "/pyodide/"
+            });
             setPyodide(py);
         }
     };
@@ -122,6 +126,7 @@ export default function Round0Page() {
         setUserInput('');
         if (activeTask === 'HTML') setActiveTask('CSS');
         else if (activeTask === 'CSS') setActiveTask('PYTHON');
+        else if (activeTask === 'PYTHON') setActiveTask('BRIEFING');
     } else {
         const data = await res.json();
         setError(data.message || 'Validation failed.');
@@ -239,6 +244,17 @@ export default function Round0Page() {
                                       </div>
                                   </div>
                               </div>
+
+                              {(state.HTML && state.CSS && state.PYTHON) && (
+                                  <motion.button 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    onClick={() => window.location.href = '/'}
+                                    className="w-full py-6 bg-[#d4a017] text-black font-black uppercase tracking-[0.3em] text-sm mt-12 hover:bg-[#f0d070] transition-all shadow-[0_0_30px_rgba(212,160,23,0.3)] group"
+                                  >
+                                      Finalize Restoration & Proceed <ChevronRight className="inline-block w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                  </motion.button>
+                              )}
                           </div>
                       ) : (
                           <>
@@ -268,12 +284,25 @@ export default function Round0Page() {
                                   </div>
                               )}
         
-                              <button 
-                                onClick={handleSubmit}
-                                className="flex items-center gap-3 px-8 py-4 bg-[#d4a017] text-black font-black uppercase tracking-widest text-[11px] hover:bg-[#f0d070] transition-all shadow-xl active:scale-95"
-                              >
-                                  Deploy Patch <ChevronRight className="w-4 h-4" />
-                              </button>
+                              {state[activeTask] ? (
+                                  <button 
+                                    onClick={() => {
+                                        if (activeTask === 'HTML') setActiveTask('CSS');
+                                        else if (activeTask === 'CSS') setActiveTask('PYTHON');
+                                        else if (activeTask === 'PYTHON') setActiveTask('BRIEFING');
+                                    }}
+                                    className="flex items-center gap-3 px-8 py-4 bg-green-600 text-white font-black uppercase tracking-widest text-[11px] hover:bg-green-500 transition-all shadow-xl active:scale-95"
+                                  >
+                                      Task Complete - Proceed <ChevronRight className="w-4 h-4" />
+                                  </button>
+                              ) : (
+                                  <button 
+                                    onClick={handleSubmit}
+                                    className="flex items-center gap-3 px-8 py-4 bg-[#d4a017] text-black font-black uppercase tracking-widest text-[11px] hover:bg-[#f0d070] transition-all shadow-xl active:scale-95"
+                                  >
+                                      Deploy Patch <ChevronRight className="w-4 h-4" />
+                                  </button>
+                              )}
                           </>
                       )}
                   </div>

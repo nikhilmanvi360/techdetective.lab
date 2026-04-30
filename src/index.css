@@ -1,159 +1,145 @@
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;800&family=Inter:wght@400;600;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Georgia", "Times New Roman", serif;
 
-  --color-noir-bg: #151e11;
-  --color-noir-gold: #c8a050;
+  --color-noir-bg: #0c0e0b;
+  --color-noir-gold: #d4a017;
   --color-noir-gold-dark: #8B6914;
-  --color-noir-leather: #2a1c0a;
-  --color-noir-parchment: #e2c07c;
-  --color-noir-line: rgba(100,70,20,0.3);
+  --color-noir-leather: #1a1209;
+  --color-noir-parchment: #f5e6c8;
+  --color-noir-line: rgba(212,160,23,0.15);
+  --color-cyber-green: #2ecc71;
+  --color-cyber-red: #e74c3c;
 }
 
 @layer base {
   body {
-    @apply bg-noir-bg text-[#e8d09a] font-sans overflow-x-hidden;
+    @apply bg-noir-bg text-[#f5e6c8] font-sans overflow-x-hidden antialiased;
     background-image: 
-      repeating-linear-gradient(45deg, rgba(0,0,0,0.07) 0px, rgba(0,0,0,0.07) 1px, transparent 1px, transparent 9px),
-      repeating-linear-gradient(-45deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 9px),
-      radial-gradient(ellipse at 30% 20%, rgba(40,55,20,0.4) 0%, transparent 60%),
-      radial-gradient(ellipse at 70% 80%, rgba(20,30,10,0.5) 0%, transparent 50%);
+      radial-gradient(circle at 50% -20%, rgba(212,160,23,0.08) 0%, transparent 70%),
+      radial-gradient(circle at 0% 100%, rgba(46,204,113,0.03) 0%, transparent 50%),
+      url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
   }
 
   h1, h2, h3, h4, .font-display {
-    @apply font-display tracking-tight text-white;
+    @apply font-display tracking-tight;
     color: #f5e6c8;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
   }
 
   /* Fix native form element styling */
   input, textarea, select {
-    @apply bg-transparent text-[#e8d09a];
+    @apply bg-transparent text-[#f5e6c8];
     color-scheme: dark;
   }
 
   input::placeholder, textarea::placeholder {
-    @apply text-[rgba(200,160,80,0.5)] font-mono uppercase tracking-widest text-xs;
-  }
-
-  /* Kill autofill white backgrounds */
-  input:-webkit-autofill,
-  input:-webkit-autofill:hover, 
-  input:-webkit-autofill:focus, 
-  textarea:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 1000px #1a1005 inset !important;
-    -webkit-text-fill-color: #d4a017 !important;
-    caret-color: #d4a017 !important;
-    transition: background-color 5000s ease-in-out 0s;
+    @apply text-[rgba(212,160,23,0.3)] font-mono uppercase tracking-[0.2em] text-[10px];
   }
 
   /* Selection highlight */
   ::selection {
-    @apply bg-noir-gold text-[#151e11];
+    @apply bg-noir-gold text-black;
   }
 }
 
 @layer components {
-  /* Noir / Detective Shared Components */
+  /* Premium Glassmorphism */
+  .glass-panel {
+    @apply backdrop-blur-md bg-black/40 border border-white/10 shadow-2xl;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  }
+
+  /* Cyber-Noir Panels */
   .detective-panel {
-    @apply relative border;
-    background: linear-gradient(135deg, #2a1c0a 0%, #1a1005 100%);
-    border-color: rgba(100,70,20,0.4);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    @apply relative border-2 border-[#3a2810] bg-[#140e06] shadow-2xl;
+    background-image: linear-gradient(135deg, rgba(26,18,9,0.5) 0%, rgba(12,14,11,0.8) 100%);
   }
   
   .parchment-panel {
-    @apply relative;
-    background-image: 
-      repeating-linear-gradient(0deg, transparent 0px, transparent 23px, rgba(90,55,15,0.13) 23px, rgba(90,55,15,0.13) 24px),
-      linear-gradient(170deg, #e2c07c 0%, #d4ae68 35%, #c8a050 65%, #c0983a 100%);
-    border: 1px solid rgba(80,50,15,0.4);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-    color: #1a0e04;
+    @apply relative border-2 border-[#8b6914] bg-[#f5e6c8] shadow-2xl text-[#1a1209];
+    background-image: url("https://www.transparenttextures.com/patterns/old-paper.png");
   }
 
+  /* Animated Buttons */
   .detective-button {
-    @apply px-4 py-2 border font-display text-sm uppercase tracking-widest transition-all duration-300 relative overflow-hidden;
-    background: linear-gradient(to bottom, transparent, rgba(212,160,23,0.1));
-    border-color: #d4a017;
+    @apply px-6 py-3 border-2 border-noir-gold font-mono text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-500 relative overflow-hidden flex items-center justify-center gap-3;
+    background: linear-gradient(to bottom, rgba(212,160,23,0.05), rgba(212,160,23,0.15));
     color: #d4a017;
-    box-shadow: 0 0 8px rgba(212,160,23,0.1);
   }
   
   .detective-button:hover {
-    background: #d4a017;
-    color: #1a0e04;
-    box-shadow: 0 4px 12px rgba(212,160,23,0.3);
+    @apply bg-noir-gold text-black scale-[1.02] shadow-[0_0_25px_rgba(212,160,23,0.4)];
   }
 
-  /* ========== INPUTS ========== */
-  .detective-input {
-    @apply p-3 font-mono text-[#e8d09a] focus:outline-none transition-all;
-    background: rgba(10,5,2,0.6);
-    border: 1px solid rgba(139,105,20,0.4);
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.8);
+  .detective-button::after {
+    content: '';
+    @apply absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    transition: transform 0.6s ease;
   }
 
-  .detective-input:focus {
-    border-color: #d4a017;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), 0 0 8px rgba(212,160,23,0.3);
+  .detective-button:hover::after {
+    @apply translate-x-[100%];
   }
-  
-  /* ========== SCROLLBAR ========== */
+
+  /* CRT & Scanline Effects */
+  .scanline {
+    width: 100%;
+    height: 100px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(212, 160, 23, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+    position: fixed;
+    bottom: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    animation: scanline 10s linear infinite;
+  }
+
+  .crt-vignette {
+    @apply fixed inset-0 pointer-events-none z-[1001];
+    background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.5) 150%);
+  }
+
+  @keyframes scanline {
+    0% { bottom: 100%; }
+    100% { bottom: -100px; }
+  }
+
+  /* Custom Scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(0,0,0,0.5);
+    @apply bg-black/20;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(200,160,80,0.3);
-    border: 1px solid rgba(200,160,80,0.1);
+    @apply bg-[#3a2810] border-2 border-black/20 rounded-full hover:bg-noir-gold transition-colors;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(200,160,80,0.6);
+  /* Typography Utilities */
+  .text-glow {
+    text-shadow: 0 0 8px rgba(212,160,23,0.4);
   }
 
-  /* ========== OPTIONAL EFFECTS ========== */
-  @keyframes blink-cursor {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-  }
-  
-  .typing-cursor::after {
-    content: '█';
-    animation: blink-cursor 1s step-end infinite;
-    color: #d4a017;
-    margin-left: 2px;
+  .text-glow-green {
+    text-shadow: 0 0 8px rgba(46,204,113,0.4);
   }
 
-  @keyframes gentle-float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
-  }
-  .animate-float {
-    animation: gentle-float 6s ease-in-out infinite;
+  .border-glow {
+    box-shadow: 0 0 15px rgba(212, 160, 23, 0.2);
   }
 
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    41% { opacity: 1; }
-    42% { opacity: 0.85; }
-    43% { opacity: 1; }
-    77% { opacity: 1; }
-    78% { opacity: 0.9; }
-    79% { opacity: 1; }
+  /* Layout Utilities */
+  .flex-center {
+    @apply flex items-center justify-center;
   }
 
-  .flicker-anim {
-    animation: flicker 4s infinite;
+  .absolute-center {
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
   }
 }

@@ -105,7 +105,7 @@ cafeteriaGrid[16][12] = I; // Bulletin Board
 cafeteriaGrid[15][3] = T; // Left-Behind Laptop
 cafeteriaGrid[2][2]  = I; // Lost USB (Side Quest)
 cafeteriaGrid[7][8]  = N; // Stressed Professor
-cafeteriaGrid[22][20] = E; // Exit to library
+cafeteriaGrid[22][20] = E; // Exit to compliance
 
 // ==========================================
 // COMPLIANCE (Zone 2)

@@ -9,6 +9,7 @@ interface ScanResult {
     title: string;
     content: string;
     category: string;
+    code: string;
     points_value: number;
     flavor_text: string;
     reveal_delay_seconds: number;

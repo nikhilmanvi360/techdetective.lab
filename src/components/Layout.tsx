@@ -23,7 +23,7 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#140e06] text-[#f0e0a0] selection:bg-[#d4a017] selection:text-[#140e06] relative">
       {/* Global Immersive Overlays */}
-      <div className="fixed inset-0 pointer-events-none z-[9999] mix-blend-soft-light opacity-20" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/pinstriped-suit.png")' }} />
+      <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.03]" style={{ backgroundImage: 'repeating-linear-gradient(0deg, #d4a017, #d4a017 1px, transparent 1px, transparent 4px)' }} />
       <div className="fixed inset-0 pointer-events-none z-[9999] shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
       
       <DetectiveHUD team={team} />

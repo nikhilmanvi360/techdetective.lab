@@ -1,4 +1,4 @@
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Info, ScrollText, Zap } from 'lucide-react';
 
 interface InstructionsPaneProps {
   activePanel: 'brief' | 'functions';
@@ -14,59 +14,84 @@ export default function InstructionsPane({
   availableFunctions 
 }: InstructionsPaneProps) {
   return (
-    <div className="w-[40%] flex-shrink-0 flex flex-col border-r-4 border-[#3a2810] relative shadow-2xl bg-[#0c0803]">
-      <div className="flex-shrink-0 flex bg-[#1a0e04] border-b border-[#3a2810]">
+    <div className="w-[40%] flex-shrink-0 flex flex-col border-r-2 border-[#3a2810] relative bg-[#0c0e0b]">
+      {/* Tab Switcher */}
+      <div className="flex-shrink-0 flex bg-[#0c0e0b] border-b border-[#3a2810] p-1 gap-1">
         <button 
           onClick={() => setActivePanel('brief')} 
-          className={`flex-1 py-3 uppercase font-black tracking-[0.2em] text-[10px] ${activePanel === 'brief' ? 'bg-[#f0e0a0]/10 text-[#f0d070] border-b-2 border-[#d4a017]' : 'text-[#a07830]/50'}`}
+          className={`flex-1 py-3 flex items-center justify-center gap-2 uppercase font-black tracking-[0.2em] text-[10px] transition-all ${
+            activePanel === 'brief' 
+              ? 'bg-[#d4a017] text-black shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]' 
+              : 'text-[#a07830] hover:text-[#f5e6c8] hover:bg-white/5'
+          }`}
         >
-          The Evidence
+          <ScrollText className="w-3 h-3" /> Mission_Directive
         </button>
         <button 
           onClick={() => setActivePanel('functions')} 
-          className={`flex-1 py-3 uppercase font-black tracking-[0.2em] text-[10px] ${activePanel === 'functions' ? 'bg-[#f0e0a0]/10 text-[#f0d070] border-b-2 border-[#d4a017]' : 'text-[#a07830]/50'}`}
+          className={`flex-1 py-3 flex items-center justify-center gap-2 uppercase font-black tracking-[0.2em] text-[10px] transition-all ${
+            activePanel === 'functions' 
+              ? 'bg-[#d4a017] text-black shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]' 
+              : 'text-[#a07830] hover:text-[#f5e6c8] hover:bg-white/5'
+          }`}
         >
-          Specialized Tools
+          <Zap className="w-3 h-3" /> Tech_Specs
         </button>
       </div>
       
-      <div className="flex-1 p-8 overflow-y-auto custom-scrollbar flex flex-col">
+      {/* Content Area */}
+      <div className="flex-1 p-10 overflow-y-auto custom-scrollbar flex flex-col relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#d4a017]/5 to-transparent pointer-events-none opacity-20" />
+        
         {activePanel === 'brief' ? (
-          <>
-            <h2 className="text-2xl font-black uppercase text-[#f0d070] mb-6 tracking-wider border-b border-[#3a2810] pb-4">
-              Mission Directive
-            </h2>
-            <div className="text-[15px] leading-relaxed text-[#c8a050] font-serif space-y-4 flex-1">
-              {missionBrief ? missionBrief.split('\n').map((para, idx) => (
-                <p key={idx}>{para}</p>
-              )) : <p>Loading directive...</p>}
+          <div className="relative z-10 space-y-8">
+            <div className="flex items-center gap-3 border-b border-[#3a2810] pb-4">
+              <div className="w-2 h-2 rounded-full bg-[#d4a017] animate-pulse" />
+              <h2 className="text-sm font-black uppercase text-[#f5e6c8] tracking-[0.3em]">Operational_Intel</h2>
             </div>
-          </>
+            <div className="text-[14px] leading-relaxed text-[#a07830] font-sans font-medium space-y-6">
+              {missionBrief ? missionBrief.split('\n').map((para, idx) => (
+                <p key={idx} className="relative pl-4 border-l border-[#3a2810]/50 hover:border-[#d4a017] transition-colors py-1">{para}</p>
+              )) : (
+                <div className="flex items-center gap-3 animate-pulse">
+                  <Info className="w-4 h-4" />
+                  <span>Decrypting directive...</span>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="flex-1">
-            <h2 className="text-2xl font-black uppercase text-[#f0d070] mb-6 tracking-wider border-b border-[#3a2810] pb-4">
-              Available Scripts
-            </h2>
-            <div className="flex gap-2 flex-wrap">
+          <div className="relative z-10 space-y-8">
+            <div className="flex items-center gap-3 border-b border-[#3a2810] pb-4">
+              <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
+              <h2 className="text-sm font-black uppercase text-[#f5e6c8] tracking-[0.3em]">API_Reference</h2>
+            </div>
+            <div className="grid gap-4">
               {availableFunctions.map((fn, i) => (
-                <code key={i} className="px-3 py-1.5 bg-[#1a0e04] border border-[#a07830]/30 text-[#f0e0a0] text-[13px] font-mono rounded-sm shadow-sm">{fn}</code>
+                <div key={i} className="detective-panel !p-4 group hover:border-[#d4a017]/40 transition-all">
+                  <code className="text-cyber-green font-mono text-sm group-hover:text-glow-green transition-all">{fn}</code>
+                  <div className="mt-2 text-[10px] text-[#a07830] uppercase tracking-widest opacity-60">System_Utility_Function</div>
+                </div>
               ))}
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex-shrink-0 flex items-center justify-between p-4 bg-[#1a0e04] border-t-2 border-[#3a2810]">
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#0c0803] border border-[#3a2810] text-[#a07830] text-[10px] uppercase font-black hover:text-[#f0d070] hover:border-[#a07830] transition-colors">
-            <ChevronLeft className="w-3 h-3" /> Back
+      {/* Footer Navigation */}
+      <div className="flex-shrink-0 flex items-center justify-between p-6 bg-[#0c0e0b] border-t border-[#3a2810]">
+        <div className="flex items-center gap-4">
+          <button className="flex items-center gap-2 text-[#a07830] hover:text-[#d4a017] transition-colors uppercase text-[9px] font-black tracking-[0.2em]">
+            <ChevronLeft className="w-3 h-3" /> Prev
           </button>
-          <span className="text-[10px] font-black uppercase text-[#a07830] tracking-widest bg-[#f0e0a0]/10 px-2 py-1">Phase 1 of 4</span>
+          <div className="h-4 w-px bg-[#3a2810]" />
+          <span className="text-[9px] font-mono font-black text-[#a07830] uppercase tracking-widest opacity-50">Node_01_v4</span>
         </div>
-        <button className="flex items-center gap-2 px-6 py-2 bg-[#a07830] text-[#140e06] text-[10px] uppercase font-black hover:bg-[#d4a017] transition-colors">
+        <button className="text-[#d4a017] hover:text-[#f5e6c8] transition-colors uppercase text-[9px] font-black tracking-[0.2em] flex items-center gap-2">
           Next <ChevronLeft className="w-3 h-3 rotate-180" />
         </button>
       </div>
     </div>
   );
 }
+

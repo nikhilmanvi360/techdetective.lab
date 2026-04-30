@@ -9,7 +9,7 @@ async function seed() {
   const hashedPassword = bcrypt.hashSync('admin123', 10);
   const { error: teamError } = await supabase
     .from('teams')
-    .upsert({ name: 'CCU_ADMIN', password: hashedPassword }, { onConflict: 'name' });
+    .upsert({ name: 'CCU_ADMIN', password: hashedPassword, role: 'admin' }, { onConflict: 'name' });
   if (teamError) console.error('Error seeding teams:', teamError.message);
   else console.log('✔ Admin account ready');
 
