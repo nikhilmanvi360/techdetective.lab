@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield, Users, FileText, Plus, Settings,
-  Activity, LogOut, ChevronRight, Zap, QrCode, HardDrive
+  Activity, LogOut, ChevronRight, Zap, QrCode, HardDrive, Key
 } from 'lucide-react';
 import { Team } from '../../types';
 import { useSound } from '../../hooks/useSound';
@@ -17,7 +17,8 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Overview', icon: <Activity className="w-4 h-4" />, exact: true },
   { to: '/admin/submissions', label: 'Submissions', icon: <FileText className="w-4 h-4" /> },
   { to: '/admin/teams', label: 'Teams', icon: <Users className="w-4 h-4" /> },
-  { to: '/admin/round3', label: 'Round 3 Control', icon: <HardDrive className="w-4 h-4 text-red-500" /> },
+  { to: '/admin/round3', label: 'Round 4 (Verdict)', icon: <HardDrive className="w-4 h-4 text-red-500" /> },
+  { to: '/admin/manifest', label: 'Manifest', icon: <Key className="w-4 h-4 text-[#d4a017]" /> },
   { to: '/admin/builder', label: 'Case Builder', icon: <Plus className="w-4 h-4" /> },
   { to: '/admin/system', label: 'System', icon: <Settings className="w-4 h-4" /> },
 ];

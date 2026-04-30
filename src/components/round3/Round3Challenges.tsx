@@ -2,24 +2,59 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, FileText, Zap, Terminal as TerminalIcon, CheckCircle2, AlertTriangle } from 'lucide-react';
 
-export default function Round3Challenges() {
+export default function Round3Challenges({ timeRemaining = 2700 }: { timeRemaining?: number }) {
   const [activePhase, setActivePhase] = useState<'A' | 'B' | 'C'>('A');
   const [phaseAStatus, setPhaseAStatus] = useState<'pending' | 'solved'>('pending');
   const [phaseBStatus, setPhaseBStatus] = useState<'pending' | 'submitted'>('pending');
   const [phaseCStatus, setPhaseCStatus] = useState<'pending' | 'active' | 'neutralized'>('pending');
 
-  const [fixCode, setFixCode] = useState('{\n  "system": "CORE_NEXUS",\n  "version" 2.4,\n  "authorized_by": "SYS_ADMIN"\n  "extraction_key": "VERDICT_2026"\n  "status": "CORRUPTED"\n}');
+  const [evidenceSlots, setEvidenceSlots] = useState<(number | null)[]>([null, null, null, null, null]);
+  const availableEvidence = [
+    { id: 1, text: "Visitor Log: Sehgal arrived at 11:05 PM" },
+    { id: 2, text: "Decoy: Broken coffee machine" },
+    { id: 3, text: "Laptop: Contains Kitchen Passcode" },
+    { id: 4, text: "Terminal: 4,000+ simulation runs at 11:30 PM" },
+    { id: 5, text: "Night Guard: Trusted Sehgal completely" },
+    { id: 6, text: "Old Memo: Warning about VBA macros" },
+    { id: 7, text: "Compliance: LIVE_RUN_PARAMS tag misused" },
+    { id: 8, text: "Bookcase 3: Master Badge hidden" },
+    { id: 9, text: "Archive: batch_087/run_31.sim found" },
+    { id: 10, text: "Decrypted File: The Heist Rehearsal" },
+    { id: 11, text: "Whiteboard: System list off-by-one" },
+    { id: 12, text: "Security Cabinet: Override Token" }
+  ];
+
+  const handleSlotClick = (index: number) => {
+    if (phaseAStatus === 'solved') return;
+    const newSlots = [...evidenceSlots];
+    newSlots[index] = null;
+    setEvidenceSlots(newSlots);
+  };
+
+  const handleEvidenceClick = (id: number) => {
+    if (evidenceSlots.includes(id)) return;
+    const firstEmpty = evidenceSlots.indexOf(null);
+    if (firstEmpty !== -1) {
+      const newSlots = [...evidenceSlots];
+      newSlots[firstEmpty] = id;
+      setEvidenceSlots(newSlots);
+    }
+  };
+
+  const [mitigationKey, setMitigationKey] = useState('');
 
   const handleFixSubmit = async () => {
     const res = await fetch('/api/r3/phase-a/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ code: fixCode })
+      body: JSON.stringify({ sequence: evidenceSlots })
     });
     const data = await res.json();
     if (data.success) {
       setPhaseAStatus('solved');
       if (phaseCStatus === 'pending') setPhaseCStatus('active');
+    } else {
+      alert("INCORRECT CHAIN: Evidence does not support a coherent timeline.");
     }
   };
 
@@ -39,9 +74,22 @@ export default function Round3Challenges() {
     const res = await fetch('/api/r3/phase-c/mitigate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      body: JSON.stringify({ success: true })
+      body: JSON.stringify({ key: mitigationKey })
     });
-    if (res.ok) setPhaseCStatus('neutralized');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setPhaseCStatus('neutralized');
+      } else {
+        alert("ACCESS DENIED: Invalid Neutralization Key.");
+      }
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   return (
@@ -71,13 +119,13 @@ export default function Round3Challenges() {
         <div className="flex items-center gap-8">
           <div className="text-right">
              <div className="text-[10px] font-black text-[#a07830] uppercase tracking-widest">Time Remaining</div>
-             <div className="text-xl font-mono text-[#f0d070] font-black">45:00</div>
+             <div className="text-xl font-mono text-[#f0d070] font-black">{formatTime(timeRemaining)}</div>
           </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 p-12 overflow-hidden relative">
+      <div className="flex-1 p-12 overflow-y-auto relative min-h-0">
         <AnimatePresence mode="wait">
           {activePhase === 'A' && (
             <motion.div
@@ -89,8 +137,8 @@ export default function Round3Challenges() {
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <h2 className="text-4xl font-black text-[#f4e6c4] uppercase tracking-tight">Phase A: Technical <span className="text-[#d4a017]">Stabilization</span></h2>
-                  <p className="text-[#a07830] font-mono text-sm">CRITICAL: The system core is desynchronized. Fix the syntax errors in the authorization block below.</p>
+                  <h2 className="text-4xl font-black text-[#f4e6c4] uppercase tracking-tight">Phase A: Evidence <span className="text-[#d4a017]">Timeline</span></h2>
+                  <p className="text-[#a07830] font-mono text-sm">CRITICAL: Reconstruct Sehgal's timeline. Select 5 key pieces of evidence in chronological order.</p>
                 </div>
                 {phaseAStatus === 'solved' && (
                   <div className="flex items-center gap-2 text-green-500 font-black uppercase tracking-widest text-sm animate-pulse">
@@ -99,41 +147,40 @@ export default function Round3Challenges() {
                 )}
               </div>
 
-              <div className="flex-1 flex gap-8">
-                <div className="flex-1 bg-[#0c0803] border-2 border-[#3a2810] p-8 font-mono relative group">
-                  <div className="absolute top-4 right-4 opacity-20 group-hover:opacity-100 transition-opacity">
-                    <TerminalIcon className="w-5 h-5 text-[#d4a017]" />
-                  </div>
-                  <textarea
-                    value={fixCode}
-                    onChange={(e) => setFixCode(e.target.value)}
-                    disabled={phaseAStatus === 'solved'}
-                    className="w-full h-full bg-transparent border-none outline-none text-[#f0d070] resize-none selection:bg-[#d4a017]/30 text-lg leading-relaxed"
-                    spellCheck="false"
-                  />
-                  {phaseAStatus !== 'solved' && (
+              <div className="flex-1 flex flex-col gap-8">
+                 <div className="flex justify-between gap-4">
+                     {evidenceSlots.map((slot, i) => (
+                         <div key={i} onClick={() => slot && handleSlotClick(i)} className={`flex-1 h-32 border-2 ${slot ? 'border-[#d4a017] bg-[#d4a017]/10 cursor-pointer' : 'border-[#3a2810] border-dashed flex items-center justify-center'}`}>
+                             {slot ? (
+                                 <div className="p-4 text-[11px] text-[#f4e6c4] font-mono leading-tight">
+                                     <div className="text-[#d4a017] font-black mb-2 opacity-50">SLOT {i+1}</div>
+                                     {availableEvidence.find(e => e.id === slot)?.text}
+                                 </div>
+                             ) : (
+                                 <span className="text-[10px] text-[#a07830] tracking-widest">SLOT {i+1}</span>
+                             )}
+                         </div>
+                     ))}
+                 </div>
+                 
+                 <div className="grid grid-cols-4 gap-4">
+                     {availableEvidence.map(ev => (
+                         <button key={ev.id} disabled={evidenceSlots.includes(ev.id) || phaseAStatus === 'solved'} onClick={() => handleEvidenceClick(ev.id)} className={`p-4 border text-left font-mono text-xs h-24 transition-all ${evidenceSlots.includes(ev.id) ? 'opacity-20 border-[#3a2810]' : 'border-[#a07830] text-[#f4e6c4] hover:bg-[#a07830]/20 hover:border-[#d4a017]'}`}>
+                             <div className="text-[#d4a017] font-black mb-1">EV-{String(ev.id).padStart(2, '0')}</div>
+                             {ev.text}
+                         </button>
+                     ))}
+                 </div>
+
+                 {phaseAStatus !== 'solved' && (
                     <button
                       onClick={handleFixSubmit}
-                      className="absolute bottom-8 right-8 px-12 py-4 bg-blue-600 text-white font-black uppercase tracking-[0.3em] text-xs hover:bg-blue-500 transition-all shadow-2xl active:scale-95"
+                      disabled={evidenceSlots.includes(null)}
+                      className="px-12 py-4 bg-[#d4a017] text-black font-black uppercase tracking-[0.3em] text-xs hover:bg-[#f0d070] transition-all disabled:opacity-50 mx-auto"
                     >
-                      Initialize Patch
+                      Verify Timeline
                     </button>
-                  )}
-                </div>
-                
-                <div className="w-80 space-y-6">
-                   <div className="bg-[#140e06] border-2 border-[#3a2810] p-6 space-y-4">
-                      <div className="text-[10px] font-black text-[#a07830] uppercase tracking-widest border-b border-[#3a2810] pb-2">Error Log</div>
-                      <div className="space-y-2 text-[10px] font-mono">
-                        <div className="text-red-500/80 underline decoration-red-900">Line 3: Unexpected token (Missing colon)</div>
-                        <div className="text-red-500/80 underline decoration-red-900">Line 5: Unexpected token (Missing comma)</div>
-                      </div>
-                   </div>
-                   <div className="bg-[#140e06] border-2 border-[#3a2810] p-6 space-y-4">
-                      <div className="text-[10px] font-black text-[#a07830] uppercase tracking-widest border-b border-[#3a2810] pb-2">Artifact Intel</div>
-                      <p className="text-[10px] text-[#a07830]/80 leading-relaxed italic">"The Extraction Key revealed in Phase A is mandatory for the Phase C Counter-Strike."</p>
-                   </div>
-                </div>
+                 )}
               </div>
             </motion.div>
           )}
@@ -155,16 +202,37 @@ export default function Round3Challenges() {
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-[#d4a017] uppercase tracking-[0.4em]">Field 1: The Culprit</label>
-                    <input name="culprit" required type="text" placeholder="ENTITY NAME..." className="w-full bg-[#0c0803] border-2 border-[#3a2810] p-4 text-[#f4e6c4] font-black uppercase text-xs tracking-widest focus:border-[#d4a017] outline-none placeholder:opacity-20" />
+                    <div className="space-y-2">
+                        {['Karan Sehgal', 'The Night Guard', 'Junior Archivist', 'Syndicate AI'].map(opt => (
+                            <label key={opt} className="flex items-center gap-3 p-4 border border-[#3a2810] bg-[#0c0803] cursor-pointer hover:border-[#d4a017]">
+                                <input type="radio" name="culprit" value={opt} required className="accent-[#d4a017]" />
+                                <span className="text-xs uppercase tracking-widest text-[#f4e6c4]">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
                   </div>
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-[#d4a017] uppercase tracking-[0.4em]">Field 2: Evidence Chain</label>
-                    <input name="evidence" required type="text" placeholder="CODES (E.G. R1-X2, R2-B9)..." className="w-full bg-[#0c0803] border-2 border-[#3a2810] p-4 text-[#f4e6c4] font-black uppercase text-xs tracking-widest focus:border-[#d4a017] outline-none placeholder:opacity-20" />
+                    <label className="text-[10px] font-black text-[#d4a017] uppercase tracking-[0.4em]">Field 2: The Purpose</label>
+                    <div className="space-y-2">
+                        {['Bank Heist Rehearsal', 'Standard Audit', 'Covering Tracks', 'Corporate Espionage'].map(opt => (
+                            <label key={opt} className="flex items-center gap-3 p-4 border border-[#3a2810] bg-[#0c0803] cursor-pointer hover:border-[#d4a017]">
+                                <input type="radio" name="purpose" value={opt} required className="accent-[#d4a017]" />
+                                <span className="text-xs uppercase tracking-widest text-[#f4e6c4]">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-[#d4a017] uppercase tracking-[0.4em]">Field 3: Action / Consequences</label>
-                  <textarea name="action" required rows={4} placeholder="SPECIFY THE FINAL COMMAND OR OUTCOME..." className="w-full bg-[#0c0803] border-2 border-[#3a2810] p-6 text-[#f4e6c4] font-black uppercase text-xs tracking-[0.2em] focus:border-[#d4a017] outline-none placeholder:opacity-20 resize-none" />
+                  <label className="text-[10px] font-black text-[#d4a017] uppercase tracking-[0.4em]">Field 3: Action Required</label>
+                  <div className="grid grid-cols-2 gap-4">
+                        {['Immediate Apprehension', 'Observe and Track', 'Fire him', 'Ignore'].map(opt => (
+                            <label key={opt} className="flex items-center gap-3 p-4 border border-[#3a2810] bg-[#0c0803] cursor-pointer hover:border-[#d4a017]">
+                                <input type="radio" name="action" value={opt} required className="accent-[#d4a017]" />
+                                <span className="text-xs uppercase tracking-widest text-[#f4e6c4]">{opt}</span>
+                            </label>
+                        ))}
+                  </div>
                 </div>
                 
                 <button 
@@ -229,6 +297,8 @@ export default function Round3Challenges() {
                       <label className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em]">Neutralization Key</label>
                       <input 
                         type="text" 
+                        value={mitigationKey}
+                        onChange={(e) => setMitigationKey(e.target.value)}
                         placeholder="ENTER EXTRACTION KEY FROM PHASE A..." 
                         className="w-full bg-black border-2 border-red-900/40 p-5 text-red-500 font-mono text-sm tracking-widest focus:border-red-500 outline-none placeholder:text-red-900/30" 
                       />

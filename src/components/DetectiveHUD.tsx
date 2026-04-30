@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, ShieldAlert, Award } from 'lucide-react';
+import { Clock, ShieldAlert, Award, Target } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { Team } from '../types';
 
-export default function DetectiveHUD() {
+interface DetectiveHUDProps {
+  team: Team;
+}
+
+export default function DetectiveHUD({ team }: DetectiveHUDProps) {
   const [round, setRound] = useState<string>('LOBBY');
   const [seconds, setSeconds] = useState(0);
   const [isExpiring, setIsExpiring] = useState(false);
@@ -33,12 +38,34 @@ export default function DetectiveHUD() {
 
   if (round === 'LOBBY' || round === 'COMPLETED') return null;
 
+  const isFinalPhase = round === 'ROUND_3' || round === 'FINAL';
+
   return (
     <motion.div 
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className="fixed top-20 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-4 pointer-events-none"
     >
+       {/* SCOREBOARD / NARRATIVE MESSAGE */}
+       <div className="bg-[#1a1209] border-4 border-[#3a2810] px-6 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] transform rotate-1 origin-left relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#d4a017]/10 to-transparent opacity-50" />
+          <div className="relative z-10 flex flex-col items-center">
+             {isFinalPhase ? (
+                <div className="text-sm font-black text-[#d4a017] uppercase tracking-[0.2em] animate-pulse py-2">
+                   "Points are no longer the point."
+                </div>
+             ) : (
+                <>
+                   <div className="text-[9px] font-black text-[#a07830] uppercase tracking-[0.4em] leading-none mb-1 opacity-70">Current Standing</div>
+                   <div className="text-2xl font-black text-[#f0d070] uppercase tracking-tighter flex items-center gap-3">
+                      <Target className="w-5 h-5 text-[#d4a017]" />
+                      {team?.score || 0} <span className="text-[10px] text-[#a07830]">XP</span>
+                   </div>
+                </>
+             )}
+          </div>
+       </div>
+
        {/* ROUND LABEL */}
        <div className="bg-[#f0e0a0] border-4 border-[#a07830] px-8 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] transform -rotate-1 origin-right relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-tr from-[#1a0e04]/5 to-transparent opacity-50" />
@@ -49,7 +76,6 @@ export default function DetectiveHUD() {
                 {round.replace('_', ' ')}
              </div>
           </div>
-          {/* Subtle metallic shine */}
           <div className="absolute -inset-full bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-45 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
        </div>
 
@@ -62,10 +88,10 @@ export default function DetectiveHUD() {
              {formatTime(seconds)}
           </div>
           
-          {/* Subtle reflection & Glass effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
           <div className="absolute top-0 left-0 w-full h-full bg-black/5 pointer-events-none" />
        </div>
     </motion.div>
   );
 }
+

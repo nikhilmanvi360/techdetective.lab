@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, Activity, Users, Plus, 
-  Map as MapIcon, Shield, ChevronLeft 
+  Map as MapIcon, Shield, ChevronLeft, Database, Search
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { io } from 'socket.io-client';
 
 interface Case {
   id: string;
@@ -23,8 +24,14 @@ export default function InvestigationBoard() {
   const [loading, setLoading] = useState(true);
   const [team] = useState(() => JSON.parse(localStorage.getItem('team') || '{}'));
   const [view, setView] = useState<'PHASES' | 'CASES'>('PHASES');
+  const [round, setRound] = useState<string>('LOBBY');
 
   useEffect(() => {
+    const socket = io(window.location.origin);
+    socket.on('game_state_update', (data) => {
+      setRound(data.currentState);
+    });
+
     const fetchCases = async () => {
       try {
         const res = await fetch('/api/cases', {
@@ -53,6 +60,8 @@ export default function InvestigationBoard() {
 
     fetchCases();
     checkRound0();
+
+    return () => { socket.disconnect(); };
   }, []);
 
   if (loading) return (
@@ -60,6 +69,8 @@ export default function InvestigationBoard() {
       <Activity className="w-10 h-10 text-[#d4a017] animate-pulse" />
     </div>
   );
+
+  const isFinalPhase = round === 'ROUND_3' || round === 'FINAL';
 
   return (
     <div className="h-full relative overflow-hidden flex flex-col bg-[#140e06]">
@@ -77,6 +88,15 @@ export default function InvestigationBoard() {
             exit={{ opacity: 0, scale: 1.02 }}
             className="relative z-10 flex-1 flex flex-col items-center justify-center p-12 overflow-y-auto custom-scrollbar"
           >
+            {isFinalPhase && (
+               <motion.div 
+                 initial={{ opacity: 0, y: -20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className="absolute top-10 text-[#d4a017] font-black uppercase tracking-[0.5em] text-xs border-y-2 border-[#d4a017]/30 py-4 px-12 bg-black/40 backdrop-blur-md z-50"
+               >
+                 "Points are no longer the point."
+               </motion.div>
+            )}
             <div className="text-center mb-16 relative">
               <div className="flex items-center justify-center gap-6 mb-6">
                 <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#d4a017]" />
@@ -91,36 +111,58 @@ export default function InvestigationBoard() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-7xl w-full">
-              {/* Phase 1: Dossiers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl w-full">
+              {/* Phase 1: Dossiers (Legacy) */}
               <PhaseCard 
-                num="01"
+                num="00"
                 title="Case Dossiers"
-                description="Analyze encrypted data, suspect records, and physical evidence in the bureau archives."
+                description="Analyze legacy encrypted data and standalone cases."
                 icon={<FileText className="w-10 h-10" />}
-                status="Active Engagement"
-                color="#d4a017"
+                status="Optional"
+                color="#a07830"
                 onClick={() => setView('CASES')}
               />
 
-              {/* Phase 2: Field Campaign */}
+              {/* Phase 1: The Logs */}
+              <PhaseCard 
+                num="01"
+                title="The Logs"
+                description="Cross-reference the Pen-Test Report with raw server logs."
+                icon={<Search className="w-10 h-10" />}
+                status="Active Engagement"
+                color="#d4a017"
+                onClick={() => navigate('/round1')}
+              />
+
+              {/* Phase 2: The Map */}
               <PhaseCard 
                 num="02"
-                title="Field Operation"
-                description="Live tactical deployment to the target site. Real-time exploration and site investigation."
+                title="The Map"
+                description="Trace the suspect's physical and digital footprints across the bank."
                 icon={<MapIcon className="w-10 h-10" />}
                 status="Operational Ready"
                 color="#1a6a8a"
                 onClick={() => navigate('/campaign')}
               />
 
-              {/* Phase 3: The Finale */}
+              {/* Phase 3: The Archive */}
               <PhaseCard 
                 num="03"
-                title="Final Sector"
-                description="High-priority containment. Final confrontation with the syndicate's core infrastructure."
+                title="The Archive"
+                description="Dive into the Compliance Data Lake to locate the simulation."
+                icon={<Database className="w-10 h-10" />}
+                status="Operational Ready"
+                color="#d4a017"
+                onClick={() => navigate('/archive')}
+              />
+
+              {/* Phase 4: The Verdict */}
+              <PhaseCard 
+                num="04"
+                title="The Verdict"
+                description="Reconstruct the timeline and trigger the final counter-strike."
                 icon={<Shield className="w-10 h-10" />}
-                status={team?.role === 'admin' || team?.name === 'CCU_ADMIN' ? 'Operational Ready (Bypass)' : 'Locked - Phase 2 Req.'}
+                status={team?.role === 'admin' || team?.name === 'CCU_ADMIN' ? 'Operational Ready (Bypass)' : 'Locked - Awaiting Clearance'}
                 color="#8B2020"
                 disabled={team?.role !== 'admin' && team?.name !== 'CCU_ADMIN'}
                 onClick={() => navigate('/round3')}
@@ -157,6 +199,7 @@ export default function InvestigationBoard() {
                   key={c.id} 
                   c={c} 
                   i={i} 
+                  isFinalPhase={isFinalPhase}
                   onClick={() => navigate(c.source === 'json' ? `/mission/${c.id}` : `/case/${c.id}`)} 
                 />
               ))}
@@ -203,7 +246,7 @@ function PhaseCard({ num, title, description, icon, status, color, onClick, disa
   );
 }
 
-function CaseCard({ c, i, onClick }: any) {
+function CaseCard({ c, i, onClick, isFinalPhase }: any) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30, rotate: i % 2 === 0 ? -0.5 : 0.5 }}
@@ -230,7 +273,9 @@ function CaseCard({ c, i, onClick }: any) {
         <div className="mt-auto space-y-4">
           <div className="flex justify-between items-end">
              <span className="text-[9px] font-black uppercase tracking-widest text-[#a07830] opacity-60">Clearance Reward</span>
-             <span className="text-xl font-black text-[#8B2020] tracking-tighter">{c.points} XP</span>
+             <span className="text-xl font-black text-[#8B2020] tracking-tighter">
+               {isFinalPhase ? "???" : `${c.points} XP`}
+             </span>
           </div>
           <div className="w-full h-12 bg-[#2a1a0a] text-[#f0e0a0] flex items-center justify-center font-black uppercase text-[11px] tracking-[0.3em] group-hover:bg-[#d4a017] group-hover:text-[#2a1a0a] transition-all shadow-lg active:scale-95">
             Examine Folder

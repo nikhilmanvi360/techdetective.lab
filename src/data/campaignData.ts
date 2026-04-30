@@ -1,5 +1,5 @@
 export type TileType = 'walkable' | 'wall' | 'npc' | 'terminal' | 'item' | 'gate' | 'exit';
-export type ZoneId = 'cafeteria' | 'library' | 'maintenance' | 'admin_core';
+export type ZoneId = 'lobby' | 'compliance' | 'server_room' | 'audit_core';
 
 export interface TileInteraction {
   type: 'dialogue' | 'item' | 'gate' | 'clue' | 'final';
@@ -108,7 +108,7 @@ cafeteriaGrid[7][8]  = N; // Stressed Professor
 cafeteriaGrid[22][20] = E; // Exit to library
 
 // ==========================================
-// LIBRARY (Zone 2)
+// COMPLIANCE (Zone 2)
 // ==========================================
 const libraryGrid = createBlankGrid(MAP_SIZE);
 // Bookshelf columns
@@ -134,7 +134,7 @@ libraryGrid[18][10] = N; // Student
 libraryGrid[20][22] = E; // Exit
 
 // ==========================================
-// MAINTENANCE (Zone 3)
+// SERVER ROOM (Zone 3)
 // ==========================================
 const maintenanceGrid = createBlankGrid(MAP_SIZE);
 // H-shaped corridor structure
@@ -163,7 +163,7 @@ maintenanceGrid[21][5]  = I; // Security Cabinet
 maintenanceGrid[21][17] = G; // Exit
 
 // ==========================================
-// ADMIN CORE (Zone 4)
+// AUDIT CORE (Zone 4)
 // ==========================================
 const adminGrid = createBlankGrid(MAP_SIZE);
 // Outer ring
@@ -192,115 +192,115 @@ export interface SynthesisRecipe {
 export const SYNTHESIS_RECIPES: SynthesisRecipe[] = [
   {
     requiredClues: [
-      'Raza Malik was born in {dynamicCode}.',
-      'Terminal log: sys_ghost active at 11:05 PM.',
-      'Redacted Doc: Librarian authorized sys_ghost access.'
+      'Sehgal arrived at 11:05 PM.',
+      'Terminal log: 4,000+ simulation runs detected.',
+      'Compliance log: LIVE_RUN_PARAMS tag used improperly.'
     ],
-    resultClue: 'SYNTHESIS: Raza Malik ({dynamicCode}) used Librarian access to breach the system at 11:05 PM.'
+    resultClue: 'SYNTHESIS: Sehgal used the 11 PM maintenance window to hide a live heist simulation among the noise.'
   },
   {
     requiredClues: [
-      'Decoy: 2022 warning about VBA macros.',
-      'Terminal log: sys_ghost active at 11:05 PM.'
+      'Decoy: Broken coffee machine in the lobby.',
+      'Terminal log: 4,000+ simulation runs detected.'
     ],
-    resultClue: 'FALSE LEAD: The 2022 VBA warning is completely unrelated to the current breach.',
+    resultClue: 'FALSE LEAD: The coffee machine malfunction is unrelated to the simulation runs.',
     isRedHerring: true
   }
 ];
 
 export const CAMPAIGN_ZONES: ZoneConfig[] = [
   {
-    id: 'cafeteria',
-    name: 'Cafeteria & Kitchen',
-    description: 'The campus canteen. The lights are flickering. Gather clues to piece together what happened at 11 PM.',
+    id: 'lobby',
+    name: 'Meridian Bank Lobby',
+    description: 'The main entrance. High-net-worth clients only. Look for traces of Sehgal\'s late-night visit.',
     color: '#b5874a',
     requiredItems: [],
-    playerStart: [20, 2], // Starting bottom left in new layout
+    playerStart: [20, 2],
     grid: cafeteriaGrid,
     interactions: {
       '16,12': { 
         type: 'clue', 
-        speaker: 'Bulletin Board', 
-        lines: ['A mock-up for the new student portal is pinned here.', 'Looking closely, there is a handwritten note: "<!-- TODO: remove testing portal link /dev-admin -->"'], 
+        speaker: 'Digital Signage', 
+        lines: ['The lobby display is flashing a maintenance warning.', 'A small note is attached: "<!-- TODO: bypass lobby cameras /dev-admin -->"'], 
         clue: 'HTML Comment: Hidden admin portal at /dev-admin' 
       },
       '2,4': { 
         type: 'clue', 
-        speaker: 'Discarded HR Printout', 
-        lines: ['You find an employee data sheet. It belongs to a "Raza Malik".', 'Birth Year: {dynamicCode}.'], 
-        clue: 'Raza Malik was born in {dynamicCode}.' 
+        speaker: 'Visitor Log', 
+        lines: ['You check the digital sign-in sheet.', 'Karan Sehgal signed in at 11:05 PM. "Consulting."'], 
+        clue: 'Sehgal arrived at 11:05 PM.' 
       },
       '15,3': { 
         type: 'item', 
-        speaker: 'Left-Behind Laptop', 
-        lines: ['Authentication successful.', 'You downloaded the Kitchen Passcode from the hard drive.'], 
-        reward: 'kitchen_key',
-        terminalCmd: 'login --pass Raza{dynamicCode}',
-        terminalContext: 'AUTHENTICATION REQUIRED. Password hint: Name + Birth Year.',
-        terminalNudge: 'Did you check the HR Printout on the desk near the entrance?',
-        terminalHint: 'Combine the Suspect First Name and Birth Year from the HR Printout.',
+        speaker: 'Security Tablet', 
+        lines: ['Authentication successful.', 'You downloaded the Server Room Passcode.'], 
+        reward: 'server_key',
+        terminalCmd: 'login --pass Sehgal1105',
+        terminalContext: 'AUTHENTICATION REQUIRED. Password hint: Consultant Last Name + Arrival Time.',
+        terminalNudge: 'Did you check the Visitor Log on the front desk?',
+        terminalHint: 'Combine the Suspect Last Name and Time (HHMM) from the Visitor Log.',
         terminalPartials: [
-          { trigger: 'Raza', response: 'Name recognized. Missing the birth year passcode extension.' },
-          { trigger: '{dynamicCode}', response: 'Passcode recognized. Missing the suspect name prefix.' }
+          { trigger: 'Sehgal', response: 'Name recognized. Missing the arrival time extension.' },
+          { trigger: '1105', response: 'Time recognized. Missing the consultant name prefix.' }
         ]
       },
-      '9,14': { type: 'gate', speaker: 'Kitchen Door', lines: ['The kitchen is locked. You need the Kitchen Passcode.'], requiresItems: ['kitchen_key'] },
+      '9,14': { type: 'gate', speaker: 'Lobby Security Door', lines: ['The door is locked. You need the Server Room Passcode.'], requiresItems: ['server_key'] },
       '4,18': { 
         type: 'clue', 
-        speaker: 'Kitchen Terminal', 
-        lines: ['System Log Accessed.', 'Log entry shows an active session under user sys_ghost at 11:05 PM.'], 
-        clue: 'Terminal log: sys_ghost active at 11:05 PM.',
+        speaker: 'Guard Terminal', 
+        lines: ['System Log Accessed.', 'Log entry shows massive simulation traffic peaking at 11:30 PM.'], 
+        clue: 'Terminal log: 4,000+ simulation runs detected.',
         terminalHint: 'Examine the terminal logs for unusual activity.'
       },
       '12,7': { 
         type: 'dialogue', 
-        speaker: 'Student Witness', 
-        lines: ['The power went out at 11:00 PM exactly. No one was in the kitchen after that, I swear!'],
+        speaker: 'Night Guard', 
+        lines: ['Mr. Sehgal is a very important consultant. He said he was just running some standard stress tests.'],
         options: [
           { 
-            label: 'Trust Witness', 
-            nextLines: ['Thank you for believing me! Check the terminal logs to verify.'],
+            label: 'Trust Guard', 
+            nextLines: ['He even bought me a coffee! Good guy. Check his simulation logs if you want.'],
             repDelta: 1
           },
           { 
             label: 'Press for Details', 
-            nextLines: ['I mean... maybe someone with admin access could bypass the power lock. Check the logs.'],
-            clue: 'Student suspicion: Admin bypassed power lock.',
+            nextLines: ['Well... he did ask a lot of questions about the guard rotation times. Seemed a bit odd.'],
+            clue: 'Guard suspicion: Sehgal asked about guard rotations.',
             repDelta: -1
           }
         ],
-        requiredCluesToUnlock: ['Terminal log: sys_ghost active at 11:05 PM.'],
-        clueFailMsg: ['I already told you, the power was out!'],
+        requiredCluesToUnlock: ['Terminal log: 4,000+ simulation runs detected.'],
+        clueFailMsg: ['I have strict orders not to disturb the consultants.'],
         reward: 'key_A'
       },
       '2,2': {
         type: 'clue',
-        speaker: 'Under a Table',
-        lines: ['You found a small, encrypted USB drive.', 'It has a label: "Prof. H. - Final Exams".'],
-        clue: 'Lost USB Drive (Prof. H)'
+        speaker: 'Under a Sofa',
+        lines: ['You found a discarded coffee cup.', 'It has a note stuck to it: "Decoy: Broken coffee machine."'],
+        clue: 'Decoy: Broken coffee machine in the lobby.'
       },
       '7,8': {
         type: 'dialogue',
-        speaker: 'Stressed Professor',
-        lines: ['I dropped my USB drive somewhere in here! My entire curriculum is on it!'],
-        requiredCluesToUnlock: ['Lost USB Drive (Prof. H)'],
-        clueFailMsg: ['That is not my USB drive. Please keep looking!'],
+        speaker: 'Stressed Branch Manager',
+        lines: ['I cannot believe the coffee machine is broken again! It\'s a disaster for our VIP clients!'],
+        requiredCluesToUnlock: ['Decoy: Broken coffee machine in the lobby.'],
+        clueFailMsg: ['Have you seen the repair technician?'],
         options: [
           {
-            label: 'Hand over USB',
-            nextLines: ['Oh thank you! Thank you! Take this admin override code, I won\'t need it anymore.'],
-            reward: 'admin_override_code',
+            label: 'Hand over note',
+            nextLines: ['Oh thank goodness, they know about it. Here, take this compliance bypass token.'],
+            reward: 'compliance_override',
             repDelta: 5
           }
         ]
       },
-      '22,20': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to the Library. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'library' },
+      '22,20': { type: 'gate', speaker: 'Zone Exit', lines: ['The corridor to Compliance. You need Key A to pass.'], requiresItems: ['key_A'], unlocksZone: 'compliance' },
     },
   },
   {
-    id: 'library',
-    name: 'Campus Library',
-    description: 'A labyrinth of information. Trace the digital footprints.',
+    id: 'compliance',
+    name: 'Compliance Archive',
+    description: 'Rows of physical and digital records. Seek the anomaly.',
     color: '#5a7a4a',
     requiredItems: ['key_A'],
     playerStart: [2, 2],
@@ -309,11 +309,11 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '6,18': { 
         type: 'clue', 
         speaker: 'Archived Terminal', 
-        lines: ['CSS Override removed.', 'The document reveals the Librarian authorized access for sys_ghost.'], 
-        clue: 'Redacted Doc: Librarian authorized sys_ghost access.',
+        lines: ['CSS Override removed.', 'The document shows a flagged simulation tagged as LIVE_RUN_PARAMS.'], 
+        clue: 'Compliance log: LIVE_RUN_PARAMS tag used improperly.',
         terminalCmd: 'set display block',
         terminalContext: 'DOCUMENT ENCRYPTED. CSS property "display" is currently set to "none".',
-        terminalNudge: 'Check the note on the library desk about CSS properties.',
+        terminalNudge: 'Check the note on the desk about CSS properties.',
         terminalHint: 'You need to change the CSS property from "none" to "block" to see the content.',
         terminalPartials: [
           { trigger: 'block', response: 'Property "block" detected, but syntax is missing the "set display" command.' }
@@ -328,48 +328,48 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '12,6': { 
         type: 'clue', 
         speaker: 'Old Memo', 
-        lines: ['Memo to Staff: "Beware of the malicious VBA macros in the accounting spreadsheets."', 'It seems like a general warning from 2022.'], 
-        clue: 'Decoy: 2022 warning about VBA macros.' 
+        lines: ['Memo to Staff: "Ensure all testing uses TEST_CONFIG tags."', 'It seems like a general warning.'], 
+        clue: 'Decoy: 2022 warning about TEST_CONFIG.' 
       },
       '20,3': { 
         type: 'item', 
-        speaker: 'Bookcase 3', 
-        lines: ['You check the third bookcase based on the Python logic.', 'Hidden behind a book is the Master Badge (KEY_B).'], 
+        speaker: 'File Cabinet 3', 
+        lines: ['You check the third cabinet based on the Python logic.', 'Hidden inside is the Master Badge (KEY_B).'], 
         reward: 'key_B'
       },
       '3,10': { 
         type: 'dialogue', 
-        speaker: 'Librarian', 
-        lines: ['I don\'t know anything about a sys_ghost. My logs are clean.'],
-        requiredCluesToUnlock: ['Redacted Doc: Librarian authorized sys_ghost access.'],
-        clueFailMsg: ['You have no proof of that. Please leave the library.']
+        speaker: 'Junior Archivist', 
+        lines: ['I don\'t know anything about a LIVE_RUN_PARAMS tag. Everything Sehgal submitted was TEST_CONFIG.'],
+        requiredCluesToUnlock: ['Compliance log: LIVE_RUN_PARAMS tag used improperly.'],
+        clueFailMsg: ['I am busy organizing these files. Please leave.']
       },
-      '20,22': { type: 'gate', speaker: 'Maintenance Corridor', lines: ['Maintenance Wing entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'maintenance' },
+      '20,22': { type: 'gate', speaker: 'Server Room Corridor', lines: ['Server Room entrance. Requires Key B.'], requiresItems: ['key_B'], unlocksZone: 'server_room' },
     },
   },
   {
-    id: 'maintenance',
-    name: 'Maintenance Wing',
-    description: 'Industrial corridors. Beware the security drones. Repair the power nodes.',
+    id: 'server_room',
+    name: 'Server Room',
+    description: 'Industrial cooling and racks of servers. Beware the automated security drones. Sync the nodes.',
     color: '#7a5a3a',
     requiredItems: ['key_A', 'key_B'],
     playerStart: [2, 5],
     grid: maintenanceGrid,
     interactions: {
-      '3,5': { type: 'dialogue', speaker: 'Caretaker', lines: ['The system script crashed. I saw a Python error on Node Alpha: "IndexError: list index out of range".', 'It seems it was trying to access a system that doesn\'t exist. You need to point it to the correct core system.'] },
+      '3,5': { type: 'dialogue', speaker: 'IT Tech', lines: ['The system script crashed. I saw a Python error on Node Alpha: "IndexError: list index out of range".', 'It seems it was trying to access a system that doesn\'t exist. You need to point it to the correct core system.'] },
       '3,18': { 
         type: 'clue', 
         speaker: 'Whiteboard', 
-        lines: ['A list of core systems is written here:', 'systems = ["Cooling", "Lighting", "Security", "Grid_Control"]', 'The error says it tried to access index 4.'], 
+        lines: ['A list of core systems is written here:', 'systems = ["Cooling", "Lighting", "Security", "AUDIT_Control"]', 'The error says it tried to access index 4.'], 
         clue: 'Python IndexError: Index 4 is out of range for a list of size 4.' 
       },
       '4,11': { 
         type: 'item', 
         speaker: 'Node Alpha', 
-        lines: ['Python script corrected. System pointing to index 3 (Grid_Control).', 'Node Alpha is back online.'], 
+        lines: ['Python script corrected. System pointing to index 3 (AUDIT_Control).', 'Node Alpha is back online.'], 
         reward: 'sync_alpha',
         terminalCmd: 'fix_index 3',
-        terminalContext: 'SYSTEM ERROR. IndexError: list index out of range. Current access: systems[4]. Enter the highest valid index for the list [Cooling, Lighting, Security, Grid_Control].',
+        terminalContext: 'SYSTEM ERROR. IndexError: list index out of range. Current access: systems[4]. Enter the highest valid index for the list [Cooling, Lighting, Security, AUDIT_Control].',
         terminalNudge: 'The error says index 4 is too high. How many items are in that list?',
         terminalHint: 'Lists are 0-indexed. If there are 4 items, the indices are 0, 1, 2, and 3.'
       },
@@ -400,7 +400,7 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
         requiresItems: ['sync_gamma'],
         reward: 'override_token'
       },
-      '21,17': { type: 'gate', speaker: 'Admin Core Entrance', lines: ['Admin Core requires the Override Token.'], requiresItems: ['override_token'], unlocksZone: 'admin_core' },
+      '21,17': { type: 'gate', speaker: 'AUDIT Core Entrance', lines: ['AUDIT Core requires the Override Token.'], requiresItems: ['override_token'], unlocksZone: 'audit_core' },
     },
     drones: [
       { id: 'drone1', path: [[11, 4], [11, 5], [11, 6], [11, 7], [11, 8], [11, 9], [11, 10], [11, 11], [11, 10], [11, 9], [11, 8], [11, 7], [11, 6], [11, 5]] },
@@ -408,9 +408,9 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
     ]
   },
   {
-    id: 'admin_core',
-    name: 'Admin Core',
-    description: 'The final firewall. Bring all your evidence to bear.',
+    id: 'audit_core',
+    name: 'AUDIT Core',
+    description: 'The simulation engine. Bring all your evidence to bear.',
     color: '#8B2020',
     requiredItems: ['key_A', 'key_B', 'override_token'],
     playerStart: [2, 11],
@@ -419,41 +419,41 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
       '2,12': { 
         type: 'dialogue', 
         speaker: 'Security Director', 
-        lines: ['This breach is severe. I need to see exactly how sys_ghost infiltrated the system.'],
+        lines: ['This anomaly is severe. I need to see exactly how Sehgal planned his heist.'],
         requiredCluesToUnlock: [
-          'Raza Malik was born in 1998.',
-          'Terminal log: sys_ghost active at 11:05 PM.',
-          'Redacted Doc: Librarian authorized sys_ghost access.'
+          'Sehgal arrived at 11:05 PM.',
+          'Terminal log: 4,000+ simulation runs detected.',
+          'Compliance log: LIVE_RUN_PARAMS tag used improperly.'
         ],
-        clueFailMsg: ['That doesn\'t give me the full picture. I need proof of the suspect\'s identity, their timeline, AND how they bypassed the archive. Dig deeper.']
+        clueFailMsg: ['That doesn\'t give me the full picture. I need proof of the suspect\'s timeline, their activity, AND how they disguised the file. Dig deeper.']
       },
       '11,11': { 
         type: 'final', 
         speaker: 'Mainframe Core', 
-        lines: ['CRITICAL OVERRIDE DETECTED.', 'System is shutting down...', 'The ARGUS protocol has been terminated.', 'Tech Detective Raza Malik has been apprehended.'],
+        lines: ['CRITICAL OVERRIDE DETECTED.', 'System is revealing hidden simulation batch 087...', 'The Rehearsal has been uncovered.', 'Proceed to the file archive.'],
         requiresItems: ['core_decrypted'],
-        terminalCmd: 'initiate_shutdown -f -u sys_ghost',
-        terminalContext: 'FINAL SHUTDOWN AUTHORIZATION REQUIRED. Use force flag (-f) and target user (-u sys_ghost).',
+        terminalCmd: 'extract_sim -f -u sehgal',
+        terminalContext: 'FINAL EXTRACTION AUTHORIZATION REQUIRED. Use force flag (-f) and target user (-u sehgal).',
         terminalHint: 'Run the command exactly as described in the context.'
       },
       '7,7': { 
         type: 'item', 
         speaker: 'Core Node 1', 
-        lines: ['System logs overridden.'], 
+        lines: ['Simulation logs overridden.'], 
         reward: 'core_overridden',
-        terminalCmd: 'override -sys log',
-        terminalContext: 'Node 1: Awaiting system log override.',
-        terminalHint: 'Type "override -sys log" to proceed.'
+        terminalCmd: 'override -sys sim',
+        terminalContext: 'Node 1: Awaiting simulation log override.',
+        terminalHint: 'Type "override -sys sim" to proceed.'
       },
       '7,16': { 
         type: 'item', 
         speaker: 'Core Node 2', 
-        lines: ['ARGUS decryption complete.'], 
+        lines: ['AUDIT decryption complete.'], 
         requiresItems: ['core_overridden'],
         reward: 'core_decrypted',
-        terminalCmd: 'decrypt -v argus',
+        terminalCmd: 'decrypt -v audit',
         terminalContext: 'Node 2: Awaiting protocol decryption.',
-        terminalHint: 'Type "decrypt -v argus" to proceed.'
+        terminalHint: 'Type "decrypt -v audit" to proceed.'
       },
       '12,11': {
          type: 'item',
@@ -470,9 +470,10 @@ export const CAMPAIGN_ZONES: ZoneConfig[] = [
 ];
 
 export const ITEMS: Record<string, { name: string; description: string; icon: string }> = {
-  key_A: { name: 'Library Key Card', description: 'Grants access to the Library wing.', icon: '🗝️' },
-  key_B: { name: 'Master Badge', description: 'Found in the library. Unlocks restricted areas.', icon: '🪪' },
-  kitchen_key: { name: 'Kitchen Passcode', description: 'Downloaded from the laptop. Opens the kitchen.', icon: '🔑' },
-  override_token: { name: 'Override Token', description: 'Level-4 admin override. For the Admin Core entrance.', icon: '📋' },
+  key_A: { name: 'Compliance Key Card', description: 'Grants access to the Compliance Archive.', icon: '🗝️' },
+  key_B: { name: 'Master Badge', description: 'Found in the archive. Unlocks restricted areas.', icon: '🪪' },
+  server_key: { name: 'Server Room Passcode', description: 'Downloaded from the lobby. Opens the server room.', icon: '🔑' },
+  override_token: { name: 'Override Token', description: 'Level-4 admin override. For the AUDIT Core entrance.', icon: '📋' },
   firewall_bypass: { name: 'Firewall Bypass', description: 'Digital key to open the inner core.', icon: '💻' },
+  compliance_override: { name: 'Compliance Override', description: 'Grants additional access points.', icon: '📑' },
 };

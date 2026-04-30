@@ -2,13 +2,11 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Team } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link } from 'react-router-dom';
 import LiveTicker from './LiveTicker';
 import GameAdvisor from './GameAdvisor';
-import { getRankTitle, getRankColor } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 import { useAdversary } from '../hooks/useAdversary';
-import { ShieldAlert, X, Zap, Map as MapIcon, Trophy, Users, User, LogOut } from 'lucide-react';
+import { ShieldAlert, X, Zap } from 'lucide-react';
 import DetectiveHUD from './DetectiveHUD';
 import StateTransition from './StateTransition';
 
@@ -22,14 +20,6 @@ export default function Layout({ team, onLogout }: LayoutProps) {
   const navigate = useNavigate();
   const { playSound } = useSound();
   const { activeActions, resolveAction } = useAdversary();
-  const rankTitle = getRankTitle(team?.score || 0);
-
-  const menuItems = [
-    { label: 'Bureau Command', path: '/', icon: MapIcon },
-    { label: 'The Verdict', path: '/round3', icon: Zap },
-    { label: 'Field Badge', path: '/profile', icon: User },
-  ];
-
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#140e06] text-[#f0e0a0] selection:bg-[#d4a017] selection:text-[#140e06] relative">
       {/* Global Immersive Overlays */}
@@ -38,58 +28,6 @@ export default function Layout({ team, onLogout }: LayoutProps) {
       
       <DetectiveHUD team={team} />
       <StateTransition />
-
-      {/* 🕵️ NOIR BUREAU NAVIGATION */}
-      <nav className="relative z-[50] h-20 bg-[#1a1005] border-b-[6px] border-[#3a2810] shadow-[0_10px_50px_rgba(0,0,0,1)] flex items-center px-10 gap-10 overflow-hidden">
-        {/* Wood grain & Shadow depth */}
-        <div className="absolute inset-0 opacity-15 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
-        <div className="absolute bottom-0 inset-x-0 h-[3px] bg-[#d4a017]/30 shadow-[0_0_15px_#d4a017]" />
-        
-        <div className="flex items-center gap-4">
-           <div className="w-10 h-10 border-2 border-[#d4a017] shadow-[inset_0_0_10px_rgba(212,160,23,0.3)] flex items-center justify-center font-black text-[#d4a017] text-sm rotate-3">
-              CCU
-           </div>
-           <div className="flex flex-col leading-none">
-              <span className="text-[#f0d070] uppercase font-black tracking-[0.2em] text-xs">Bureau Network</span>
-              <span className="text-[#a07830] uppercase font-bold tracking-[0.4em] text-[7px] mt-1">Classified Intelligence</span>
-           </div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center gap-1 md:gap-2">
-           {(menuItems || []).map((nav) => {
-             const active = location.pathname === nav.path;
-             return (
-               <Link
-                 key={nav.path}
-                 to={nav.path}
-                 onClick={() => playSound('click')}
-                  className={`group flex items-center gap-4 px-8 py-3 uppercase text-[10px] font-black tracking-[0.4em] transition-all relative ${
-                    active 
-                      ? 'text-[#140e06] bg-[#d4a017] shadow-[0_0_30px_rgba(212,160,23,0.5)] scale-105 z-10' 
-                      : 'text-[#a07830] hover:text-[#f0d070] hover:bg-white/5'
-                  }`}
-               >
-                 {active && <div className="absolute -top-1 -inset-x-0 h-1 bg-[#f0d070]" />}
-                 <nav.icon className="w-3.5 h-3.5" />
-                 <span className="hidden lg:inline">{nav.label}</span>
-               </Link>
-             );
-           })}
-        </div>
-
-        <div className="flex items-center gap-6">
-           <div className="hidden xl:flex flex-col items-end leading-none border-r border-[#a07830]/30 pr-6 mr-2">
-              <span className="text-[7px] font-black text-[#a07830] uppercase tracking-widest mb-1">Operative Rank</span>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${getRankColor(team?.score || 0)}`}>{rankTitle}</span>
-           </div>
-           <button 
-             onClick={() => { playSound('click'); onLogout(); }}
-             className="w-10 h-10 border-2 border-[#8B2020] bg-[#1a0e04] flex items-center justify-center text-[#8B2020] hover:bg-[#8B2020] hover:text-white transition-all shadow-xl"
-           >
-              <LogOut className="w-5 h-5" />
-           </button>
-        </div>
-      </nav>
 
       {/* ══════════ MAIN CONTENT ══════════ */}
       <main className="flex-1 flex flex-col relative overflow-hidden bg-[#140e06]">

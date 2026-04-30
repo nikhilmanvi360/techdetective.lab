@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Terminal, Shield, Cpu, Code2, AlertTriangle, Zap, CheckCircle2, ChevronRight } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-type Task = 'HTML' | 'CSS' | 'PYTHON';
+type Task = 'HTML' | 'CSS' | 'PYTHON' | 'BRIEFING';
 
 export default function Round0Page() {
   const [state, setState] = useState<any>(null);
@@ -97,8 +97,8 @@ export default function Round0Page() {
             setPythonOutput(output);
             
             // Validate output
-            if (!output.includes('SYS_01_ALIVE_99')) {
-                setError("Python output does not match expected system heartbeat.");
+            if (!output.includes('91.4') && !output.includes('91')) {
+                setError("Python output does not match expected extraction value.");
                 return;
             }
         } catch (e: any) {
@@ -130,21 +130,21 @@ export default function Round0Page() {
 
   const taskPrompts = {
     HTML: {
-        title: "Reconstruct Evidence Table",
-        desc: "The Bureau's evidence database has lost its structure. Repair the table structure to render the records.",
-        startingCode: "<!-- FIXME: Missing <table> and closing tags -->\n<tr><td>DATA_FRAGMENT_A</td></tr>",
+        title: "Reconstruct Audit Table",
+        desc: "The Meridian Bank audit database has lost its structure. Repair the table structure to render the records.",
+        startingCode: "<!-- FIXME: Missing <table> and closing tags -->\n<tr><td>SIMULATION_BATCH_087</td></tr>",
         hint: "Wrap the row in <table> tags to restore the grid."
     },
     CSS: {
-        title: "Descramble Visual Feed",
-        desc: "A syndicate jammer has blurred the primary suspect feed. Apply visual mitigation to the stylesheet.",
+        title: "Descramble Security Feed",
+        desc: "A jammer has blurred the primary lobby feed. Apply visual mitigation to the stylesheet.",
         startingCode: ".suspect-feed {\n  filter: blur(20px);\n  /* TODO: Set filter to none */\n}",
         hint: "Override the filter property with 'none'."
     },
     PYTHON: {
-        title: "Generate Memory Heartbeat",
-        desc: "The core system requires a recurring heartbeat signal. Use Python to generate the activation string.",
-        startingCode: "raw_data = 'SYS_01_DEAD_99'\n# TODO: Use .replace('DEAD', 'ALIVE') and print the result",
+        title: "Parse 4,247 Log Runs",
+        desc: "The raw archive contains 4,247 batch logs. Write a Python script to isolate the runs that exceed 90% success probability.",
+        startingCode: "log_data = 'batch_runs=4247, success=91.4'\n# TODO: Extract the success rate and print it if > 90",
         hint: "The system expects a printed string as the final output.",
         fragment: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800"
     }
@@ -175,16 +175,16 @@ export default function Round0Page() {
                   <Shield className="w-5 h-5" />
               </div>
               <div>
-                  <h1 className="text-xs font-black uppercase tracking-[0.4em]">Bureau System Restore</h1>
-                  <p className="text-[8px] text-[#a07830] uppercase tracking-widest mt-0.5">Protocol: Round 0 // The UI Weaver</p>
+                  <h1 className="text-xs font-black uppercase tracking-[0.4em]">AUDIT Interface</h1>
+                  <p className="text-[8px] text-[#a07830] uppercase tracking-widest mt-0.5">Protocol: The Briefing</p>
               </div>
           </div>
           <div className="flex items-center gap-8">
               <div className="flex flex-col items-end">
                   <span className="text-[8px] font-black text-[#a07830] uppercase tracking-widest mb-1">Restoration Progress</span>
                   <div className="flex gap-1">
-                      {(['HTML', 'CSS', 'PYTHON'] as Task[]).map(t => (
-                          <div key={t} className={`w-12 h-1 ${state[t] ? 'bg-[#d4a017]' : 'bg-white/5'}`} />
+                      {(['HTML', 'CSS', 'PYTHON', 'BRIEFING'] as Task[]).map(t => (
+                          <div key={t} className={`w-12 h-1 ${state[t] || t === 'BRIEFING' ? 'bg-[#d4a017]' : 'bg-white/5'}`} />
                       ))}
                   </div>
               </div>
@@ -192,10 +192,10 @@ export default function Round0Page() {
       </header>
 
       {/* Main Workspace */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden min-h-0">
           {/* Sidebar Navigation */}
           <div className="w-20 border-r-2 border-[#3a2810] bg-[#0c0803] flex flex-col items-center py-8 gap-8">
-              {(['HTML', 'CSS', 'PYTHON'] as Task[]).map(t => (
+              {(['HTML', 'CSS', 'PYTHON', 'BRIEFING'] as Task[]).map(t => (
                   <button 
                     key={t}
                     onClick={() => setActiveTask(t)}
@@ -204,7 +204,8 @@ export default function Round0Page() {
                       {t === 'HTML' && <Code2 className="w-6 h-6" />}
                       {t === 'CSS' && <Zap className="w-6 h-6" />}
                       {t === 'PYTHON' && <Cpu className="w-6 h-6" />}
-                      {state[t] && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-green-500 fill-black" />}
+                      {t === 'BRIEFING' && <Terminal className="w-6 h-6" />}
+                      {state[t] && t !== 'BRIEFING' && <CheckCircle2 className="w-3 h-3 absolute -top-1 -right-1 text-green-500 fill-black" />}
                   </button>
               ))}
           </div>
@@ -213,38 +214,68 @@ export default function Round0Page() {
           <div className="flex-1 flex flex-col border-r-2 border-[#3a2810]">
               <div className="p-10 flex-1 overflow-y-auto">
                   <div className="max-w-2xl">
-                      <div className="flex items-center gap-3 text-red-500 mb-4">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Corruption Detected</span>
-                      </div>
-                      <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">{taskPrompts[activeTask].title}</h2>
-                      <p className="text-[#a07830] leading-relaxed mb-10 text-sm">{taskPrompts[activeTask].desc}</p>
-
-                      <div className="bg-[#0c0803] border-2 border-[#3a2810] p-6 mb-6">
-                          <div className="text-[10px] font-black text-[#a07830] uppercase tracking-widest mb-4 border-b border-[#3a2810] pb-2">Reference Code</div>
-                          <pre className="text-xs text-white/40 italic mb-6">{taskPrompts[activeTask].startingCode}</pre>
-                          
-                          <div className="text-[10px] font-black text-[#d4a017] uppercase tracking-widest mb-2">Editor Input</div>
-                          <textarea 
-                              value={userInput}
-                              onChange={(e) => setUserInput(e.target.value)}
-                              placeholder="Inject code here..."
-                              className="w-full h-40 bg-black border border-[#3a2810] p-4 text-xs font-mono text-[#f0d070] focus:border-[#d4a017] outline-none transition-all"
-                          />
-                      </div>
-
-                      {error && (
-                          <div className="p-4 bg-red-900/10 border border-red-900/40 text-red-500 text-[10px] uppercase tracking-widest font-black mb-6">
-                              {error}
+                      {activeTask === 'BRIEFING' ? (
+                          <div className="space-y-6">
+                              <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">Consultant Briefing</h2>
+                              <p className="text-[#a07830] leading-relaxed mb-10 text-sm">Reviewing interrogation logs from Karan Sehgal regarding the Meridian Bank AUDIT discrepancy.</p>
+                              
+                              <div className="space-y-4">
+                                  <div className="bg-[#0c0803] border-2 border-[#3a2810] p-4 group hover:border-[#d4a017] transition-all">
+                                      <div className="text-[#d4a017] font-bold text-sm mb-2">&gt; "Why are there over 4,000 extra simulations in the raw archive?"</div>
+                                      <div className="text-[#a07830] text-xs leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity">
+                                          "Standard stress-testing protocol. You don't find vulnerabilities by running a test once. You run it thousands of times with micro-variations. The 12 vulnerabilities in my final report were the only ones that actually proved exploitable. The rest was just noise."
+                                      </div>
+                                  </div>
+                                  <div className="bg-[#0c0803] border-2 border-[#3a2810] p-4 group hover:border-[#d4a017] transition-all">
+                                      <div className="text-[#d4a017] font-bold text-sm mb-2">&gt; "Why did some simulations target 'guard rotation gaps'?"</div>
+                                      <div className="text-[#a07830] text-xs leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity">
+                                          "Because physical security is part of the digital threat matrix. If a rogue actor can physically access a terminal during a shift change, all the firewalls in the world won't stop them. It's a comprehensive audit."
+                                      </div>
+                                  </div>
+                                  <div className="bg-[#0c0803] border-2 border-[#3a2810] p-4 group hover:border-[#d4a017] transition-all">
+                                      <div className="text-[#d4a017] font-bold text-sm mb-2">&gt; "What about the LIVE_RUN_PARAMS file?"</div>
+                                      <div className="text-[#a07830] text-xs leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity">
+                                          "I have no idea what you're talking about. I tag all my configuration files as TEST_CONFIG. If there's an anomaly in the tagging schema, you should check with the junior archivist in Compliance."
+                                      </div>
+                                  </div>
+                              </div>
                           </div>
+                      ) : (
+                          <>
+                              <div className="flex items-center gap-3 text-red-500 mb-4">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Corruption Detected</span>
+                              </div>
+                              <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">{taskPrompts[activeTask].title}</h2>
+                              <p className="text-[#a07830] leading-relaxed mb-10 text-sm">{taskPrompts[activeTask].desc}</p>
+        
+                              <div className="bg-[#0c0803] border-2 border-[#3a2810] p-6 mb-6">
+                                  <div className="text-[10px] font-black text-[#a07830] uppercase tracking-widest mb-4 border-b border-[#3a2810] pb-2">Reference Code</div>
+                                  <pre className="text-xs text-white/40 italic mb-6">{taskPrompts[activeTask].startingCode}</pre>
+                                  
+                                  <div className="text-[10px] font-black text-[#d4a017] uppercase tracking-widest mb-2">Editor Input</div>
+                                  <textarea 
+                                      value={userInput}
+                                      onChange={(e) => setUserInput(e.target.value)}
+                                      placeholder="Inject code here..."
+                                      className="w-full h-40 bg-black border border-[#3a2810] p-4 text-xs font-mono text-[#f0d070] focus:border-[#d4a017] outline-none transition-all"
+                                  />
+                              </div>
+        
+                              {error && (
+                                  <div className="p-4 bg-red-900/10 border border-red-900/40 text-red-500 text-[10px] uppercase tracking-widest font-black mb-6">
+                                      {error}
+                                  </div>
+                              )}
+        
+                              <button 
+                                onClick={handleSubmit}
+                                className="flex items-center gap-3 px-8 py-4 bg-[#d4a017] text-black font-black uppercase tracking-widest text-[11px] hover:bg-[#f0d070] transition-all shadow-xl active:scale-95"
+                              >
+                                  Deploy Patch <ChevronRight className="w-4 h-4" />
+                              </button>
+                          </>
                       )}
-
-                      <button 
-                        onClick={handleSubmit}
-                        className="flex items-center gap-3 px-8 py-4 bg-[#d4a017] text-black font-black uppercase tracking-widest text-[11px] hover:bg-[#f0d070] transition-all shadow-xl active:scale-95"
-                      >
-                          Deploy Patch <ChevronRight className="w-4 h-4" />
-                      </button>
                   </div>
               </div>
           </div>
@@ -260,7 +291,20 @@ export default function Round0Page() {
                   
                   <div className="w-64 h-64 bg-black border-2 border-[#3a2810] flex items-center justify-center overflow-hidden relative group">
                       <AnimatePresence mode="wait">
-                          {state[activeTask] ? (
+                          {activeTask === 'BRIEFING' ? (
+                              <div className="w-full h-full p-6 font-mono text-[10px] flex flex-col gap-2">
+                                   <div className="text-[#d4a017] uppercase tracking-widest border-b border-[#3a2810] pb-1 flex items-center gap-2">
+                                       <Terminal className="w-3 h-3" /> AUDIO LOG TRANSCRIPT
+                                   </div>
+                                   <div className="flex-1 text-[#a07830] overflow-y-auto whitespace-pre-wrap mt-4 text-xs">
+                                       [INTERVIEW ROOM 2]<br/><br/>
+                                       <strong>Detective:</strong> "You have a very thorough process, Mr. Sehgal."<br/><br/>
+                                       <strong>Sehgal:</strong> "I'm paid to be thorough. The bank's security depends on it."<br/><br/>
+                                       <strong>Detective:</strong> "And what about the anomalies in the logs?"<br/><br/>
+                                       <strong>Sehgal:</strong> "Anomalies are just data points that haven't been contextualized yet."
+                                   </div>
+                               </div>
+                          ) : state[activeTask] ? (
                               <motion.div 
                                 key="fragment"
                                 initial={{ opacity: 0, filter: 'blur(20px)' }}
@@ -268,7 +312,7 @@ export default function Round0Page() {
                                 className="w-full h-full relative"
                               >
                                   <img 
-                                    src={taskFragments[activeTask]} 
+                                    src={taskFragments[activeTask as 'HTML' | 'CSS' | 'PYTHON']} 
                                     alt="Evidence Fragment"
                                     className="w-full h-full object-cover grayscale brightness-50"
                                   />

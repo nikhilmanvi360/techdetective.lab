@@ -20,9 +20,12 @@ import AdminBuilder from './pages/admin/AdminBuilder';
 import AdminSystem from './pages/admin/AdminSystem';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminRound3 from './pages/admin/AdminRound3';
-import ScanPage from './pages/ScanPage';
+import AdminManifest from './pages/admin/AdminManifest';
+
 import Round3Page from './pages/round3/Round3Page';
 import Round0Page from './pages/round0/Round0Page';
+import Round1Page from './pages/round1/Round1Page';
+import Round3Archive from './pages/round3/Round3Archive';
 
 export default function App() {
     const [team, setTeam] = useState<Team | null>(null);
@@ -84,8 +87,10 @@ export default function App() {
                      <Route path="profile" element={<Profile />} />
                      <Route path="black-market" element={<BlackMarket />} />
                      <Route path="campaign" element={<CampaignMap />} />
-                     <Route path="scan" element={<ScanPage />} />
+
                      <Route path="round0" element={<Round0Page />} />
+                     <Route path="round1" element={<Round1Page />} />
+                     <Route path="archive" element={<Round3Archive />} />
                      <Route path="round3" element={<Round3Page />} />
                  </Route>
 
@@ -100,6 +105,7 @@ export default function App() {
                     <Route path="builder" element={<AdminBuilder />} />
                     <Route path="system" element={<AdminSystem />} />
                     <Route path="round3" element={<AdminRound3 />} />
+                    <Route path="manifest" element={<AdminManifest />} />
                 </Route>
 
                 {/* ── Fallback ── */}

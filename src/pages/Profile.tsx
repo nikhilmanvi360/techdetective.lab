@@ -5,12 +5,13 @@ import {
   Award, ChevronLeft, TrendingUp, Activity, Database
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { io } from 'socket.io-client';
 import { Team, Puzzle, Submission, ScoreEvent } from '../types';
 import { getRankTitle } from '../utils/ranks';
 import { useSound } from '../hooks/useSound';
 
 /* ─── Stat Card ────────────────────────────────────────────── */
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+function StatCard({ label, value, accent, hideValue }: { label: string; value: string | number; accent: string; hideValue?: boolean }) {
   return (
     <div
       className="flex flex-col p-6 h-full"
@@ -21,7 +22,9 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
       }}
     >
       <div className="text-[10px] font-black uppercase tracking-widest mb-3 opacity-40 text-[#1a0e04]">{label}</div>
-      <div className="text-3xl font-black tabular-nums text-[#1a0e04]" style={{ fontFamily: "'Georgia', serif" }}>{value}</div>
+      <div className="text-3xl font-black tabular-nums text-[#1a0e04]" style={{ fontFamily: "'Georgia', serif" }}>
+        {hideValue ? "???" : value}
+      </div>
     </div>
   );
 }
@@ -35,10 +38,16 @@ export default function Profile() {
   } | null>(null);
   const [timeline, setTimeline] = useState<ScoreEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [round, setRound] = useState<string>('LOBBY');
   const { playSound } = useSound();
   const navigate = useNavigate();
 
   useEffect(() => {
+    const socket = io(window.location.origin);
+    socket.on('game_state_update', (data) => {
+      setRound(data.currentState);
+    });
+
     const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
     Promise.all([
       fetch('/api/team/profile', { headers }).then(r => r.json()),
@@ -47,6 +56,8 @@ export default function Profile() {
       if (profile?.team) setData(profile);
       if (Array.isArray(tl)) setTimeline(tl);
     }).catch(console.error).finally(() => setLoading(false));
+
+    return () => { socket.disconnect(); };
   }, []);
 
   const handleLogout = () => {
@@ -70,8 +81,8 @@ export default function Profile() {
   const { team, solvedPuzzles, submissions } = data;
   const correctSubs = submissions.filter(s => s.status === 'correct').length;
   const rankTitle = getRankTitle(team.score);
-  const xp = team.score || 0;
-  const xpPct = Math.min(100, Math.round((xp / 500) * 100));
+  
+  const isFinalPhase = round === 'ROUND_3' || round === 'FINAL';
 
   const eventIcon = (type: string) => {
     if (type === 'puzzle_solve') return <CheckCircle2 className="w-4 h-4 text-[#4a7c3f]" />;
@@ -111,7 +122,7 @@ export default function Profile() {
             
             {/* Bureau Overlay */}
             <div className="absolute top-6 right-8 text-[12px] font-black text-[#8B2020]/20 uppercase tracking-[0.4em] pointer-events-none rotate-2 border-2 border-[#8B2020]/20 px-4 py-1">
-               CLASSIFIED_CREDENTIALS
+               {isFinalPhase ? "POINTS_ARE_NO_LONGER_THE_POINT" : "CLASSIFIED_CREDENTIALS"}
             </div>
 
             {/* Avatar / Stamped Initial */}
@@ -134,7 +145,7 @@ export default function Profile() {
               <div className="flex flex-wrap items-center gap-6 justify-center md:justify-start">
                 <div className="bg-[#2a1a0a] px-4 py-2 border-2 border-[#d4a017] text-[#f0d070] text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                    <ShieldAlert className="w-4 h-4" />
-                   {rankTitle}
+                   {isFinalPhase ? "THE VERDICT" : rankTitle}
                 </div>
                 <div className="text-xs font-serif italic text-[#1a0e04]/40 border-l-2 border-[#a07830]/20 pl-6">
                    Active Service Since {new Date(team.created_at?.replace(' ', 'T') + 'Z').toLocaleDateString()}
@@ -145,17 +156,19 @@ export default function Profile() {
             {/* Brass Experience Seal */}
             <div className="hidden lg:flex flex-col items-center justify-center w-40 h-40 border-[8px] border-[#a07830]/20 rounded-full bg-[#e8d488]/30">
                <div className="text-[10px] font-black text-[#1a0e04]/30 uppercase tracking-widest leading-none mb-2">Total Score</div>
-               <div className="text-4xl font-black text-[#1a0e04] tracking-tighter tabular-nums">{team.score.toLocaleString()}</div>
+               <div className="text-4xl font-black text-[#1a0e04] tracking-tighter tabular-nums">
+                 {isFinalPhase ? "???" : team.score.toLocaleString()}
+               </div>
                <div className="text-[10px] font-black text-[#d4a017] uppercase tracking-widest mt-1">CLEARED XP</div>
             </div>
           </motion.div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard label="Puzzles Solved" value={solvedPuzzles?.length ?? 0} accent="#4a7c3f" />
-            <StatCard label="Cases Cracked"  value={correctSubs}                 accent="#c8860a" />
-            <StatCard label="Reports Filed"  value={submissions?.length ?? 0}    accent="#8B2020" />
-            <StatCard label="Service Rank"   value={rankTitle.split(' ')[0]}     accent="#1a6a8a" />
+            <StatCard label="Puzzles Solved" value={solvedPuzzles?.length ?? 0} accent="#4a7c3f" hideValue={isFinalPhase} />
+            <StatCard label="Cases Cracked"  value={correctSubs}                 accent="#c8860a" hideValue={isFinalPhase} />
+            <StatCard label="Reports Filed"  value={submissions?.length ?? 0}    accent="#8B2020" hideValue={isFinalPhase} />
+            <StatCard label="Service Rank"   value={rankTitle.split(' ')[0]}     accent="#1a6a8a" hideValue={isFinalPhase} />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
@@ -197,7 +210,7 @@ export default function Profile() {
                           </div>
                         </div>
                         <div className="text-lg font-black tabular-nums" style={{ color: evt.points >= 0 ? '#4a7c3f' : '#8B2020' }}>
-                          {evt.points >= 0 ? '+' : ''}{evt.points} XP
+                          {isFinalPhase ? "???" : (evt.points >= 0 ? '+' : '') + evt.points + " XP"}
                         </div>
                       </motion.div>
                     )) : (
@@ -256,13 +269,15 @@ export default function Profile() {
                 <div className="bg-black/5 p-6 border-2 border-[#a07830]/10 space-y-4">
                    <div className="flex justify-between items-center text-[11px] font-black text-[#1a0e04]/60 uppercase tracking-widest">
                       <span>Accuracy Rating</span>
-                      <span className="text-[#4a7c3f]">{submissions.length > 0 ? Math.round((correctSubs / submissions.length) * 100) : 0}%</span>
+                      <span className="text-[#4a7c3f]">
+                        {isFinalPhase ? "DECRYPTING..." : (submissions.length > 0 ? Math.round((correctSubs / submissions.length) * 100) : 0) + "%"}
+                      </span>
                    </div>
                    <div className="h-2 bg-[#1a0e04]/10 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${submissions.length > 0 ? (correctSubs / submissions.length) * 100 : 0}%` }}
-                        className="h-full bg-[#4a7c3f]"
+                        animate={{ width: `${isFinalPhase ? 100 : (submissions.length > 0 ? (correctSubs / submissions.length) * 100 : 0)}%` }}
+                        className={`h-full ${isFinalPhase ? 'bg-[#d4a017] animate-pulse' : 'bg-[#4a7c3f]'}`}
                       />
                    </div>
                 </div>
@@ -279,3 +294,4 @@ export default function Profile() {
     </div>
   );
 }
+
